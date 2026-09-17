@@ -1,0 +1,39 @@
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+
+const NAV_ITEMS = [
+  { href: "/", label: "Vòng quay" },
+  { href: "/journal", label: "Nhật ký" },
+  { href: "/prediction", label: "Dự đoán" },
+] as const;
+
+export function Nav() {
+  const pathname = usePathname();
+
+  return (
+    <nav className="border-b border-black/10 bg-white/80 backdrop-blur dark:border-white/10 dark:bg-black/80">
+      <div className="mx-auto flex max-w-4xl items-center gap-1 px-4 py-3 sm:gap-4">
+        <span className="mr-2 text-sm font-semibold tracking-tight text-foreground sm:mr-6">IELTS Practice</span>
+        {NAV_ITEMS.map((item) => {
+          const isActive = pathname === item.href;
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
+                isActive
+                  ? "bg-foreground text-background"
+                  : "text-foreground/70 hover:bg-black/5 hover:text-foreground dark:hover:bg-white/10"
+              }`}
+              aria-current={isActive ? "page" : undefined}
+            >
+              {item.label}
+            </Link>
+          );
+        })}
+      </div>
+    </nav>
+  );
+}

@@ -146,6 +146,7 @@ All primary keys are `text` (`crypto.randomUUID()`), all timestamp columns are s
 | `weekly_threshold_days` | `7` | Formula 2 override threshold |
 | `frequency_adjustment_factor` | `0.05` | Formula 3 nudge slope |
 | `frequency_adjustment_cap` | `0.5` | Formula 3 max ± nudge |
+| `overall_prediction_rounding_mode` | `per_skill_rounded` | Formula 3: `per_skill_rounded` or `raw_average` — see section 5.4 |
 | `count_soft_reset_threshold` | `50` | Formula 1 safeguard threshold |
 
 ---
@@ -208,20 +209,24 @@ cambridgeAvg_skill     = mean(<skill>Band across the most recent 30 CambridgeTes
 practiceCount30d_skill = count of RollResult rows for this skill in the last 30 days
 avgPracticeCount30d    = mean(practiceCount30d across all 4 skills)
 frequencyDelta_skill   = clamp(-cap, +cap, (practiceCount30d_skill - avgPracticeCount30d) * factor)
-predictedBand_skill    = clamp(0, 9, cambridgeAvg_skill + frequencyDelta_skill)     // rounded to nearest 0.5 for display
+rawPredictedBand_skill = clamp(0, 9, cambridgeAvg_skill + frequencyDelta_skill)
+predictedBand_skill    = rawPredictedBand_skill rounded to nearest 0.5, for display
 ```
 
 Where `factor = Config.frequency_adjustment_factor` (default `0.05`) and `cap = Config.frequency_adjustment_cap` (default `0.5`).
 
-If a skill has **zero** `CambridgeTestResult` rows, `predictedBand_skill` is `null` and the UI shows "not enough data yet" instead of a fabricated number.
+If a skill has **zero** `CambridgeTestResult` rows, both `predictedBand_skill` and `rawPredictedBand_skill` are `null` and the UI shows "not enough data yet" instead of a fabricated number.
 
-**Overall predicted band:**
+**Overall predicted band — two user-configurable modes** (`Config.overall_prediction_rounding_mode`, default `per_skill_rounded`):
 
 ```
-overallPredicted = ieltsOfficialRound( mean(predictedBand_reading, predictedBand_listening, predictedBand_writing, predictedBand_speaking) )
+per_skill_rounded (default): overallPredicted = ieltsOfficialRound( mean(predictedBand_reading, predictedBand_listening, predictedBand_writing, predictedBand_speaking) )
+raw_average:                 overallPredicted = ieltsOfficialRound( mean(rawPredictedBand_reading, rawPredictedBand_listening, rawPredictedBand_writing, rawPredictedBand_speaking) )
 ```
 
-(only computed once all 4 per-skill predictions are non-null).
+(only computed once all 4 per-skill predictions are non-null, in either mode).
+
+This was a genuine design ambiguity caught during Milestone 1 Step 2's review (round each skill first, or average full precision and round once?) — resolved by the user as a toggle rather than a fixed choice, since both are defensible: `per_skill_rounded` mirrors how real IELTS certificates work (a skill's reported band is always already a discrete 0.5-increment value before the overall is computed from it), while `raw_average` avoids compounding two separate rounding steps. **Milestone 2 (Frontend/UI Agent) must expose this as a toggle in the Prediction Dashboard** — see `CLAUDE.md`'s Milestone 2 entry and `document.txt`.
 
 ### 5.5 IELTS official rounding rule (`ieltsRounding.ts`)
 

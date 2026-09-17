@@ -4,23 +4,43 @@
  * Per skill, independently:
  *   cambridgeAvg      = mean(last N CambridgeTestResult.<skill>Band)
  *   frequencyDelta    = clamp(-cap, +cap, (practiceCount30d - avgPracticeCount30d) * factor)
- *   predictedBand     = clamp(0, 9, cambridgeAvg + frequencyDelta), rounded to nearest 0.5
- * Overall (only when all 4 skills have a predictedBand):
- *   overallPredicted  = ieltsRound(mean(the 4 predictedBand values))
+ *   rawPredictedBand  = clamp(0, 9, cambridgeAvg + frequencyDelta)
+ *   predictedBand     = rawPredictedBand rounded to nearest 0.5, for display
+ * Overall (only when all 4 skills have a prediction):
+ *   overallPredicted  = ieltsRound(mean(the 4 skills' values))
+ *
+ * `overallRoundingMode` picks which per-skill values feed that mean — see
+ * the two modes below and PROJECT_CONTEXT.md section 5.4 for the tradeoff
+ * (user-configurable; no single "correct" answer).
  *
  * The frequency term is intentionally a small bounded nudge, not a full
  * parallel score — see PROJECT_CONTEXT.md section 5.4 for why.
  */
 import { ieltsRound } from "./ieltsRounding";
 
+/**
+ * - "per_skill_rounded" (default): average the 4 skills' *rounded* (nearest-0.5)
+ *   predicted bands. Matches how real IELTS certificates work — Reading/Listening
+ *   scores come from a raw-to-band lookup table and Writing/Speaking scores are
+ *   averaged-and-rounded from criteria, so a real skill band is always already a
+ *   discrete 0.5-increment value before the overall is computed from it.
+ * - "raw_average": average the 4 skills' full-precision clamped values (before
+ *   per-skill rounding) and round only once, at the end. Avoids compounding two
+ *   rounding steps, at the cost of no longer mirroring real IELTS's own per-skill
+ *   discreteness.
+ */
+export type OverallRoundingMode = "per_skill_rounded" | "raw_average";
+
 export interface BandPredictionConfig {
   frequencyAdjustmentFactor: number;
   frequencyAdjustmentCap: number;
+  overallRoundingMode: OverallRoundingMode;
 }
 
 export const DEFAULT_BAND_PREDICTION_CONFIG: BandPredictionConfig = {
   frequencyAdjustmentFactor: 0.05,
   frequencyAdjustmentCap: 0.5,
+  overallRoundingMode: "per_skill_rounded",
 };
 
 export interface SkillPredictionInput {
@@ -33,6 +53,8 @@ export interface SkillPredictionInput {
 export interface SkillPredictionResult {
   /** null means "not enough data" (zero logged Cambridge tests for this skill) — never fabricate a number. */
   predictedBand: number | null;
+  /** Same value clamped to [0,9] but NOT rounded to nearest 0.5 — used by the "raw_average" overall mode. */
+  rawPredictedBand: number | null;
   cambridgeAvg: number | null;
   frequencyDelta: number;
   sampleSize: number;
@@ -59,15 +81,17 @@ export function predictSkillBand(
   const cambridgeAvg = mean(input.recentCambridgeBands);
 
   if (cambridgeAvg === null) {
-    return { predictedBand: null, cambridgeAvg: null, frequencyDelta: 0, sampleSize: 0 };
+    return { predictedBand: null, rawPredictedBand: null, cambridgeAvg: null, frequencyDelta: 0, sampleSize: 0 };
   }
 
   const rawDelta = (input.practiceCount30d - avgPracticeCount30dAcrossSkills) * config.frequencyAdjustmentFactor;
   const frequencyDelta = clamp(rawDelta, -config.frequencyAdjustmentCap, config.frequencyAdjustmentCap);
-  const predictedBand = roundToHalf(clamp(cambridgeAvg + frequencyDelta, 0, 9));
+  const rawPredictedBand = clamp(cambridgeAvg + frequencyDelta, 0, 9);
+  const predictedBand = roundToHalf(rawPredictedBand);
 
   return {
     predictedBand,
+    rawPredictedBand,
     cambridgeAvg,
     frequencyDelta,
     sampleSize: input.recentCambridgeBands.length,
@@ -86,7 +110,7 @@ export interface FourSkillPredictionResult {
   listening: SkillPredictionResult;
   writing: SkillPredictionResult;
   speaking: SkillPredictionResult;
-  /** null unless all 4 skills have a non-null predictedBand. */
+  /** null unless all 4 skills have a non-null prediction. */
   overallPredicted: number | null;
 }
 
@@ -102,9 +126,14 @@ export function predictAllSkillBands(
   const writing = predictSkillBand(input.writing, avgPracticeCount30d, config);
   const speaking = predictSkillBand(input.speaking, avgPracticeCount30d, config);
 
-  const allBands = [reading.predictedBand, listening.predictedBand, writing.predictedBand, speaking.predictedBand];
-  const overallPredicted = allBands.every((band): band is number => band !== null)
-    ? ieltsRound(mean(allBands as number[])!)
+  const results = [reading, listening, writing, speaking];
+  const valuesForOverall =
+    config.overallRoundingMode === "raw_average"
+      ? results.map((r) => r.rawPredictedBand)
+      : results.map((r) => r.predictedBand);
+
+  const overallPredicted = valuesForOverall.every((v): v is number => v !== null)
+    ? ieltsRound(mean(valuesForOverall as number[])!)
     : null;
 
   return { reading, listening, writing, speaking, overallPredicted };

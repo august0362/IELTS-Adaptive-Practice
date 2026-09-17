@@ -74,7 +74,7 @@ Work proceeds in this order. Each milestone should be its own task/session so co
 
 - **Phase 0 (done)**: `PROJECT_CONTEXT.md`, `CLAUDE.md`, `document.txt` written and confirmed. No app code.
 - **Milestone 1 — Backend/Algorithm Agent**: `npx create-next-app` scaffold (TypeScript, Tailwind, App Router) → Drizzle schema + migration + seed (Step 1, done) → `lib/engine/*` with the 5 formula/helper modules (Step 2) → API routes (Step 3). Exit criteria: `POST /api/roll` works end-to-end against a seeded DB and counters visibly update.
-- **Milestone 2 — Frontend/UI Agent**: Spinner, Journal, Prediction Dashboard + History view, wired to Milestone 1's API. Exit criteria: all 3 user-facing surfaces work manually via `npm run dev`.
+- **Milestone 2 — Frontend/UI Agent**: Spinner, Journal, Prediction Dashboard + History view, wired to Milestone 1's API. The Prediction Dashboard must include a toggle for `Config.overall_prediction_rounding_mode` (`per_skill_rounded` vs `raw_average` — see `PROJECT_CONTEXT.md` section 5.4), and the Speaking/Reading Block A/B ratio adjustment UI (`PATCH /api/skills/parts/:id/ratio`). Exit criteria: all 3 user-facing surfaces work manually via `npm run dev`.
 - **Milestone 3 — QA/Testing Agent**: full unit/component/e2e suite per `TESTING_GUIDE.md` (written as part of this milestone). Exit criteria: `npm test` and `npx playwright test` both pass green.
 - **Milestone 4 — Supervisor**: full expert-mode review pass over the whole app; write `TESTING_GUIDE.md` (if not already finalized in M3) and `USER_GUIDE.md`; reconcile `document.txt` (mark anything actually built as done, keep the rest as backlog).
 

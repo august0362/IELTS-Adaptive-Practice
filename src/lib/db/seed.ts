@@ -32,6 +32,7 @@ const CONFIG_DEFAULTS: { key: string; value: string }[] = [
   { key: "weekly_threshold_days", value: "7" },
   { key: "frequency_adjustment_factor", value: "0.05" },
   { key: "frequency_adjustment_cap", value: "0.5" },
+  { key: "overall_prediction_rounding_mode", value: "per_skill_rounded" }, // or "raw_average" — user-toggleable
   { key: "count_soft_reset_threshold", value: "50" },
 ];
 
@@ -61,7 +62,7 @@ async function seed() {
     await db.insert(config).values(entry).onConflictDoNothing({ target: config.key });
   }
 
-  console.log("Seed complete: 4 skills, 8 parts, 5 config defaults.");
+  console.log(`Seed complete: ${SKILLS.length} skills, ${SKILLS.length * 2} parts, ${CONFIG_DEFAULTS.length} config defaults.`);
 }
 
 seed()

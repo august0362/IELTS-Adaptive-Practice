@@ -47,6 +47,19 @@ export interface NoteDTO {
   updatedAt: string;
 }
 
+export interface CambridgeTestDTO {
+  id: string;
+  testDate: string;
+  testName: string;
+  readingBand: number;
+  listeningBand: number;
+  writingBand: number;
+  speakingBand: number;
+  overallBand: number;
+  note: string | null;
+  createdAt: string;
+}
+
 export interface EngineConfigDTO {
   decay_exponent: string;
   weekly_threshold_days: string;

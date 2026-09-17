@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import { desc } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { cambridgeTestResults } from "@/lib/db/schema";
 import { ieltsRound } from "@/lib/engine/ieltsRounding";
 import { readJsonObject } from "@/lib/api/requestJson";
+import { getCambridgeResults } from "@/lib/db/queries";
 
 const DEFAULT_RECENT_LIMIT = 5;
 const MAX_LIMIT = 500;
@@ -22,9 +22,7 @@ export async function GET(request: Request) {
         : DEFAULT_RECENT_LIMIT;
   }
 
-  const query = db.select().from(cambridgeTestResults).orderBy(desc(cambridgeTestResults.testDate));
-  const results = limit !== undefined ? await query.limit(limit) : await query;
-
+  const results = await getCambridgeResults(limit);
   return NextResponse.json(results);
 }
 

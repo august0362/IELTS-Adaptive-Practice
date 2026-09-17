@@ -81,10 +81,13 @@ export function pickWeightedWithoutReplacement<T extends WeightedItem>(
   for (let i = 0; i < count; i++) {
     const chosen = pickWeighted(pool, options);
     picked.push(chosen);
-    pool.splice(
-      pool.findIndex((item) => item.id === chosen.id),
-      1
-    );
+    // Remove by object reference (indexOf), not by `id` (findIndex + id-equality).
+    // `chosen` is literally the array element pickWeighted returned from `pool`, so
+    // indexOf always finds the exact drawn instance. Real callers get ids from DB
+    // primary keys, so duplicates can't happen — but if two pool entries ever did
+    // share an id, id-based lookup would risk splicing out the wrong (earlier)
+    // entry and leaving the actually-drawn one eligible for a repeat draw.
+    pool.splice(pool.indexOf(chosen), 1);
   }
 
   return picked;

@@ -27,6 +27,13 @@ describe("applyCountSoftReset", () => {
     ]);
   });
 
+  it("does nothing (and does not throw) for an empty items array", () => {
+    const items: CountedItem[] = [];
+    const result = applyCountSoftReset(items, 50);
+    expect(result.didReset).toBe(false);
+    expect(result.items).toEqual([]);
+  });
+
   it("preserves relative ordering of counts after a reset", () => {
     const items: CountedItem[] = [
       { id: "a", occurrenceCount: 60 },

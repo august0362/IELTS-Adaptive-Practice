@@ -30,4 +30,19 @@ describe("ieltsRound", () => {
     expect(ieltsRound(6.249999999999)).toBe(6.5);
     expect(ieltsRound(6.750000000001)).toBe(7.0);
   });
+
+  // PROJECT_CONTEXT.md section 5.5's pseudocode has no clamping step, and both real
+  // call sites (CambridgeTestResult.overallBand from 4 user-entered 0-9 skill bands,
+  // and Formula 3's overallPredicted from 4 already-clamped-to-[0,9] predictions)
+  // guarantee an in-range input before calling this function. So out-of-range
+  // clamping is intentionally the caller's responsibility, not ieltsRound's. These
+  // tests pin that behavior down so it isn't silently "fixed" into a clamp later.
+  it("does not clamp a mean above 9 (caller's responsibility to keep inputs in range)", () => {
+    expect(ieltsRound(9.25)).toBe(9.5);
+    expect(ieltsRound(9.75)).toBe(10);
+  });
+
+  it("does not clamp a negative mean (caller's responsibility to keep inputs in range)", () => {
+    expect(ieltsRound(-0.5)).toBe(-0.5);
+  });
 });

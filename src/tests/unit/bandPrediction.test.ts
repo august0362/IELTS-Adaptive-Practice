@@ -40,6 +40,12 @@ describe("predictSkillBand", () => {
     const result = predictSkillBand({ recentCambridgeBands: [0], practiceCount30d: 0 }, 5);
     expect(result.predictedBand).toBe(0);
   });
+
+  it("reports sampleSize 1 for a skill with exactly one logged Cambridge result", () => {
+    const result = predictSkillBand({ recentCambridgeBands: [7], practiceCount30d: 5 }, 5);
+    expect(result.sampleSize).toBe(1);
+    expect(result.cambridgeAvg).toBe(7);
+  });
 });
 
 describe("predictAllSkillBands", () => {
@@ -52,6 +58,34 @@ describe("predictAllSkillBands", () => {
     };
     const result = predictAllSkillBands(input);
     // mean(6.5, 7, 6, 6.5) = 6.5 exactly -> ieltsRound(6.5) = 6.5
+    expect(result.overallPredicted).toBe(6.5);
+  });
+
+  // DESIGN AMBIGUITY (flagged, not resolved by this test — see Supervisor review report):
+  // PROJECT_CONTEXT.md's Formula 3 comment reads
+  //   predictedBand_skill = clamp(0, 9, cambridgeAvg + delta)   // rounded to nearest 0.5 for display
+  // which could mean rounding is purely a UI concern (overallPredicted should average the
+  // full-precision clamped values, then ieltsRound once), or that a "band" is by definition
+  // always a half-increment value (matching how real Cambridge/IELTS skill scores work) and
+  // so the half-rounded predictedBand is correctly what feeds the overall mean too. The
+  // current implementation does the latter (rounds each skill to the nearest 0.5 *before*
+  // averaging for overallPredicted). This test pins that behavior down and demonstrates a
+  // case where it produces a different overallPredicted than the alternative reading would.
+  it("computes overallPredicted from the already-half-rounded per-skill bands, not the raw clamped values (documents current behavior)", () => {
+    // Raw (pre-round) predicted values would be ~6.2501, 6.2501, 6.2501, 6.0 (all clamps at cambridgeAvg
+    // since practiceCount30d equals the group average, so frequencyDelta = 0 for every skill).
+    const input: FourSkillPredictionInput = {
+      reading: { recentCambridgeBands: [6.2501], practiceCount30d: 5 },
+      listening: { recentCambridgeBands: [6.2501], practiceCount30d: 5 },
+      writing: { recentCambridgeBands: [6.2501], practiceCount30d: 5 },
+      speaking: { recentCambridgeBands: [6.0], practiceCount30d: 5 },
+    };
+    const result = predictAllSkillBands(input);
+    // Each 6.2501 individually rounds to 6.5 (nearest half); 6.0 stays 6.0.
+    expect(result.reading.predictedBand).toBe(6.5);
+    expect(result.speaking.predictedBand).toBe(6.0);
+    // mean(6.5, 6.5, 6.5, 6.0) = 6.375 -> ieltsRound = 6.5.
+    // (The raw-average reading would instead be mean(6.2501 x3, 6.0) = 6.1876 -> ieltsRound = 6.0.)
     expect(result.overallPredicted).toBe(6.5);
   });
 

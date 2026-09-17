@@ -1,0 +1,317 @@
+# PROJECT_CONTEXT.md — IELTS Adaptive Practice App
+
+> **Purpose of this file**: this is the single source of truth for the project's architecture. Any AI session (or human) that opens this repo cold should be able to read this file top to bottom and understand exactly what exists, why it's shaped this way, and how to continue building it — without needing the original conversation that designed it.
+>
+> **Update rule**: any change to the DB schema, a formula, an API contract, or a folder convention MUST be reflected here in the same task/commit that makes the change. A stale PROJECT_CONTEXT.md is treated as a bug.
+
+Last updated: 2026-09-17 (Phase 0 — foundation docs only, no application code written yet).
+
+---
+
+## 1. Product overview
+
+A personal, local-only web app to plan and track IELTS practice across the 4 skills (Reading, Listening, Writing, Speaking), using an **adaptive weighted-random engine** so that skills/parts practiced less often become more likely to be picked next. It has three user-facing surfaces:
+
+1. **Spinner** — picks 2 of the 4 skills per session, then cascades into picking the specific part/task/block for each chosen skill.
+2. **Daily Journal** — free-text notes per day, taggable (e.g. `#Reading`, `#Vocabulary`).
+3. **Prediction Dashboard** — predicted band score per skill (and overall), based mostly on logged Cambridge mock-test results plus a small nudge from practice frequency; shows recent Cambridge test history (5 most recent + "view all") and a per-skill practice-frequency chart.
+
+Single user, no login, runs locally. Multi-user/auth/cloud deploy are intentionally deferred — see [`document.txt`](./document.txt).
+
+---
+
+## 2. Tech stack
+
+| Layer | Choice | Why |
+|---|---|---|
+| Framework | **Next.js (App Router)**, single repo | Full-stack in one project: React frontend + API Route Handlers as backend. No separate server to run/deploy. |
+| Language | **TypeScript** | The weighted-random and band-prediction math is the core value of this app — type safety on DB models and formula inputs/outputs catches mistakes at compile time. |
+| Database | **SQLite** via **Prisma ORM** | File-based (`prisma/dev.db`), zero server setup, matches "very simple database" requirement. Prisma gives typed queries + migrations. |
+| Styling | **Tailwind CSS** | Fast to build simple, consistent UI without a design system. |
+| Charts | **Recharts** | Simple declarative charts for the prediction dashboard (skill frequency bars, band trend). |
+| Testing | **Vitest** + **React Testing Library** (unit/component), **Playwright** (e2e) | Matches Next.js/TS conventions; Vitest is fast for pure-function formula testing. |
+| Auth | None (single implicit user) | Local-only for now. Deferred in `document.txt`. |
+| Deployment | Local dev only (`npm run dev`) | No cloud deploy yet. Deferred in `document.txt`. |
+
+---
+
+## 3. Folder structure
+
+```
+/prisma
+  schema.prisma
+  /migrations
+  seed.ts                      # seeds the 4 skills + 8 parts with default baseRatio
+/src
+  /app
+    /api
+      /roll/route.ts           # POST: run a roll session
+      /skills/route.ts         # GET: skills + parts + counters + ratios
+      /skills/parts/[id]/ratio/route.ts   # PATCH: update a part's baseRatio
+      /history/route.ts        # GET: paginated roll history
+      /notes/route.ts          # GET/POST daily notes
+      /notes/[id]/route.ts     # PATCH/DELETE a note
+      /cambridge/route.ts      # GET (?limit=5 for recent, ?all=true for full history) / POST
+      /cambridge/[id]/route.ts # PATCH/DELETE a test result
+      /prediction/route.ts     # GET: computed band prediction (calls lib/engine/bandPrediction.ts)
+      /config/route.ts         # GET/PATCH engine config values
+    page.tsx                   # Home page: the Spinner
+    /journal/page.tsx
+    /prediction/page.tsx
+    /history/page.tsx
+    layout.tsx
+  /components
+    /spinner                   # Lucky-wheel UI, cascades skill -> part reveal
+    /journal                   # Note editor + tag input + note list
+    /dashboard                 # Prediction cards, recent-tests table, "view all" modal
+    /charts                    # Recharts wrappers (frequency bar chart, band trend)
+  /lib
+    /engine
+      weightedRandom.ts        # Formula 1: pick from a weighted pool
+      weeklyConstraint.ts      # Formula 2: weekly-minimum override for the 4-skill pool
+      bandPrediction.ts        # Formula 3: Cambridge avg + frequency nudge, per skill
+      ieltsRounding.ts         # Official IELTS overall-band rounding rule
+      countSoftReset.ts        # Safeguard: rescale counts when max(count) crosses threshold
+    /db
+      prisma.ts                # Prisma client singleton
+    /types
+      index.ts                 # Shared TS types (Skill, SkillPart, RollResult, etc.)
+  /tests
+    /unit                      # Vitest: one file per lib/engine/*.ts module
+    /e2e                       # Playwright: full roll flow, journal CRUD, cambridge CRUD
+document.txt
+PROJECT_CONTEXT.md
+CLAUDE.md
+TESTING_GUIDE.md               # written in Milestone 4
+USER_GUIDE.md                  # written in Milestone 4
+package.json
+tsconfig.json
+```
+
+---
+
+## 4. Database schema (Prisma / SQLite)
+
+```prisma
+model Skill {
+  id               String     @id @default(cuid())
+  code             String     @unique   // READING | LISTENING | WRITING | SPEAKING
+  name             String
+  occurrenceCount  Int        @default(0)
+  lastAppearedAt   DateTime?
+  parts            SkillPart[]
+  rollResults      RollResult[]
+}
+
+model SkillPart {
+  id               String     @id @default(cuid())
+  skillId          String
+  skill            Skill      @relation(fields: [skillId], references: [id])
+  code             String     @unique   // e.g. WRITING_TASK1, SPEAKING_BLOCK_A, READING_BLOCK_B, LISTENING_BLOCK_A
+  name             String                // human label, e.g. "Task 1", "Block A (Part 1+2)"
+  baseRatio        Float      @default(0.5)  // prior weight within its skill's pool; user-adjustable
+  occurrenceCount  Int        @default(0)
+  lastAppearedAt   DateTime?
+  rollResults      RollResult[]
+}
+
+model RollSession {
+  id         String       @id @default(cuid())
+  rolledAt   DateTime     @default(now())
+  results    RollResult[]
+}
+
+model RollResult {
+  id             String      @id @default(cuid())
+  rollSessionId  String
+  session        RollSession @relation(fields: [rollSessionId], references: [id])
+  skillId        String
+  skill          Skill       @relation(fields: [skillId], references: [id])
+  skillPartId    String
+  part           SkillPart   @relation(fields: [skillPartId], references: [id])
+}
+// Exactly 2 RollResult rows per RollSession (one per chosen skill).
+
+model CambridgeTestResult {
+  id            String   @id @default(cuid())
+  testDate      DateTime
+  testName      String                 // e.g. "Cambridge 18 - Test 2"
+  readingBand   Float
+  listeningBand Float
+  writingBand   Float
+  speakingBand  Float
+  overallBand   Float                  // computed via ieltsRounding.ts at write time
+  note          String?
+  createdAt     DateTime @default(now())
+}
+
+model DailyNote {
+  id        String   @id @default(cuid())
+  noteDate  DateTime
+  tags      String                     // comma-separated, e.g. "Reading,Vocabulary"
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Config {
+  id    String @id @default(cuid())
+  key   String @unique
+  value String                          // stored as string, parsed to number/bool as needed by the engine
+}
+```
+
+**Seed data** (`prisma/seed.ts`):
+
+| Skill code | Part code | Name | baseRatio |
+|---|---|---|---|
+| READING | READING_BLOCK_A | Block A (Passage 1+2) | 0.6 |
+| READING | READING_BLOCK_B | Block B (Passage 3) | 0.4 |
+| LISTENING | LISTENING_BLOCK_A | Block A (Part 1+4) | 0.5 |
+| LISTENING | LISTENING_BLOCK_B | Block B (Part 2+3) | 0.5 |
+| WRITING | WRITING_TASK1 | Task 1 | 0.5 |
+| WRITING | WRITING_TASK2 | Task 2 | 0.5 |
+| SPEAKING | SPEAKING_BLOCK_A | Block A (Part 1+2) | 0.6 |
+| SPEAKING | SPEAKING_BLOCK_B | Block B (Part 3) | 0.4 |
+
+**Config defaults** (seeded into the `Config` table):
+
+| key | default | meaning |
+|---|---|---|
+| `decay_exponent` | `1.0` | `k` in Formula 1 |
+| `weekly_threshold_days` | `7` | Formula 2 override threshold |
+| `frequency_adjustment_factor` | `0.05` | Formula 3 nudge slope |
+| `frequency_adjustment_cap` | `0.5` | Formula 3 max ± nudge |
+| `count_soft_reset_threshold` | `50` | Formula 1 safeguard threshold |
+
+---
+
+## 5. Core domain logic
+
+### 5.1 Skill/Part decomposition
+
+- **Writing**: 2 tasks (Task 1, Task 2) — random 1 per session, equal prior (50/50).
+- **Speaking**: 2 blocks — Block A (Part 1+2), Block B (Part 3) — prior 60/40 (Block A favored; Part 3 is harder, appears less by default). User-adjustable via UI (`PATCH /api/skills/parts/:id/ratio`).
+- **Reading**: 2 blocks — Block A (Passage 1+2), Block B (Passage 3) — prior 60/40, same reasoning and adjustability as Speaking.
+- **Listening**: 2 blocks — Block A (Part 1+4), Block B (Part 2+3) — equal prior (50/50).
+- **4-skill pool**: every session picks exactly 2 of {Reading, Listening, Writing, Speaking}, no repeats within the same session, equal prior (1.0) modulated purely by occurrence count.
+
+### 5.2 Formula 1 — Weighted Random Engine
+
+Used for every pool above (the 4-skill pool, and each skill's 2-part pool).
+
+```
+w_i = baseRatio_i * (1 / (count_i + 1)) ^ k
+p_i = w_i / Σ_j w_j
+```
+
+- `baseRatio_i` = `SkillPart.baseRatio` (or `1.0` for skills, which have no ratio field).
+- `count_i` = `occurrenceCount` at the time of the roll.
+- `k` = `Config.decay_exponent` (default `1.0`).
+- Selection: cumulative-sum roulette-wheel draw over `p_i` — pick a uniform random `r ∈ [0, Σw)`, walk the cumulative weights, return the first item whose cumulative weight ≥ `r`. This maps directly onto the spinner UI (slice size = `p_i`).
+
+**4-skill, pick-2, no-replacement procedure:**
+1. Compute Formula 2 (weekly override) first — see 5.3. This may already force 0, 1, or 2 skills.
+2. For any remaining slot(s): compute `p_i` via Formula 1 over the skills not yet chosen, draw, remove the drawn skill from the pool, recompute `p_i` over what's left (same counts — they are **not** incremented mid-draw), draw again if a second slot remains.
+3. Once both skills are finalized, for **each** chosen skill independently run Formula 1 over its own 2-part pool to pick the part/task.
+4. Increment `occurrenceCount` and set `lastAppearedAt = now()` for both chosen skills and both chosen parts (4 rows updated total). Write one `RollSession` + 2 `RollResult` rows.
+5. Run `countSoftReset.ts` (see 5.2.1) on the affected pools after incrementing.
+
+**5.2.1 Count soft-reset safeguard**
+
+After incrementing, for each pool (the 4-skill pool; each skill's part-pool), if `max(occurrenceCount)` in that pool ≥ `Config.count_soft_reset_threshold` (default 50): replace every `occurrenceCount` in that pool with `floor(occurrenceCount / 2)`. This keeps the numbers bounded over the app's lifetime while preserving relative fairness ordering. It does **not** touch `RollResult` history — that log is permanent and unaffected.
+
+**Evaluation (documented intentionally, not to be "fixed" later without discussion):**
+- Never reaches exactly 0% probability; self-normalizing; deterministic and simple to unit test.
+- By design, ignores recency entirely — only raw counts matter for the probability shape. Recency is handled solely by Formula 2.
+
+### 5.3 Formula 2 — Weekly-minimum override (skill pool only)
+
+```
+overdue_i = (today - Skill.lastAppearedAt) >= Config.weekly_threshold_days days   // treat null lastAppearedAt as "always overdue"
+```
+
+- If ≥1 skill is overdue: sort overdue skills by days-since-last-appearance descending, force-select up to 2 of the most overdue into this session.
+- Any remaining slot (0, 1, or 2 needed) is filled by the normal Formula 1 draw among non-forced skills, without replacement.
+- This constraint applies **only** to the 4-skill pool, not to parts/blocks (parts have no minimum-frequency guarantee in v1 — see `document.txt`).
+
+### 5.4 Formula 3 — Band Prediction (v1)
+
+Per skill, independently:
+
+```
+cambridgeAvg_skill     = mean(<skill>Band across the most recent 30 CambridgeTestResult rows, or fewer if <30 exist)
+practiceCount30d_skill = count of RollResult rows for this skill in the last 30 days
+avgPracticeCount30d    = mean(practiceCount30d across all 4 skills)
+frequencyDelta_skill   = clamp(-cap, +cap, (practiceCount30d_skill - avgPracticeCount30d) * factor)
+predictedBand_skill    = clamp(0, 9, cambridgeAvg_skill + frequencyDelta_skill)     // rounded to nearest 0.5 for display
+```
+
+Where `factor = Config.frequency_adjustment_factor` (default `0.05`) and `cap = Config.frequency_adjustment_cap` (default `0.5`).
+
+If a skill has **zero** `CambridgeTestResult` rows, `predictedBand_skill` is `null` and the UI shows "not enough data yet" instead of a fabricated number.
+
+**Overall predicted band:**
+
+```
+overallPredicted = ieltsOfficialRound( mean(predictedBand_reading, predictedBand_listening, predictedBand_writing, predictedBand_speaking) )
+```
+
+(only computed once all 4 per-skill predictions are non-null).
+
+### 5.5 IELTS official rounding rule (`ieltsRounding.ts`)
+
+```ts
+function ieltsRound(mean: number): number {
+  const whole = Math.floor(mean);
+  const frac = mean - whole;
+  if (frac < 0.25) return whole;
+  if (frac < 0.75) return whole + 0.5;
+  return whole + 1;
+}
+```
+
+Used both for `CambridgeTestResult.overallBand` (computed from the 4 entered skill bands at write time) and for `overallPredicted` in Formula 3.
+
+### 5.6 Deferred: Band Prediction v2 (OLS Linear Regression)
+
+Once enough `CambridgeTestResult` history exists per skill, replace the flat 30-test mean with an **independent ordinary-least-squares linear regression per skill** (`band ~ testDate` or `band ~ testIndex`), and use the regression's projected next value instead of (or blended with) the historical mean. This is a drop-in replacement for `cambridgeAvg_skill` in Formula 3 — the frequency-nudge layer stays the same. Logged in `document.txt`; not built until Milestone 4+.
+
+---
+
+## 6. API contracts
+
+| Method | Path | Body / Query | Response |
+|---|---|---|---|
+| POST | `/api/roll` | — | `{ sessionId, results: [{ skill, part }, { skill, part }] }` |
+| GET | `/api/skills` | — | `[{ id, code, name, occurrenceCount, lastAppearedAt, parts: [{ id, code, name, baseRatio, occurrenceCount, lastAppearedAt }] }]` |
+| PATCH | `/api/skills/parts/:id/ratio` | `{ baseRatio: number }` (0–1; sibling part auto-adjusts to `1 - baseRatio`) | updated `SkillPart` |
+| GET | `/api/history` | `?limit=&offset=` | `{ total, items: [{ id, rolledAt, results: [{skill, part}, ...] }] }` |
+| GET | `/api/notes` | `?date=` optional | `[{ id, noteDate, tags, content }]` |
+| POST | `/api/notes` | `{ noteDate, tags, content }` | created note |
+| PATCH/DELETE | `/api/notes/:id` | `{ tags?, content? }` | updated/deleted note |
+| GET | `/api/cambridge` | `?limit=5` (default, recent) or `?all=true` | `[{ id, testDate, testName, readingBand, listeningBand, writingBand, speakingBand, overallBand, note }]` |
+| POST | `/api/cambridge` | `{ testDate, testName, readingBand, listeningBand, writingBand, speakingBand, note? }` | created row (`overallBand` computed server-side) |
+| PATCH/DELETE | `/api/cambridge/:id` | fields to update | updated/deleted row |
+| GET | `/api/prediction` | — | `{ perSkill: { reading, listening, writing, speaking }, overall, sampleSizePerSkill, hasEnoughData }` |
+| GET/PATCH | `/api/config` | PATCH body: `{ key, value }` | current config map |
+
+---
+
+## 7. Testing strategy (summary — full detail in `TESTING_GUIDE.md`, written in Milestone 4)
+
+- **Unit (Vitest)**: every function in `lib/engine/*` gets a dedicated test file. Required edge cases: all-counts-zero (equal probabilities), one dominant count (approaches but never 0), overdue-forcing (0/1/2 skills overdue, 3+ simultaneously overdue), soft-reset trigger, <30 and 0 Cambridge rows, clamp boundaries in Formula 3, all `ieltsRound` boundary values (.24/.25/.74/.75).
+- **Component (RTL)**: spinner cascade renders both picks; journal tag parsing; recent-tests table shows exactly 5 + "view all" opens full list.
+- **E2E (Playwright)**: full roll → DB counters increment → history shows new entry; add Cambridge result → prediction updates; add journal note with tag → appears filtered by tag.
+
+---
+
+## 8. Roadmap / deferred features
+
+See [`document.txt`](./document.txt) for the live, append-only list (auth, cloud deploy, Band Prediction v2, part-level weekly minimum, etc.).
+
+---
+
+## 9. Multi-agent framework
+
+See [`CLAUDE.md`](./CLAUDE.md) for agent roles, review workflow, and the milestone execution plan.

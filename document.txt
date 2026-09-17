@@ -1,0 +1,72 @@
+DOCUMENT.TXT — Deferred Features & Future Updates Log
+======================================================
+This is a running, append-only log. When a deferred item is actually built, move it
+to the "DONE" section at the bottom with the date and which milestone did it — don't
+just delete it. When a new "do this later" idea comes up mid-task, add it here instead
+of letting it get lost.
+
+Created: 2026-09-17 (Phase 0)
+
+
+PENDING
+-------
+
+1. Authentication / multi-user support
+   Why deferred: app is local-only, single implicit user for now.
+   Trigger to build: if the app needs to be used from more than one device, or shared.
+
+2. Cloud deployment (Vercel / VPS / etc.)
+   Why deferred: local-only for now (`npm run dev`).
+   Trigger to build: same as #1 — needed once multi-device access matters.
+   Depends on: #1 (auth) should probably land first if deploying publicly.
+
+3. Adjustable baseRatio via UI for Writing (Task1/Task2) and Listening (Block A/B)
+   Why deferred: original spec only called out Speaking/Reading Block A vs B as
+   needing a user-adjustable ratio (60/40 default). Writing and Listening use a fixed
+   50/50 prior for now. The schema already supports this (SkillPart.baseRatio exists
+   for every part) — this is a UI-only addition, no schema/migration needed.
+
+4. Band Prediction v2 — OLS Linear Regression per skill
+   Why deferred: v1 uses a flat mean of the last 30 Cambridge test results per skill.
+   Once enough historical CambridgeTestResult rows exist per skill, replace
+   `cambridgeAvg_skill` in bandPrediction.ts with an independent ordinary-least-squares
+   regression (band ~ testDate or band ~ testIndex) per skill, and use the projected
+   trend value instead of (or blended with) the flat mean. The frequency-nudge layer
+   on top stays unchanged. See PROJECT_CONTEXT.md section 5.6.
+   Trigger to build: enough data — suggest revisiting once a skill has 15-20+ logged
+   Cambridge results, since a regression on very few points is unreliable.
+
+5. Weekly-minimum-appearance safety net at the Part/Block level
+   Why deferred: the "must appear >= 1x/week" hard override (Formula 2) currently
+   only applies to the 4-skill pool, per explicit scope in the original spec. Parts/
+   blocks (e.g. Speaking Block B) rely purely on the inverse-count weighting with no
+   hard floor, so in theory a rarely-drawn block could go a long time without being
+   forced. Consider adding the same kind of override at the part level if that turns
+   out to be a problem in practice.
+
+6. Count soft-reset activation / tuning
+   Why deferred: PROJECT_CONTEXT.md section 5.2.1 specifies a safeguard (rescale all
+   counts in a pool down when max count crosses `count_soft_reset_threshold`, default
+   50) to keep numbers bounded over the app's long-term lifetime. This needs to be
+   implemented in Milestone 1 as designed, but the threshold value (50) is a guess —
+   revisit once real usage data shows how fast counts actually grow (e.g. if the user
+   rolls twice a day, 50 rolls is ~25 days per pool item, which may be too aggressive
+   or too lax — tune after observing real numbers).
+
+7. TESTING_GUIDE.md and USER_GUIDE.md
+   Why deferred: scheduled for Milestone 4 in CLAUDE.md, after the app itself exists,
+   so the guides describe real, working behavior rather than speculative behavior.
+
+8. Config UI (currently only via API/DB, no dedicated settings screen)
+   Why deferred: not explicitly requested; `GET/PATCH /api/config` exists per
+   PROJECT_CONTEXT.md section 6, but no UI screen was scoped for editing
+   decay_exponent, weekly_threshold_days, frequency_adjustment_factor/cap, or
+   count_soft_reset_threshold directly. The Speaking/Reading baseRatio adjustment
+   (explicitly requested) is the only config exposed in the UI for Milestone 2.
+   Trigger to build: if the user wants to tune engine constants without editing the
+   DB/API directly.
+
+
+DONE
+----
+(nothing yet — Phase 0 only produced documentation, no application code)

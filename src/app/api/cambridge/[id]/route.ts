@@ -21,7 +21,13 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const patch: Partial<typeof cambridgeTestResults.$inferInsert> = {};
   if (typeof body.testName === "string") patch.testName = body.testName;
   if (body.testDate) patch.testDate = new Date(body.testDate);
-  if (typeof body.note === "string") patch.note = body.note;
+  // Distinguish "note" key absent (leave unchanged, partial-update semantics) from present:
+  // a string sets it, and `null` explicitly clears it. Only checking `typeof === "string"`
+  // here would make it impossible to ever clear an existing note, since JSON.stringify drops
+  // `undefined` values and there'd be no way to send an intentional "clear" signal.
+  if ("note" in body) {
+    patch.note = typeof body.note === "string" ? body.note : null;
+  }
 
   const merged = {
     readingBand: body.readingBand ?? existing.readingBand,

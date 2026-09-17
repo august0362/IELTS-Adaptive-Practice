@@ -119,7 +119,10 @@ export function CambridgeTracker({ initialResults }: { initialResults: Cambridge
       listeningBand: Number(form.listeningBand),
       writingBand: Number(form.writingBand),
       speakingBand: Number(form.speakingBand),
-      note: form.note.trim() || undefined,
+      // Explicit `null` (not `undefined`) so JSON.stringify keeps the key: PATCH needs to
+      // be able to tell "clear an existing note" apart from "note field wasn't sent at all"
+      // (see PATCH /api/cambridge/:id, which only clears the note when the key is present).
+      note: form.note.trim() || null,
     };
 
     try {

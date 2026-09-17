@@ -88,3 +88,35 @@ DONE
   - Had to approve native install scripts (better-sqlite3, esbuild, unrs-resolver)
     via `npm approve-scripts` — npm 11.17 blocks install scripts by default now.
   - git initialized locally; Phase 0 docs committed as the root commit.
+
+[2026-09-17] Milestone 1, Steps 2-3: Math engine + API routes. MILESTONE 1 DONE.
+  - Step 2: implemented all 3 formulas as pure functions in src/lib/engine/
+    (weightedRandom.ts, weeklyConstraint.ts, bandPrediction.ts, ieltsRounding.ts,
+    countSoftReset.ts). Vitest added, 33 initial tests, grew to 48 after a
+    Supervisor review pass added edge-case coverage (floating-point sum-to-1,
+    negative/fractional decay exponents, statistical distribution checks, the
+    7-day and all-null-first-run boundaries, no-clamp ieltsRound behavior).
+  - Review pass fixed one real (low-probability) bug: pickWeightedWithoutReplacement
+    removed the drawn item by `id` instead of by object reference; harmless for
+    real DB-backed usage (unique ids) but fixed defensively.
+  - Review pass surfaced a genuine design ambiguity: should the overall predicted
+    band average each skill's rounded-to-0.5 value, or the raw pre-rounding
+    value? User resolved this as a runtime toggle (Config key
+    `overall_prediction_rounding_mode`, default `per_skill_rounded`) rather than
+    picking one — see PROJECT_CONTEXT.md section 5.4. Milestone 2 must expose
+    this as a UI toggle in the Prediction Dashboard (not yet built).
+  - Step 3: wired the engine to Drizzle across 10 API routes (see
+    PROJECT_CONTEXT.md section 6). POST /api/roll runs inside one fully
+    synchronous db.transaction() — better-sqlite3 requires this, confirmed via
+    a throwaway smoke test before writing real code (async transaction
+    callbacks throw `Transaction function cannot return a promise`).
+  - Review pass found and fixed real input-validation bugs across the mutating
+    routes: unhandled 500s on malformed/null JSON bodies (fixed with a shared
+    `readJsonObject` helper), `?limit=0` being treated as "no limit" on
+    /api/cambridge, and unbounded/garbage limit-offset values crashing or
+    silently ignored on /api/history. All fixed, verified live with curl.
+  - Every step's fixes were verified with `npm run test` + `npm run typecheck`
+    + `npm run lint` before committing; dev.db reset to a clean seeded state
+    after each round of manual endpoint testing so no test data lingers.
+  - Backend is now feature-complete per PROJECT_CONTEXT.md. Next: Milestone 2
+    (Frontend/UI Agent) — Spinner, Journal, Prediction Dashboard + History view.

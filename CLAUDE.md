@@ -74,8 +74,19 @@ Work proceeds in this order. Each milestone should be its own task/session so co
 
 - **Phase 0 (done)**: `PROJECT_CONTEXT.md`, `CLAUDE.md`, `document.txt` written and confirmed. No app code.
 - **Milestone 1 — Backend/Algorithm Agent**: `npx create-next-app` scaffold (TypeScript, Tailwind, App Router) → Drizzle schema + migration + seed (Step 1, done) → `lib/engine/*` with the 5 formula/helper modules (Step 2) → API routes (Step 3). Exit criteria: `POST /api/roll` works end-to-end against a seeded DB and counters visibly update.
-- **Milestone 2 — Frontend/UI Agent**: Spinner, Journal, Prediction Dashboard + History view, wired to Milestone 1's API. The Prediction Dashboard must include a toggle for `Config.overall_prediction_rounding_mode` (`per_skill_rounded` vs `raw_average` — see `PROJECT_CONTEXT.md` section 5.4), and the Speaking/Reading Block A/B ratio adjustment UI (`PATCH /api/skills/parts/:id/ratio`). Exit criteria: all 3 user-facing surfaces work manually via `npm run dev`.
-- **Milestone 3 — QA/Testing Agent**: full unit/component/e2e suite per `TESTING_GUIDE.md` (written as part of this milestone). Exit criteria: `npm test` and `npx playwright test` both pass green.
-- **Milestone 4 — Supervisor**: full expert-mode review pass over the whole app; write `TESTING_GUIDE.md` (if not already finalized in M3) and `USER_GUIDE.md`; reconcile `document.txt` (mark anything actually built as done, keep the rest as backlog).
+- **Milestone 2 — Frontend/UI Agent**, wired to Milestone 1's API, done in 5 steps (each reviewed + fixed before the next starts, same pattern as Milestone 1):
+  1. App shell & navigation — root layout, nav between the 4 pages, Tailwind base theme.
+  2. Spinner page — the wheel UI (slice size reflects each item's current probability where practical), cascading 2-skill → part reveal via `POST /api/roll`, plus a small "recent rolls" list on the same page (no separate history page — this was the simplest place to surface `GET /api/history`).
+  3. Journal page — note editor, `#Tag` parsing/filtering, note list.
+  4. Cambridge test tracking — add/edit/delete a test result, 5-most-recent table + "view all".
+  5. Prediction Dashboard — per-skill + overall predicted band, "not enough data" state, the `overall_prediction_rounding_mode` toggle (section 5.4), the Speaking/Reading Block A/B ratio sliders (`PATCH /api/skills/parts/:id/ratio`), and a practice-frequency chart per skill (use the `dataviz` skill's guidance).
+  Exit criteria: all surfaces work manually via `npm run dev`.
+- **Milestone 3 — QA/Testing Agent**, in 2 steps:
+  1. Component tests (Vitest + React Testing Library): spinner cascade, tag parsing, recent/view-all split, prediction toggle states.
+  2. E2E tests (Playwright): full roll flow, journal CRUD, Cambridge CRUD → prediction update.
+  Exit criteria: `npm test` and `npx playwright test` both pass green. `TESTING_GUIDE.md` is written as part of this milestone.
+- **Milestone 4 — Supervisor**, in 2 steps:
+  1. Full expert-mode review pass over the entire app (not just the latest diff).
+  2. Write `USER_GUIDE.md`; finalize `TESTING_GUIDE.md` if step 1 found gaps; reconcile `document.txt` (mark built items done, keep the rest as backlog).
 
-Each milestone requires explicit user confirmation before the next one starts, consistent with the "don't write everything in one giant pass" instruction that shaped Phase 0.
+Each milestone (and, within Milestone 2 specifically, each of its 5 steps) requires explicit user confirmation before the next one starts, consistent with the "don't write everything in one giant pass" instruction that shaped Phase 0 and the step-by-step pattern used throughout Milestone 1.

@@ -43,7 +43,13 @@ const BAND_FIELDS: { key: keyof FormState; label: string }[] = [
   { key: "speakingBand", label: "Speaking" },
 ];
 
-export function CambridgeTracker({ initialResults }: { initialResults: CambridgeTestDTO[] }) {
+interface CambridgeTrackerProps {
+  initialResults: CambridgeTestDTO[];
+  /** Called after any successful create/edit/delete, so a sibling (e.g. the prediction cards) can refresh. */
+  onChanged?: () => void;
+}
+
+export function CambridgeTracker({ initialResults, onChanged }: CambridgeTrackerProps) {
   const [results, setResults] = useState<CambridgeTestDTO[]>(initialResults);
   const [showingAll, setShowingAll] = useState(false);
   const [form, setForm] = useState<FormState>(emptyForm());
@@ -141,6 +147,7 @@ export function CambridgeTracker({ initialResults }: { initialResults: Cambridge
       }
       resetForm();
       await refreshList(showingAll);
+      onChanged?.();
     } catch {
       setErrorMessage("Lưu kết quả thất bại. Kiểm tra kết nối rồi thử lại.");
     } finally {
@@ -154,6 +161,7 @@ export function CambridgeTracker({ initialResults }: { initialResults: Cambridge
       await fetchJson(`/api/cambridge/${id}`, { method: "DELETE" });
       if (editingId === id) resetForm();
       await refreshList(showingAll);
+      onChanged?.();
     } catch {
       setErrorMessage("Xóa kết quả thất bại. Kiểm tra kết nối rồi thử lại.");
     }

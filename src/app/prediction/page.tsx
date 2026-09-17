@@ -1,11 +1,18 @@
-import { getCambridgeResults } from "@/lib/db/queries";
-import { CambridgeTracker } from "@/components/prediction/CambridgeTracker";
-import type { CambridgeTestDTO } from "@/lib/types";
+import { getCambridgeResults, getPredictionData, getSkillsWithParts } from "@/lib/db/queries";
+import { db } from "@/lib/db/client";
+import { loadEngineConfig } from "@/lib/db/configHelpers";
+import { PredictionPageClient } from "@/components/prediction/PredictionPageClient";
+import type { CambridgeTestDTO, SkillDTO } from "@/lib/types";
 
 export default async function PredictionPage() {
-  const recentResults = await getCambridgeResults(5);
+  const [recentResults, prediction, skillRows, engineConfig] = await Promise.all([
+    getCambridgeResults(5),
+    getPredictionData(),
+    getSkillsWithParts(),
+    Promise.resolve(loadEngineConfig(db)),
+  ]);
 
-  const initialResults: CambridgeTestDTO[] = recentResults.map((r) => ({
+  const initialCambridgeResults: CambridgeTestDTO[] = recentResults.map((r) => ({
     id: r.id,
     testDate: r.testDate.toISOString(),
     testName: r.testName,
@@ -18,6 +25,15 @@ export default async function PredictionPage() {
     createdAt: r.createdAt.toISOString(),
   }));
 
+  const initialSkills: SkillDTO[] = skillRows.map((skill) => ({
+    ...skill,
+    lastAppearedAt: skill.lastAppearedAt?.toISOString() ?? null,
+    parts: skill.parts.map((part) => ({
+      ...part,
+      lastAppearedAt: part.lastAppearedAt?.toISOString() ?? null,
+    })),
+  }));
+
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-8 px-4 py-10">
       <div className="text-center">
@@ -27,7 +43,12 @@ export default async function PredictionPage() {
         </p>
       </div>
 
-      <CambridgeTracker initialResults={initialResults} />
+      <PredictionPageClient
+        initialPrediction={prediction}
+        initialCambridgeResults={initialCambridgeResults}
+        initialSkills={initialSkills}
+        initialRoundingMode={engineConfig.overallRoundingMode}
+      />
     </main>
   );
 }

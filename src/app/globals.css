@@ -3,6 +3,14 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+
+  /* dataviz: fixed categorical order (validated via scripts/validate_palette.js) */
+  --chart-reading: #2a78d6;
+  --chart-listening: #eb6834;
+  --chart-writing: #1baf7a;
+  --chart-speaking: #eda100;
+  --chart-gridline: #e1e0d9;
+  --chart-muted: #898781;
 }
 
 @theme inline {
@@ -16,6 +24,13 @@
   :root {
     --background: #0a0a0a;
     --foreground: #ededed;
+
+    --chart-reading: #3987e5;
+    --chart-listening: #d95926;
+    --chart-writing: #199e70;
+    --chart-speaking: #c98500;
+    --chart-gridline: #2c2c2a;
+    --chart-muted: #898781;
   }
 }
 

@@ -60,6 +60,34 @@ export interface CambridgeTestDTO {
   createdAt: string;
 }
 
+export interface SkillPredictionResultDTO {
+  predictedBand: number | null;
+  rawPredictedBand: number | null;
+  cambridgeAvg: number | null;
+  frequencyDelta: number;
+  sampleSize: number;
+}
+
+export interface FourSkillCounts {
+  reading: number;
+  listening: number;
+  writing: number;
+  speaking: number;
+}
+
+export interface PredictionResponseDTO {
+  perSkill: {
+    reading: SkillPredictionResultDTO;
+    listening: SkillPredictionResultDTO;
+    writing: SkillPredictionResultDTO;
+    speaking: SkillPredictionResultDTO;
+  };
+  overall: number | null;
+  sampleSizePerSkill: FourSkillCounts;
+  practiceCount30dPerSkill: FourSkillCounts;
+  hasEnoughData: boolean;
+}
+
 export interface EngineConfigDTO {
   decay_exponent: string;
   weekly_threshold_days: string;

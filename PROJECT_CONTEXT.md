@@ -262,7 +262,7 @@ Once enough `CambridgeTestResult` history exists per skill, replace the flat 30-
 | GET | `/api/cambridge` | `?limit=5` (default, recent) or `?all=true` | `[{ id, testDate, testName, readingBand, listeningBand, writingBand, speakingBand, overallBand, note }]` |
 | POST | `/api/cambridge` | `{ testDate, testName, readingBand, listeningBand, writingBand, speakingBand, note? }` | created row (`overallBand` computed server-side) |
 | PATCH/DELETE | `/api/cambridge/:id` | fields to update | updated/deleted row |
-| GET | `/api/prediction` | — | `{ perSkill: { reading, listening, writing, speaking }, overall, sampleSizePerSkill, hasEnoughData }` |
+| GET | `/api/prediction` | — | `{ perSkill: { reading, listening, writing, speaking }, overall, sampleSizePerSkill, practiceCount30dPerSkill, hasEnoughData }` (`practiceCount30dPerSkill` added in Milestone 2 Step 5 to back the frequency chart — same counts already used internally for Formula 3's frequency nudge) |
 | GET/PATCH | `/api/config` | PATCH body: `{ key, value }` | current config map |
 
 ---

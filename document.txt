@@ -163,3 +163,39 @@ DONE
   - Frontend is now feature-complete for the 3 core surfaces. Next:
     Milestone 3 (QA/Testing Agent) — component tests (Vitest+RTL), then
     Playwright e2e tests, per CLAUDE.md's 2-step breakdown.
+
+[2026-09-17] Milestone 3 (QA/Testing Agent), both steps. MILESTONE 3 DONE.
+  - Step 1: split vitest.config.mts into "unit" (node) + "component" (jsdom+RTL)
+    projects, shared @ alias. Component tests for Spinner (animation mocked —
+    its own timing has a dedicated unit test), Journal, CambridgeTracker,
+    RoundingModeToggle, PredictionCards, plus a PredictionPageClient
+    integration test. Filled a real coverage gap: spinnerAnimation.ts had no
+    test despite existing since Milestone 2 Step 2.
+  - Step 2: Playwright e2e (roll flow, journal CRUD, Cambridge->prediction).
+    Found and fixed a REAL PRODUCTION BUG while setting this up: page.tsx,
+    journal/page.tsx, and prediction/page.tsx all read live DB state with no
+    dynamic-triggering API, so `next build` silently prerendered them as
+    static HTML — a real deploy would have served one frozen snapshot to
+    every visitor forever. Fixed with `export const dynamic =
+    "force-dynamic"` on all 3. This was invisible under `npm run dev` (which
+    never prerenders) and only surfaced because e2e needed a production
+    build. Also discovered Next 16's dev-server singleton lock (refuses a 2nd
+    `next dev` instance for the same project dir even on a different port),
+    so e2e runs against `next build && next start` on a separate port
+    instead. DB isolation: setupDb.ts wipes/migrates/seeds a disposable
+    ./e2e-test.db, chained via && ahead of build+start in the same shell
+    command — an earlier attempt using Playwright's globalSetup hook left the
+    test DB empty at runtime because its ordering vs. webServer startup
+    wasn't the guarantee it looked like.
+  - MID-MILESTONE PROCESS CHANGE: switched from a review-subagent-per-step
+    pattern to "Milestone-Gated Review" (one review per whole milestone,
+    diff-scoped, max 2 fix-recheck iterations) after the per-step pattern was
+    burning 60k-150k+ tokens per small step. CLAUDE.md rewritten accordingly.
+    The Step 1 review fixes above still happened per-step (before the
+    change); Step 2 + the CLAUDE.md rework itself were self-checked only;
+    the milestone-gate review at the end covered both steps' diff at once
+    and found 2 more minor issues (a test-quality gap in
+    cambridge-prediction.spec.ts, a stale comment).
+  - 80/80 unit+component tests, 3/3 e2e, typecheck, lint all green.
+    Next: Milestone 4 (Supervisor) — full review pass, USER_GUIDE.md,
+    finalize TESTING_GUIDE.md, reconcile document.txt.

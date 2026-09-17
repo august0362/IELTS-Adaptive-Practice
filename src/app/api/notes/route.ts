@@ -3,6 +3,7 @@ import { eq, desc } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { dailyNotes } from "@/lib/db/schema";
 import { readJsonObject } from "@/lib/api/requestJson";
+import { getAllNotes } from "@/lib/db/queries";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -14,7 +15,7 @@ export async function GET(request: Request) {
         .from(dailyNotes)
         .where(eq(dailyNotes.noteDate, new Date(dateParam)))
         .orderBy(desc(dailyNotes.createdAt))
-    : await db.select().from(dailyNotes).orderBy(desc(dailyNotes.noteDate));
+    : await getAllNotes();
 
   return NextResponse.json(notes);
 }

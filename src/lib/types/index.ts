@@ -38,6 +38,15 @@ export interface HistoryResponse {
   items: HistorySession[];
 }
 
+export interface NoteDTO {
+  id: string;
+  noteDate: string;
+  tags: string;
+  content: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface EngineConfigDTO {
   decay_exponent: string;
   weekly_threshold_days: string;

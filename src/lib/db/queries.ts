@@ -7,7 +7,9 @@ export function getSkillsWithParts() {
 }
 
 export function getAllNotes() {
-  return db.select().from(dailyNotes).orderBy(desc(dailyNotes.noteDate));
+  // Secondary sort by createdAt keeps same-day notes in a deterministic, newest-created-first
+  // order across reloads (SQLite doesn't guarantee tie order on noteDate alone).
+  return db.select().from(dailyNotes).orderBy(desc(dailyNotes.noteDate), desc(dailyNotes.createdAt));
 }
 
 export function getRecentRollHistory(limit: number, offset = 0) {

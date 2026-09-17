@@ -65,7 +65,9 @@ export function Journal({ initialNotes }: { initialNotes: NoteDTO[] }) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ noteDate, tags, content: trimmed }),
         });
-        setNotes((prev) => [created, ...prev].sort((a, b) => (a.noteDate < b.noteDate ? 1 : -1)));
+        setNotes((prev) =>
+          [created, ...prev].sort((a, b) => (a.noteDate === b.noteDate ? 0 : a.noteDate < b.noteDate ? 1 : -1)),
+        );
       }
       resetForm();
     } catch {
@@ -119,7 +121,11 @@ export function Journal({ initialNotes }: { initialNotes: NoteDTO[] }) {
           />
         </div>
 
+        <label htmlFor="note-content" className="sr-only">
+          Nội dung ghi chú
+        </label>
         <textarea
+          id="note-content"
           value={content}
           onChange={(e) => setContent(e.target.value)}
           rows={8}

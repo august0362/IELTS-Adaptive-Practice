@@ -17,6 +17,11 @@ describe("extractTags", () => {
   it("returns an empty array when there are no tags", () => {
     expect(extractTags("Không có tag nào ở đây")).toEqual([]);
   });
+
+  it("ignores a bare # with no word characters following it (no crash, no bogus tag)", () => {
+    expect(extractTags("Giá # 5 đô, không phải tag")).toEqual([]);
+    expect(extractTags("dòng kết thúc bằng dấu #")).toEqual([]);
+  });
 });
 
 describe("tagsToString / parseTagsString round-trip", () => {

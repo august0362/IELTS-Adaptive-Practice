@@ -46,6 +46,25 @@ export function Spinner({ initialSkills, initialDecayExponent, initialRecentRoll
     );
   }
 
+  // Screen-reader-only announcement of the final result, for aria-live below —
+  // sighted users already see it via the card states, but nothing was
+  // otherwise announced to assistive tech when a roll finishes.
+  const resultAnnouncement =
+    phase === "done"
+      ? orderedSelectedSkillIds
+          .map((skillId) => {
+            const skill = skills.find((s) => s.id === skillId);
+            if (!skill) return null;
+            const selectedPartId = Object.entries(partStatesBySkillId[skillId] ?? {}).find(
+              ([, state]) => state === "selected"
+            )?.[0];
+            const part = skill.parts.find((p) => p.id === selectedPartId);
+            return part ? `${skill.name}: ${part.name}` : skill.name;
+          })
+          .filter((entry): entry is string => entry !== null)
+          .join(", ")
+      : "";
+
   async function runRollSequence(results: RollResultItem[], allSkills: SkillDTO[]) {
     let candidateSkills = allSkills;
 
@@ -115,7 +134,17 @@ export function Spinner({ initialSkills, initialDecayExponent, initialRecentRoll
       });
       await runRollSequence(rollResponse.results, skills);
       setPhase("done");
+    } catch {
+      setErrorMessage("Quay thất bại. Kiểm tra kết nối rồi thử lại.");
+      setPhase("error");
+      return;
+    }
 
+    // The roll itself already succeeded server-side and the animation above
+    // finished showing it — a failure here is only a stale-data refresh
+    // problem, not a failed roll, so it must not overwrite `phase`/the error
+    // message with the "roll failed" state above.
+    try {
       const [freshSkills, freshHistory] = await Promise.all([
         fetchJson<SkillDTO[]>("/api/skills"),
         fetchJson<{ items: HistorySession[] }>("/api/history?limit=5"),
@@ -123,8 +152,9 @@ export function Spinner({ initialSkills, initialDecayExponent, initialRecentRoll
       setSkills(freshSkills);
       setRecentRolls(freshHistory.items);
     } catch {
-      setErrorMessage("Quay thất bại. Kiểm tra kết nối rồi thử lại.");
-      setPhase("error");
+      setErrorMessage(
+        "Quay thành công nhưng không tải được số liệu mới nhất. Số liệu sẽ cập nhật ở lần quay hoặc tải trang tiếp theo."
+      );
     }
   }
 
@@ -138,10 +168,17 @@ export function Spinner({ initialSkills, initialDecayExponent, initialRecentRoll
       </div>
 
       {errorMessage && (
-        <p className="rounded-lg border border-red-300 bg-red-50 px-4 py-2 text-center text-sm text-red-700 dark:border-red-800 dark:bg-red-950 dark:text-red-300">
+        <p
+          role="alert"
+          className="rounded-lg border border-red-300 bg-red-50 px-4 py-2 text-center text-sm text-red-700 dark:border-red-800 dark:bg-red-950 dark:text-red-300"
+        >
           {errorMessage}
         </p>
       )}
+
+      <div aria-live="polite" role="status" className="sr-only">
+        {phase === "rolling" ? "Đang quay..." : resultAnnouncement ? `Kết quả: ${resultAnnouncement}` : ""}
+      </div>
 
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {skills.map((skill) => (

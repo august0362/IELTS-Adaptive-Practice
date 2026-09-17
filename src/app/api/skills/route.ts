@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { db } from "@/lib/db/client";
+import { getSkillsWithParts } from "@/lib/db/queries";
 
 export async function GET() {
-  const allSkills = await db.query.skills.findMany({ with: { parts: true } });
+  const allSkills = await getSkillsWithParts();
   return NextResponse.json(allSkills);
 }

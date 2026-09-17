@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { count } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { rollSessions } from "@/lib/db/schema";
+import { getRecentRollHistory } from "@/lib/db/queries";
 
 const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 200;
@@ -20,17 +21,7 @@ export async function GET(request: Request) {
   const offset = parseNonNegativeInt(searchParams.get("offset"), 0);
 
   const [{ total }] = await db.select({ total: count() }).from(rollSessions);
-
-  const sessions = await db.query.rollSessions.findMany({
-    orderBy: (session, { desc }) => [desc(session.rolledAt)],
-    limit,
-    offset,
-    with: {
-      results: {
-        with: { skill: true, part: true },
-      },
-    },
-  });
+  const sessions = await getRecentRollHistory(limit, offset);
 
   const items = sessions.map((session) => ({
     id: session.id,

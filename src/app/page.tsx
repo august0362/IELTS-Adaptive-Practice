@@ -1,10 +1,41 @@
-export default function Home() {
+import { db } from "@/lib/db/client";
+import { getSkillsWithParts, getRecentRollHistory } from "@/lib/db/queries";
+import { loadEngineConfig } from "@/lib/db/configHelpers";
+import { Spinner } from "@/components/spinner/Spinner";
+import type { HistorySession } from "@/lib/types";
+
+export default async function Home() {
+  const [skillRows, config, historySessions] = await Promise.all([
+    getSkillsWithParts(),
+    Promise.resolve(loadEngineConfig(db)),
+    getRecentRollHistory(5),
+  ]);
+
+  // Convert Date -> ISO string so the shape matches what GET /api/skills returns over JSON
+  // (the client component's SkillDTO type expects string | null, not a Date object).
+  const skills = skillRows.map((skill) => ({
+    ...skill,
+    lastAppearedAt: skill.lastAppearedAt?.toISOString() ?? null,
+    parts: skill.parts.map((part) => ({
+      ...part,
+      lastAppearedAt: part.lastAppearedAt?.toISOString() ?? null,
+    })),
+  }));
+
+  const initialRecentRolls: HistorySession[] = historySessions.map((session) => ({
+    id: session.id,
+    rolledAt: session.rolledAt.toISOString(),
+    results: session.results.map((r) => ({
+      skill: { id: r.skill.id, code: r.skill.code, name: r.skill.name },
+      part: { id: r.part.id, code: r.part.code, name: r.part.name },
+    })),
+  }));
+
   return (
-    <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col items-center justify-center gap-3 px-4 py-16 text-center">
-      <h1 className="text-2xl font-semibold tracking-tight text-foreground">Vòng quay kỹ năng</h1>
-      <p className="max-w-md text-sm text-foreground/60">
-        Vòng quay sẽ chọn 2/4 kỹ năng và tự động quay ra part/task tương ứng. (Đang xây dựng ở bước tiếp theo.)
-      </p>
-    </main>
+    <Spinner
+      initialSkills={skills}
+      initialDecayExponent={config.decayExponent}
+      initialRecentRolls={initialRecentRolls}
+    />
   );
 }

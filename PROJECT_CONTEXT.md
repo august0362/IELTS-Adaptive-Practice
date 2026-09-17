@@ -93,8 +93,10 @@ drizzle.config.ts              # drizzle-kit config (dialect: sqlite, schema pat
     /types
       index.ts                 # Shared TS types (Skill, SkillPart, RollResult, etc.)
   /tests
-    /unit                      # Vitest: one file per lib/engine/*.ts module
-    /e2e                       # Playwright: full roll flow, journal CRUD, cambridge CRUD
+    setup.ts                   # RTL cleanup + jest-dom matchers, loaded only by the "component" vitest project
+    /unit                      # Vitest "unit" project (node env): one file per lib/*.ts pure-function module
+    /component                 # Vitest "component" project (jsdom env): RTL tests per interactive component
+    /e2e                       # Playwright: full roll flow, journal CRUD, cambridge CRUD (Milestone 3 Step 2)
 document.txt
 PROJECT_CONTEXT.md
 CLAUDE.md
@@ -274,9 +276,11 @@ Once enough `CambridgeTestResult` history exists per skill, replace the flat 30-
 
 ## 7. Testing strategy (summary — full detail in `TESTING_GUIDE.md`, written in Milestone 4)
 
-- **Unit (Vitest)**: every function in `lib/engine/*` gets a dedicated test file. Required edge cases: all-counts-zero (equal probabilities), one dominant count (approaches but never 0), overdue-forcing (0/1/2 skills overdue, 3+ simultaneously overdue), soft-reset trigger, <30 and 0 Cambridge rows, clamp boundaries in Formula 3, all `ieltsRound` boundary values (.24/.25/.74/.75).
-- **Component (RTL)**: spinner cascade renders both picks; journal tag parsing; recent-tests table shows exactly 5 + "view all" opens full list.
-- **E2E (Playwright)**: full roll → DB counters increment → history shows new entry; add Cambridge result → prediction updates; add journal note with tag → appears filtered by tag.
+`vitest.config.mts` defines two Vitest **projects** (the modern replacement for a separate workspace file / the old `environmentMatchGlobs`), each with its own environment — `npm run test` runs both:
+
+- **`unit`** (node env, `src/tests/unit/**/*.test.ts`): every function in `lib/engine/*` plus other pure modules (`tagUtils.ts`, `spinnerAnimation.ts`) gets a dedicated test file. Required edge cases: all-counts-zero (equal probabilities), one dominant count (approaches but never 0), overdue-forcing (0/1/2 skills overdue, 3+ simultaneously overdue), soft-reset trigger, <30 and 0 Cambridge rows, clamp boundaries in Formula 3, all `ieltsRound` boundary values (.24/.25/.74/.75).
+- **`component`** (jsdom env via React Testing Library, `src/tests/component/**/*.test.tsx`, setup in `src/tests/setup.ts`): spinner cascade renders both server-chosen picks (the cycling animation itself is mocked here — its timing/landing-index correctness is the `unit` project's job, not this one's); journal tag extraction + filter-chip interaction; Cambridge tracker's 5-most-recent vs "Xem tất cả" toggle; prediction rounding-mode toggle states. `src/tests/component/mockFetch.ts` is a small shared helper for stubbing sequential `fetch` responses — not a test file itself.
+- **E2E (Playwright)**: full roll → DB counters increment → history shows new entry; add Cambridge result → prediction updates; add journal note with tag → appears filtered by tag. (Milestone 3 Step 2 — not yet built as of Step 1.)
 
 ---
 

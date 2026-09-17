@@ -3,10 +3,21 @@ import { count } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { rollSessions } from "@/lib/db/schema";
 
+const DEFAULT_LIMIT = 20;
+const MAX_LIMIT = 200;
+
+function parseNonNegativeInt(raw: string | null, fallback: number, max?: number): number {
+  if (raw === null) return fallback;
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed) || parsed < 0) return fallback;
+  const truncated = Math.trunc(parsed);
+  return max !== undefined ? Math.min(truncated, max) : truncated;
+}
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const limit = Number(searchParams.get("limit") ?? "20");
-  const offset = Number(searchParams.get("offset") ?? "0");
+  const limit = parseNonNegativeInt(searchParams.get("limit"), DEFAULT_LIMIT, MAX_LIMIT);
+  const offset = parseNonNegativeInt(searchParams.get("offset"), 0);
 
   const [{ total }] = await db.select({ total: count() }).from(rollSessions);
 

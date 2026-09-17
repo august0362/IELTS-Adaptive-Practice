@@ -3,23 +3,37 @@ import { desc } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { cambridgeTestResults } from "@/lib/db/schema";
 import { ieltsRound } from "@/lib/engine/ieltsRounding";
+import { readJsonObject } from "@/lib/api/requestJson";
 
 const DEFAULT_RECENT_LIMIT = 5;
+const MAX_LIMIT = 500;
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const all = searchParams.get("all") === "true";
-  const limit = all ? undefined : Number(searchParams.get("limit") ?? String(DEFAULT_RECENT_LIMIT));
+
+  let limit: number | undefined;
+  if (!all) {
+    const limitParam = searchParams.get("limit");
+    const rawLimit = limitParam === null ? DEFAULT_RECENT_LIMIT : Number(limitParam);
+    limit =
+      Number.isFinite(rawLimit) && rawLimit >= 0
+        ? Math.min(Math.trunc(rawLimit), MAX_LIMIT)
+        : DEFAULT_RECENT_LIMIT;
+  }
 
   const query = db.select().from(cambridgeTestResults).orderBy(desc(cambridgeTestResults.testDate));
-  const results = limit ? await query.limit(limit) : await query;
+  const results = limit !== undefined ? await query.limit(limit) : await query;
 
   return NextResponse.json(results);
 }
 
 export async function POST(request: Request) {
-  const body = await request.json();
-  const { testDate, testName, readingBand, listeningBand, writingBand, speakingBand, note } = body ?? {};
+  const parsed = await readJsonObject(request);
+  if (!parsed.ok) {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
+  const { testDate, testName, readingBand, listeningBand, writingBand, speakingBand, note } = parsed.body;
 
   const bands = { readingBand, listeningBand, writingBand, speakingBand };
   for (const [key, value] of Object.entries(bands)) {

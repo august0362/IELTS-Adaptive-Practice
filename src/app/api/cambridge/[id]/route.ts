@@ -3,10 +3,15 @@ import { eq } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { cambridgeTestResults } from "@/lib/db/schema";
 import { ieltsRound } from "@/lib/engine/ieltsRounding";
+import { readJsonObject } from "@/lib/api/requestJson";
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const body = await request.json();
+  const parsed = await readJsonObject(request);
+  if (!parsed.ok) {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
+  const body = parsed.body;
 
   const existing = await db.query.cambridgeTestResults.findFirst({ where: eq(cambridgeTestResults.id, id) });
   if (!existing) {

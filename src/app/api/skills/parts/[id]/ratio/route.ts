@@ -2,11 +2,15 @@ import { NextResponse } from "next/server";
 import { eq, and, ne } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { skillParts } from "@/lib/db/schema";
+import { readJsonObject } from "@/lib/api/requestJson";
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const body = await request.json();
-  const baseRatio = Number(body?.baseRatio);
+  const parsed = await readJsonObject(request);
+  if (!parsed.ok) {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
+  const baseRatio = Number(parsed.body.baseRatio);
 
   if (!Number.isFinite(baseRatio) || baseRatio < 0 || baseRatio > 1) {
     return NextResponse.json({ error: "baseRatio must be a number between 0 and 1" }, { status: 400 });

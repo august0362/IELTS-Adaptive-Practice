@@ -4,7 +4,7 @@
 >
 > **Update rule**: any change to the DB schema, a formula, an API contract, or a folder convention MUST be reflected here in the same task/commit that makes the change. A stale PROJECT_CONTEXT.md is treated as a bug.
 
-Last updated: 2026-09-17 (Milestone 1, Step 1 — scaffold + DB layer done; see §2.1 for an important tech-stack change made during this step).
+Last updated: 2026-09-17 (Milestone 1 complete — Step 1 scaffold + DB layer, Step 2 math engine, Step 3 API routes wired to Drizzle, plus Supervisor review fixes; see §2.1 for an important tech-stack change made during Step 1).
 
 ---
 
@@ -254,7 +254,7 @@ Once enough `CambridgeTestResult` history exists per skill, replace the flat 30-
 |---|---|---|---|
 | POST | `/api/roll` | — | `{ sessionId, results: [{ skill, part }, { skill, part }] }` |
 | GET | `/api/skills` | — | `[{ id, code, name, occurrenceCount, lastAppearedAt, parts: [{ id, code, name, baseRatio, occurrenceCount, lastAppearedAt }] }]` |
-| PATCH | `/api/skills/parts/:id/ratio` | `{ baseRatio: number }` (0–1; sibling part auto-adjusts to `1 - baseRatio`) | updated `SkillPart` |
+| PATCH | `/api/skills/parts/:id/ratio` | `{ baseRatio: number }` (0–1; sibling part auto-adjusts to `1 - baseRatio`) | `SkillPart[]` — both parts of the skill (the one updated and its sibling), so the UI can refresh both slider positions from one response without a second fetch |
 | GET | `/api/history` | `?limit=&offset=` | `{ total, items: [{ id, rolledAt, results: [{skill, part}, ...] }] }` |
 | GET | `/api/notes` | `?date=` optional | `[{ id, noteDate, tags, content }]` |
 | POST | `/api/notes` | `{ noteDate, tags, content }` | created note |

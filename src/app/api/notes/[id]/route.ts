@@ -2,11 +2,15 @@ import { NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { dailyNotes } from "@/lib/db/schema";
+import { readJsonObject } from "@/lib/api/requestJson";
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const body = await request.json();
-  const { tags, content } = body ?? {};
+  const parsed = await readJsonObject(request);
+  if (!parsed.ok) {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
+  const { tags, content } = parsed.body;
 
   const patch: Partial<typeof dailyNotes.$inferInsert> = { updatedAt: new Date() };
   if (typeof tags === "string") patch.tags = tags;

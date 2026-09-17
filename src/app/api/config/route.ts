@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { config as configTable } from "@/lib/db/schema";
+import { readJsonObject } from "@/lib/api/requestJson";
 
 async function currentConfigMap() {
   const rows = await db.select().from(configTable);
@@ -13,8 +14,11 @@ export async function GET() {
 }
 
 export async function PATCH(request: Request) {
-  const body = await request.json();
-  const { key, value } = body ?? {};
+  const parsed = await readJsonObject(request);
+  if (!parsed.ok) {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
+  const { key, value } = parsed.body;
 
   if (typeof key !== "string" || key.length === 0 || value === undefined || value === null) {
     return NextResponse.json({ error: "key (string) and value are required" }, { status: 400 });

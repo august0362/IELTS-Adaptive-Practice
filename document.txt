@@ -120,3 +120,46 @@ DONE
     after each round of manual endpoint testing so no test data lingers.
   - Backend is now feature-complete per PROJECT_CONTEXT.md. Next: Milestone 2
     (Frontend/UI Agent) — Spinner, Journal, Prediction Dashboard + History view.
+
+[2026-09-17] Milestone 2 (Frontend/UI Agent), all 5 steps. MILESTONE 2 DONE.
+  - Step 1: app shell + nav (3 pages: Vòng quay /, Nhật ký /journal, Dự đoán
+    /prediction — no separate /history page; roll history got folded into
+    the Spinner page in Step 2 instead).
+  - Step 2: Spinner page. Discovered mid-step that this project's installed
+    eslint-plugin-react-hooks (v7, React-Compiler-based) flags ANY setState
+    reachable from a useEffect as an error, even async-after-await — so
+    initial data fetching moved to Server Components (page.tsx) passing
+    props down, with client-side fetch only inside event handlers from then
+    on. This became the standing pattern for every page (no useEffect
+    fetch-on-mount anywhere in the app). Built a dependency-free "slot
+    machine" cycling-reveal animation (spinnerAnimation.ts) instead of a
+    literal rotating wheel graphic.
+  - Step 3: Journal page. Tags are auto-extracted from #word mentions typed
+    inline in the note content (tagUtils.ts, unicode-aware for Vietnamese
+    tags) rather than a separate tag input field.
+  - Step 4: Cambridge test tracking (add/edit/delete, 5-recent + "Xem tất
+    cả"/"Thu gọn" toggle) on the /prediction page. Every mutation always
+    refetches the list from the server afterward rather than locally
+    patching state — deliberate, after a local-sort bug in Step 3's review;
+    confirmed as the right tradeoff for this app's scale in Step 4's review.
+  - Step 5: Prediction cards, the overall_prediction_rounding_mode toggle
+    (resolves the ambiguity logged in Milestone 1), a 30-day
+    practice-frequency bar chart (dataviz skill followed: palette validated
+    via scripts/validate_palette.js before writing chart code, both light
+    and dark), and Speaking/Reading Block A/B ratio sliders. Completes the
+    /prediction page started in Step 4.
+  - Each step's Supervisor review found and fixed at least one real bug:
+    Step 2 (misleading error path when only the post-roll refresh failed,
+    plus missing aria-live), Step 3 (invalid/non-antisymmetric sort
+    comparator scrambling same-day note order), Step 4 (PATCH could never
+    clear an existing Cambridge note — no way to distinguish "key absent"
+    from "key null" in the request body), Step 5 (missing aria-label on the
+    ratio sliders, plus stale folder-structure doc drift accumulated across
+    Steps 2-5, fixed in PROJECT_CONTEXT.md section 3).
+  - Found (not fixed, explicitly deferred by the user): an untracked,
+    unrelated `src/theme/` directory of Color Hunt palette PNGs predating
+    this project, unreferenced by any code. Left alone, not committed, not
+    deleted — the user's call if/when they want it gone.
+  - Frontend is now feature-complete for the 3 core surfaces. Next:
+    Milestone 3 (QA/Testing Agent) — component tests (Vitest+RTL), then
+    Playwright e2e tests, per CLAUDE.md's 2-step breakdown.

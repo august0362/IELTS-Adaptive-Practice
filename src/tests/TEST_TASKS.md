@@ -6,7 +6,7 @@
 
 - [x] Vitest split into two **projects** (`vitest.config.mts`): `unit` (node env, `tests/unit/**`) and `component` (jsdom env via RTL, `tests/component/**`), sharing one `@` path alias
 - [x] `tests/setup.ts` — RTL cleanup + `vi.unstubAllGlobals()` per test (required since this project doesn't use Vitest's `globals: true`)
-- [x] Unit: `weightedRandom`, `weeklyConstraint`, `bandPrediction`, `ieltsRounding`, `countSoftReset`, `tagUtils`, `spinnerAnimation`, `theme` (contrast-safety + primary-synthesis rules)
+- [x] Unit: `weightedRandom`, `weeklyConstraint`, `bandPrediction`, `ieltsRounding`, `countSoftReset`, `tagUtils`, `spinnerAnimation`, `theme` (contrast-safety + primary-synthesis rules; gained 2 WCAG contrast-ratio regression tests during Milestone 4 Step 1's review after it found `primaryForeground` failing AA contrast on 7 of the 19 themes — see `document.txt`)
 - [x] Component: `Spinner` (animation mocked instantly — its timing has its own unit test), `Journal`, `CambridgeTracker`, `RoundingModeToggle`, `PredictionCards`, `PredictionPageClient` (integration-level: toggle → `PATCH /api/config` → prediction refresh), `ThemePicker`+`ThemeProvider` (applies CSS vars, persists to localStorage, restores/falls back on mount)
 - [x] `tests/component/mockFetch.ts` — shared sequential-fetch-response stub helper
 - [x] Playwright e2e (`playwright.config.ts`, `tests/e2e/*.spec.ts`): full roll flow, journal CRUD, Cambridge add → prediction dashboard updates a real displayed value (not just "not enough data" disappearing)

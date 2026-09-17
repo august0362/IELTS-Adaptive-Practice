@@ -54,6 +54,45 @@ describe("computeThemeRoles", () => {
       }
     }
   });
+
+  // Regression test for a Milestone 4 review finding: primaryForeground was picked via a
+  // flat `relativeLuminance(primary) > 0.5` split, but the actual crossover luminance where
+  // black and white text reach equal WCAG contrast is ~0.19, not 0.5 — so any primary whose
+  // luminance fell in the ~0.19-0.5 band got the *lower*-contrast text color. This hit 7 of
+  // the 19 real shipped themes (e.g. "cold" #2196f3 paired with white text scored only
+  // 3.12:1; "ch-material-blue" and "ch-mocha" scored ~2.2:1, below even the 3:1 floor for
+  // large text/UI components). Fixed by picking whichever of #111111/#ffffff yields higher
+  // contrast against the actual primary, which mathematically guarantees >= ~4.3:1 in the
+  // worst case (the exact crossover point) for any primary color at all.
+  it("guarantees WCAG AA contrast (>= 4.5:1) between primary and primaryForeground for every defined theme", () => {
+    function relativeLuminance(hex: string): number {
+      const clean = hex.replace("#", "");
+      const [r, g, b] = [0, 2, 4].map((i) => parseInt(clean.slice(i, i + 2), 16) / 255);
+      const [rl, gl, bl] = [r, g, b].map((s) => (s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4)));
+      return 0.2126 * rl + 0.7152 * gl + 0.0722 * bl;
+    }
+    function contrastRatio(a: string, b: string): number {
+      const l1 = relativeLuminance(a);
+      const l2 = relativeLuminance(b);
+      return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
+    }
+
+    for (const theme of THEMES) {
+      const roles = computeThemeRoles(theme.colors);
+      const ratio = contrastRatio(roles.primary, roles.primaryForeground);
+      expect(ratio, `theme "${theme.id}": primary=${roles.primary} primaryForeground=${roles.primaryForeground}`).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+
+  it("picks whichever fixed text color gives higher contrast, not a flat luminance>0.5 split", () => {
+    // #2196f3 has relativeLuminance ~0.286 (between the true ~0.19 crossover and 0.5), so
+    // the old ">0.5" rule picked white (3.12:1) when black (#111111) gives 6.04:1 — clearly
+    // the better choice. Construct a theme where this color wins pickPrimary and assert the
+    // fixed-up logic now chooses the higher-contrast option.
+    const roles = computeThemeRoles(["#2196f3", "#e3f0fb", "#93c9f5", "#0e4c9b"]);
+    expect(roles.primary).toBe("#2196f3");
+    expect(roles.primaryForeground).toBe("#111111");
+  });
 });
 
 describe("getThemeById", () => {

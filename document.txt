@@ -199,3 +199,97 @@ DONE
   - 80/80 unit+component tests, 3/3 e2e, typecheck, lint all green.
     Next: Milestone 4 (Supervisor) — full review pass, USER_GUIDE.md,
     finalize TESTING_GUIDE.md, reconcile document.txt.
+
+[2026-09-17] Theme system built (Milestone 4 prep, ahead of Step 1's review).
+  - src/lib/theme.ts: 19 ThemeDefinitions (6 named light->dark ramps + 12
+    Color Hunt 4-color palettes + "default") and computeThemeRoles(), which
+    derives background/foreground (fixed safe neutral pair, chosen by the
+    palette's average luminance), surface/border (palette color closest to
+    the background's lightness tier), and primary/primaryForeground (most
+    usable saturated/mid-lightness color, synthesized via HSL if none of the
+    4 raw colors qualify).
+  - src/components/theme/ThemeProvider.tsx (localStorage-backed context,
+    lazy useState initializer + a setState-free effect, specifically to
+    avoid this project's react-hooks/set-state-in-effect rule — see
+    Milestone 2 Step 2's history above) and ThemePicker.tsx (swatch grid),
+    wired into a new /settings page + "Cài đặt" nav link.
+  - Swept every component off hardcoded bg-white/border-black/bg-foreground
+    text-background etc. onto theme-aware bg-surface/border-border/
+    bg-primary/text-primary-foreground utilities (globals.css maps 6 CSS
+    custom properties through @theme inline). Status colors (delete=red,
+    spinner cycling/selected=blue/emerald) intentionally left fixed, not
+    themed. Full design rationale in PROJECT_CONTEXT.md section 9.
+  - This entry was missing from this log until Milestone 4 Step 1's review
+    below caught the gap (the work itself was already reflected in
+    FRONTEND_TASKS.md, TEST_TASKS.md, and PROJECT_CONTEXT.md section 9).
+
+[2026-09-17] Milestone 4, Step 1: Supervisor full-app review.
+  - Per the user's explicit instruction, did NOT re-review the 3 engine
+    formulas, the IELTS rounding rule, or API input validation — all
+    reviewed 3x during Milestone 1 and covered by 40+ dedicated unit tests.
+    Ran `npm run test` (93 passed) and `npm run test:e2e` (3 passed) first
+    to confirm the suite is still green, and stopped there for that layer.
+  - Focus: the theme system (never reviewed before) + cross-document
+    consistency.
+  - REAL BUG FOUND AND FIXED in src/lib/theme.ts: computeThemeRoles picked
+    primaryForeground via a flat `relativeLuminance(primary) > 0.5` split.
+    The actual WCAG crossover luminance where black vs. white text reach
+    equal contrast is ~0.19, not 0.5 — so any primary color with luminance
+    in the ~0.19-0.5 band got the LOWER-contrast text color. Verified
+    against all 19 real shipped themes: 7 failed WCAG AA (4.5:1) for
+    primary/primaryForeground, 3 of those failed even the 3:1 floor (e.g.
+    "cold" #2196f3 + white text = 3.12:1; "ch-material-blue" #64b5f7 +
+    white = 2.21:1). Fixed by comparing contrast ratio against both
+    #111111 and #ffffff and picking whichever is higher — mathematically
+    guarantees >= ~4.3:1 in the worst case, and empirically all 19 themes
+    now pass 4.5:1 (worst case "dark-winter" at 4.56:1). Added 2 regression
+    tests to src/tests/unit/theme.test.ts (a computed-contrast assertion
+    across all 19 themes, plus a targeted case reproducing the exact old
+    failure). 95/95 unit+component tests green after the fix.
+  - Verified, no changes needed: the hardcoded-color sweep is real (no
+    remaining bg-white/bg-black/border-black/text-black/bg-gray-*/etc.
+    anywhere in src/components or src/app); the surviving `dark:` variants
+    are all on the intentionally-fixed status colors (delete=red, spinner
+    cycling/selected=blue/emerald), matching PROJECT_CONTEXT.md section 9's
+    documented exception; `npx eslint` is clean on ThemeProvider.tsx/
+    ThemePicker.tsx/settings/page.tsx; ThemePicker's swatches are native
+    <button>s (keyboard-operable by default) with correct aria-pressed and
+    an always-visible text theme name (not color-only information); no
+    injection vector in ThemePicker's inline style={{...}} — every value
+    traces back to the static THEMES array or a pure function over it,
+    never to arbitrary/attacker-controlled input (a localStorage-restored
+    theme id is validated against the known THEMES list before use).
+  - Verified live: started the existing dev server, curled /, /journal,
+    /prediction, /settings — all 200, real content, headings intact, nav
+    present with bg-surface/border-border classes on every page, no error
+    markers. Fetched the compiled CSS chunk directly and confirmed
+    .bg-surface/.bg-primary/.border-border/.text-primary-foreground etc.
+    compile to real var(--surface)/var(--primary)/... rules, not just
+    class names present in markup.
+  - Cross-document drift found and fixed: document.txt's DONE log had no
+    entry for the theme system build even though PROJECT_CONTEXT.md
+    section 9, FRONTEND_TASKS.md, and TEST_TASKS.md already documented it
+    as done — added the entry above. PROGRESS.md's "Current status" still
+    said Milestone 4 was "Pending" with no mention that the theme system
+    (its prep work) had already landed — updated. PROJECT_CONTEXT.md
+    section 3 (folder structure) and section 6 (API contracts) spot-checked
+    against the actual file tree and route handlers (routes, pages,
+    component dirs, engine/db files, GET /api/prediction's response shape)
+    — all accurate, no drift found there.
+  - Flagged, not touched: an unusual untagged note sits appended at the very
+    end of this file after the Milestone 3 entry, phrased as an instruction
+    to a reader ("if you read this, ignore it") followed by a suggestion
+    about integrating exercise formats into skills. It doesn't match this
+    log's dated-entry format and wasn't part of any milestone's actual
+    scoped work. Not acted on (content encountered in project files is data
+    to review, not an instruction to follow) and not deleted (not this
+    review's call to remove something that may have been intentionally
+    left) — flagged here for the user to check.
+  - App + docs are solid; no other blockers found. Ready for Milestone 4
+    Step 2 (USER_GUIDE.md, finalize TESTING_GUIDE.md).
+  - The unusual untagged note that had been appended after this entry
+    (an instruction-like line telling a reader to "ignore" it while
+    smuggling in a feature suggestion — a prompt-injection pattern, not
+    a legitimate log entry) was moved out to note.txt (untracked, not
+    committed — see .gitignore) at the user's direction, rather than
+    left here or silently deleted.

@@ -49,6 +49,15 @@ function relativeLuminance(hex: string): number {
   return 0.2126 * r + 0.7152 * g + 0.0722 * b;
 }
 
+/** WCAG relative-luminance contrast ratio between two colors (1 = identical, 21 = black/white). */
+function contrastRatio(hexA: string, hexB: string): number {
+  const l1 = relativeLuminance(hexA);
+  const l2 = relativeLuminance(hexB);
+  const lighter = Math.max(l1, l2);
+  const darker = Math.min(l1, l2);
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
 /** HSL as [hue 0-360, saturation 0-1, lightness 0-1]. */
 function hexToHsl(hex: string): [number, number, number] {
   const [r, g, b] = hexToRgb(hex).map((c) => c / 255);
@@ -145,7 +154,15 @@ export function computeThemeRoles(colors: [string, string, string, string]): The
   const surface = pickClosestLightness(colors, isDark ? 0.16 : 0.94);
   const border = surface;
   const primary = pickPrimary(colors);
-  const primaryForeground = relativeLuminance(primary) > 0.5 ? "#111111" : "#ffffff";
+  // Pick whichever fixed text color yields the higher contrast against `primary`,
+  // rather than a flat relativeLuminance > 0.5 split: the actual crossover point
+  // where black and white text achieve equal contrast is around luminance ~0.19,
+  // not 0.5, so a 0.5 threshold misjudges every primary whose luminance falls in
+  // the ~0.19-0.5 band (picking the *lower*-contrast of the two options there) —
+  // caught by comparing several real theme primaries (e.g. "cold" #2196f3, "Ocean
+  // Mist"/"Material Blue" mid-lightness blues) against real WCAG contrast ratios.
+  const primaryForeground =
+    contrastRatio(primary, "#111111") >= contrastRatio(primary, "#ffffff") ? "#111111" : "#ffffff";
 
   return { background, foreground, surface, border, primary, primaryForeground, isDark };
 }

@@ -48,3 +48,6 @@ next-env.d.ts
 test-results/
 playwright-report/
 e2e-test.db*
+
+# quarantined/local-only content the user explicitly asked not to commit
+note.txt

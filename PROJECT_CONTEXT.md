@@ -4,7 +4,7 @@
 >
 > **Update rule**: any change to the DB schema, a formula, an API contract, or a folder convention MUST be reflected here in the same task/commit that makes the change. A stale PROJECT_CONTEXT.md is treated as a bug.
 
-Last updated: 2026-09-17 (Milestone 1 complete — Step 1 scaffold + DB layer, Step 2 math engine, Step 3 API routes wired to Drizzle, plus Supervisor review fixes; see §2.1 for an important tech-stack change made during Step 1).
+Last updated: 2026-09-18 (all 4 originally-scoped milestones done — backend/engine/API, frontend, tests, and a Milestone 4 theme system + full review + `TESTING_GUIDE.md`/`USER_GUIDE.md`. See `PROGRESS.md` for current status and §2.1 for an important tech-stack change from Milestone 1, §9 for the theme system).
 
 ---
 
@@ -117,8 +117,8 @@ playwright.config.ts
 document.txt
 PROJECT_CONTEXT.md
 CLAUDE.md
-TESTING_GUIDE.md               # written in Milestone 4
-USER_GUIDE.md                  # written in Milestone 4
+TESTING_GUIDE.md               # how to run/extend the test suite, environment gotchas
+USER_GUIDE.md                  # end-user (Vietnamese) guide to the 4 pages
 package.json
 tsconfig.json
 ```
@@ -291,7 +291,7 @@ Once enough `CambridgeTestResult` history exists per skill, replace the flat 30-
 
 ---
 
-## 7. Testing strategy (summary — full detail in `TESTING_GUIDE.md`, written in Milestone 4)
+## 7. Testing strategy (summary — full detail in [`TESTING_GUIDE.md`](./TESTING_GUIDE.md))
 
 `vitest.config.mts` defines two Vitest **projects** (the modern replacement for a separate workspace file / the old `environmentMatchGlobs`), each with its own environment — `npm run test` runs both:
 

@@ -53,11 +53,7 @@ PENDING
    rolls twice a day, 50 rolls is ~25 days per pool item, which may be too aggressive
    or too lax — tune after observing real numbers).
 
-7. TESTING_GUIDE.md and USER_GUIDE.md
-   Why deferred: scheduled for Milestone 4 in CLAUDE.md, after the app itself exists,
-   so the guides describe real, working behavior rather than speculative behavior.
-
-8. Config UI (currently only via API/DB, no dedicated settings screen)
+7. Config UI for engine constants (currently only via API/DB)
    Why deferred: not explicitly requested; `GET/PATCH /api/config` exists per
    PROJECT_CONTEXT.md section 6, but no UI screen was scoped for editing
    decay_exponent, weekly_threshold_days, frequency_adjustment_factor/cap, or
@@ -293,3 +289,23 @@ DONE
     a legitimate log entry) was moved out to note.txt (untracked, not
     committed — see .gitignore) at the user's direction, rather than
     left here or silently deleted.
+
+[2026-09-17] Milestone 4, Step 2: TESTING_GUIDE.md + USER_GUIDE.md. MILESTONE 4 DONE.
+  - Wrote TESTING_GUIDE.md: how to run each test project, where a new test
+    goes for a given kind of change, and a "gotchas already hit once" section
+    listing every environment surprise this project ran into (the @ alias,
+    RTL cleanup needing to be explicit, next typegen before tsc, the
+    set-state-in-effect rule's real fix pattern, e2e needing a production
+    build + its own DB) so a future session doesn't rediscover them the
+    expensive way.
+  - Wrote USER_GUIDE.md (Vietnamese, end-user facing): how to use all 4
+    pages (Vòng quay, Nhật ký, Dự đoán, Cài đặt), where data lives
+    (./dev.db) and how to back it up, and an FAQ section.
+  - Reconciled this file: removed the TESTING_GUIDE.md/USER_GUIDE.md PENDING
+    entry (now done) and renumbered the Config UI entry; everything else in
+    PENDING is still genuinely deferred and accurate as written.
+  - This closes Milestone 4 and the originally-scoped project. Remaining
+    work is entirely the PENDING backlog above (auth, cloud deploy, Band
+    Prediction v2, part-level weekly-minimum, soft-reset tuning, adjustable
+    baseRatio UI for Writing/Listening, Config UI for engine constants) —
+    none of it blocks normal use of the app as built.

@@ -4,6 +4,11 @@ import { loadEngineConfig } from "@/lib/db/configHelpers";
 import { Spinner } from "@/components/spinner/Spinner";
 import type { HistorySession } from "@/lib/types";
 
+// This page reads live, frequently-changing DB state (skill counters, roll
+// history) on every request — without this, Next statically prerenders it
+// once at build time and every visitor gets that same frozen snapshot forever.
+export const dynamic = "force-dynamic";
+
 export default async function Home() {
   const [skillRows, config, historySessions] = await Promise.all([
     getSkillsWithParts(),

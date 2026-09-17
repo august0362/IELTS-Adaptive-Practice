@@ -71,6 +71,14 @@ drizzle.config.ts              # drizzle-kit config (dialect: sqlite, schema pat
     /journal/page.tsx
     /prediction/page.tsx
     layout.tsx
+    # `page.tsx`, `journal/page.tsx`, and `prediction/page.tsx` all set
+    # `export const dynamic = "force-dynamic"` — added in Milestone 3 Step 2 after
+    # `next build` silently prerendered them as *static* HTML (they have no
+    # dynamic-triggering API like cookies()/headers(), so Next's default guess was
+    # static) and shipped a permanently-frozen snapshot of whatever the DB held at
+    # build time. Any future Server Component page doing a live DB read needs this
+    # same export, or it will look correct in `next dev` (which never prerenders)
+    # and only break in a real `next build`/`next start`.
   /components
     /layout                    # Nav.tsx — top nav bar, active-link highlighting
     /spinner                   # Lucky-wheel UI, cascades skill -> part reveal
@@ -89,14 +97,19 @@ drizzle.config.ts              # drizzle-kit config (dialect: sqlite, schema pat
     /db
       schema.ts                # Drizzle table definitions (source of truth for the DB shape)
       client.ts                # better-sqlite3 + drizzle client singleton
-      seed.ts                  # seeds the 4 skills + 8 parts with default baseRatio + 5 Config defaults (run: npm run db:seed)
+      seed.ts                  # exports seedDatabase(db) — takes any Drizzle db instance, so both seedCli.ts
+                                # (the real ./dev.db) and the e2e test setup (a disposable ./e2e-test.db) seed
+                                # identically without duplicating the skill/part/config data
+      seedCli.ts                # `npm run db:seed` entry point — calls seedDatabase(the real db singleton)
     /types
       index.ts                 # Shared TS types (Skill, SkillPart, RollResult, etc.)
   /tests
     setup.ts                   # RTL cleanup + jest-dom matchers, loaded only by the "component" vitest project
     /unit                      # Vitest "unit" project (node env): one file per lib/*.ts pure-function module
     /component                 # Vitest "component" project (jsdom env): RTL tests per interactive component
-    /e2e                       # Playwright: full roll flow, journal CRUD, cambridge CRUD (Milestone 3 Step 2)
+    /e2e                       # Playwright specs + testDbPath.ts (shared const) + setupDb.ts (wipe/migrate/seed
+                                # the disposable e2e DB, chained into playwright.config.ts's webServer command)
+playwright.config.ts
 document.txt
 PROJECT_CONTEXT.md
 CLAUDE.md
@@ -132,7 +145,7 @@ All primary keys are `text` (`crypto.randomUUID()`), all timestamp columns are s
 
 **Migrations**: `npm run db:generate` (writes SQL to `drizzle/migrations/`) → `npm run db:migrate` (applies to `./dev.db`). `npm run db:studio` opens Drizzle Studio (a local DB browser/GUI) against `./dev.db`. `./dev.db` itself is gitignored — anyone restoring this repo runs `db:migrate` then `db:seed` to recreate it.
 
-**Seed data** (`src/lib/db/seed.ts`, run via `npm run db:seed`):
+**Seed data** (`src/lib/db/seed.ts`'s `seedDatabase()`, run against the real DB via `npm run db:seed` → `seedCli.ts`):
 
 | Skill code | Part code | Name | baseRatio |
 |---|---|---|---|
@@ -280,7 +293,7 @@ Once enough `CambridgeTestResult` history exists per skill, replace the flat 30-
 
 - **`unit`** (node env, `src/tests/unit/**/*.test.ts`): every function in `lib/engine/*` plus other pure modules (`tagUtils.ts`, `spinnerAnimation.ts`) gets a dedicated test file. Required edge cases: all-counts-zero (equal probabilities), one dominant count (approaches but never 0), overdue-forcing (0/1/2 skills overdue, 3+ simultaneously overdue), soft-reset trigger, <30 and 0 Cambridge rows, clamp boundaries in Formula 3, all `ieltsRound` boundary values (.24/.25/.74/.75).
 - **`component`** (jsdom env via React Testing Library, `src/tests/component/**/*.test.tsx`, setup in `src/tests/setup.ts`): spinner cascade renders both server-chosen picks (the cycling animation itself is mocked here — its timing/landing-index correctness is the `unit` project's job, not this one's); journal tag extraction + filter-chip interaction; Cambridge tracker's 5-most-recent vs "Xem tất cả" toggle; prediction rounding-mode toggle states. `src/tests/component/mockFetch.ts` is a small shared helper for stubbing sequential `fetch` responses — not a test file itself.
-- **E2E (Playwright)**: full roll → DB counters increment → history shows new entry; add Cambridge result → prediction updates; add journal note with tag → appears filtered by tag. (Milestone 3 Step 2 — not yet built as of Step 1.)
+- **E2E (Playwright)**, `playwright.config.ts` + `src/tests/e2e/*.spec.ts`: full roll (`roll.spec.ts`), journal create/filter/edit/delete (`journal.spec.ts`), Cambridge add → prediction dashboard updates (`cambridge-prediction.spec.ts`). Runs against a **production build** (`next build && next start`), not `next dev` — `next dev` refuses a 2nd instance for the same project directory even on a different port (Next 16's dev-server singleton lock), which collides with a manually-run `npm run dev` during this project's own development. The webServer command chain is `tsx src/tests/e2e/setupDb.ts && next build && next start -p 3100`: `setupDb.ts` wipes, migrates, and seeds a disposable `./e2e-test.db` (via `DATABASE_PATH`, same mechanism `client.ts` already supported) *before* the build step, so the real `./dev.db` is never touched and every e2e run starts from identical seeded state. (An earlier attempt used Playwright's `globalSetup` hook for this instead — its ordering relative to `webServer` startup was not the "always finishes first" guarantee it reads as, and left the test DB with zero tables at runtime; chaining the setup into the same shell command via `&&` removed the ambiguity.) Run via `npm run test:e2e`.
 
 ---
 

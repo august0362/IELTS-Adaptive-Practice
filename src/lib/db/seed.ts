@@ -1,4 +1,4 @@
-import { db } from "./client";
+import type { db as DefaultDb } from "./client";
 import { skills, skillParts, config } from "./schema";
 
 const SKILLS = [
@@ -36,9 +36,16 @@ const CONFIG_DEFAULTS: { key: string; value: string }[] = [
   { key: "count_soft_reset_threshold", value: "50" },
 ];
 
-async function seed() {
+/**
+ * Seeds the 4 skills / 8 parts / 6 Config defaults into whatever Drizzle
+ * database instance is passed in. Exported (not just run as a CLI script) so
+ * the Playwright e2e global setup can seed a separate, disposable test
+ * database the same way `npm run db:seed` seeds the real one — see
+ * seedCli.ts for the CLI entry point that seeds the real ./dev.db.
+ */
+export async function seedDatabase(database: typeof DefaultDb) {
   for (const skill of SKILLS) {
-    const [inserted] = await db
+    const [inserted] = await database
       .insert(skills)
       .values(skill)
       .onConflictDoNothing({ target: skills.code })
@@ -46,12 +53,12 @@ async function seed() {
 
     const skillRow =
       inserted ??
-      (await db.query.skills.findFirst({ where: (s, { eq }) => eq(s.code, skill.code) }));
+      (await database.query.skills.findFirst({ where: (s, { eq }) => eq(s.code, skill.code) }));
 
     if (!skillRow) throw new Error(`Failed to seed or find skill ${skill.code}`);
 
     for (const part of PARTS[skill.code]) {
-      await db
+      await database
         .insert(skillParts)
         .values({ ...part, skillId: skillRow.id })
         .onConflictDoNothing({ target: skillParts.code });
@@ -59,15 +66,8 @@ async function seed() {
   }
 
   for (const entry of CONFIG_DEFAULTS) {
-    await db.insert(config).values(entry).onConflictDoNothing({ target: config.key });
+    await database.insert(config).values(entry).onConflictDoNothing({ target: config.key });
   }
 
-  console.log(`Seed complete: ${SKILLS.length} skills, ${SKILLS.length * 2} parts, ${CONFIG_DEFAULTS.length} config defaults.`);
+  return { skillCount: SKILLS.length, partCount: SKILLS.length * 2, configCount: CONFIG_DEFAULTS.length };
 }
-
-seed()
-  .catch((err) => {
-    console.error(err);
-    process.exit(1);
-  })
-  .finally(() => process.exit(0));

@@ -2,6 +2,9 @@ import { getAllNotes } from "@/lib/db/queries";
 import { Journal } from "@/components/journal/Journal";
 import type { NoteDTO } from "@/lib/types";
 
+// Live DB read on every request — see page.tsx's identical comment.
+export const dynamic = "force-dynamic";
+
 export default async function JournalPage() {
   const notes = await getAllNotes();
 

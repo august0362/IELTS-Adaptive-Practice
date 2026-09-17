@@ -45,3 +45,6 @@ next-env.d.ts
 *.db-journal
 *.db-wal
 *.db-shm
+test-results/
+playwright-report/
+e2e-test.db*

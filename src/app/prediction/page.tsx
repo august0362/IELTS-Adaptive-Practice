@@ -4,6 +4,9 @@ import { loadEngineConfig } from "@/lib/db/configHelpers";
 import { PredictionPageClient } from "@/components/prediction/PredictionPageClient";
 import type { CambridgeTestDTO, SkillDTO } from "@/lib/types";
 
+// Live DB read on every request — see page.tsx's identical comment.
+export const dynamic = "force-dynamic";
+
 export default async function PredictionPage() {
   const [recentResults, prediction, skillRows, engineConfig] = await Promise.all([
     getCambridgeResults(5),

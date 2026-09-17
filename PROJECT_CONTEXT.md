@@ -62,18 +62,23 @@ drizzle.config.ts              # drizzle-kit config (dialect: sqlite, schema pat
       /notes/[id]/route.ts     # PATCH/DELETE a note
       /cambridge/route.ts      # GET (?limit=5 for recent, ?all=true for full history) / POST
       /cambridge/[id]/route.ts # PATCH/DELETE a test result
-      /prediction/route.ts     # GET: computed band prediction (calls lib/engine/bandPrediction.ts)
+      /prediction/route.ts     # GET: computed band prediction (calls lib/db/queries.ts's getPredictionData(),
+                                #      which wraps lib/engine/bandPrediction.ts — shared with the /prediction
+                                #      Server Component so both compute Formula 3 identically; added Milestone 2 Step 5)
       /config/route.ts         # GET/PATCH engine config values
-    page.tsx                   # Home page: the Spinner
+    page.tsx                   # Home page: the Spinner (also shows "recent rolls" — see Milestone 2 Step 2;
+                                # there is no separate /history page, only the GET /api/history route above)
     /journal/page.tsx
     /prediction/page.tsx
-    /history/page.tsx
     layout.tsx
   /components
+    /layout                    # Nav.tsx — top nav bar, active-link highlighting
     /spinner                   # Lucky-wheel UI, cascades skill -> part reveal
     /journal                   # Note editor + tag input + note list
-    /dashboard                 # Prediction cards, recent-tests table, "view all" modal
-    /charts                    # Recharts wrappers (frequency bar chart, band trend)
+    /prediction                # Prediction cards, rounding-mode toggle, ratio sliders, frequency chart,
+                                # Cambridge tracker (add/edit/delete + recent/"view all"), composed by
+                                # PredictionPageClient.tsx (client component fed by /prediction/page.tsx's
+                                # Server Component data fetch)
   /lib
     /engine
       weightedRandom.ts        # Formula 1: pick from a weighted pool

@@ -27,6 +27,8 @@ function RatioSlider({ skillName, blockA, blockB, onSave }: RatioSliderProps) {
         value={percent}
         onChange={(e) => setPercent(Number(e.target.value))}
         onPointerUp={() => onSave(blockA.id, percent / 100)}
+        aria-label={`Tỉ lệ ${skillName}: ${blockA.name} so với ${blockB.name}`}
+        aria-valuetext={`${blockA.name} ${percent}%, ${blockB.name} ${100 - percent}%`}
         className="w-full accent-foreground"
       />
     </div>

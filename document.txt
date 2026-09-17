@@ -69,4 +69,22 @@ PENDING
 
 DONE
 ----
-(nothing yet — Phase 0 only produced documentation, no application code)
+
+[2026-09-17] Milestone 1, Step 1: Scaffold + DB layer.
+  - Scaffolded Next.js 16.3.5 / React 19.2.8 (TypeScript, Tailwind v4, App Router)
+    via create-next-app (had to scaffold into a temp dir with a lowercase name and
+    merge in, since npm rejects package names with uppercase letters and the
+    project folder is named "EL").
+  - ARCHITECTURE CHANGE: PROJECT_CONTEXT.md originally specified Prisma ORM.
+    While installing it, discovered Prisma's latest version (8.0.0-rc.15) has
+    pivoted into a cloud platform product and its guided ORM setup no longer
+    supports SQLite (only postgres/mongodb), the classic `prisma generate` /
+    `migrate dev` commands are gone entirely, and its local dev stack doesn't
+    support Windows. Switched to Drizzle ORM + better-sqlite3 instead (user
+    confirmed this direction). PROJECT_CONTEXT.md section 2.1 has the full
+    writeup. Schema/data model itself is unchanged, only the tooling.
+  - Created `src/lib/db/schema.ts` (7 tables), `client.ts` (better-sqlite3 +
+    drizzle singleton), `seed.ts` (4 skills, 8 parts, 5 Config defaults).
+  - Had to approve native install scripts (better-sqlite3, esbuild, unrs-resolver)
+    via `npm approve-scripts` — npm 11.17 blocks install scripts by default now.
+  - git initialized locally; Phase 0 docs committed as the root commit.

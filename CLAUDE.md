@@ -28,12 +28,12 @@ This is a solo personal project, so a full agent hierarchy is heavier process th
 
 ### 2. Backend/Algorithm Agent
 
-**Owns:** `prisma/`, `src/app/api/**`, `src/lib/engine/**`, `src/lib/db/**`, `src/lib/types/**`.
+**Owns:** `drizzle.config.ts`, `drizzle/`, `src/app/api/**`, `src/lib/engine/**`, `src/lib/db/**`, `src/lib/types/**`.
 
 **Responsibilities:**
-- Implements the Prisma schema, migrations, and seed script exactly as specified in `PROJECT_CONTEXT.md` §4.
+- Implements the Drizzle schema, migrations, and seed script exactly as specified in `PROJECT_CONTEXT.md` §4 (note: §2.1 explains why this is Drizzle and not the originally-planned Prisma — read it before assuming the doc is stale).
 - Implements the math engine: `weightedRandom.ts` (Formula 1), `weeklyConstraint.ts` (Formula 2), `bandPrediction.ts` (Formula 3), `ieltsRounding.ts`, `countSoftReset.ts` — as pure, independently testable functions (no DB or Next.js imports inside the formula functions themselves; pass in the data they need as plain arguments so QA can unit test them without a database).
-- Implements the API route handlers per `PROJECT_CONTEXT.md` §6, wiring the pure engine functions to Prisma queries.
+- Implements the API route handlers per `PROJECT_CONTEXT.md` §6, wiring the pure engine functions to Drizzle queries.
 - **Never** changes a formula's shape (the math itself) without updating `PROJECT_CONTEXT.md` §5 in the same task, and flagging the change to the user for confirmation first if it alters behavior (not just refactors code).
 
 ### 3. Frontend/UI Agent
@@ -73,7 +73,7 @@ A task is not complete until:
 Work proceeds in this order. Each milestone should be its own task/session so context stays focused — do not attempt to build multiple milestones in one giant pass (this is why Phase 0 stopped at docs-only).
 
 - **Phase 0 (done)**: `PROJECT_CONTEXT.md`, `CLAUDE.md`, `document.txt` written and confirmed. No app code.
-- **Milestone 1 — Backend/Algorithm Agent**: `npx create-next-app` scaffold (TypeScript, Tailwind, App Router) → Prisma schema + migration + seed → `lib/engine/*` with the 5 formula/helper modules → API routes. Exit criteria: `POST /api/roll` works end-to-end against a seeded DB and counters visibly update.
+- **Milestone 1 — Backend/Algorithm Agent**: `npx create-next-app` scaffold (TypeScript, Tailwind, App Router) → Drizzle schema + migration + seed (Step 1, done) → `lib/engine/*` with the 5 formula/helper modules (Step 2) → API routes (Step 3). Exit criteria: `POST /api/roll` works end-to-end against a seeded DB and counters visibly update.
 - **Milestone 2 — Frontend/UI Agent**: Spinner, Journal, Prediction Dashboard + History view, wired to Milestone 1's API. Exit criteria: all 3 user-facing surfaces work manually via `npm run dev`.
 - **Milestone 3 — QA/Testing Agent**: full unit/component/e2e suite per `TESTING_GUIDE.md` (written as part of this milestone). Exit criteria: `npm test` and `npx playwright test` both pass green.
 - **Milestone 4 — Supervisor**: full expert-mode review pass over the whole app; write `TESTING_GUIDE.md` (if not already finalized in M3) and `USER_GUIDE.md`; reconcile `document.txt` (mark anything actually built as done, keep the rest as backlog).

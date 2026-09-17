@@ -4,6 +4,15 @@
   --background: #ffffff;
   --foreground: #171717;
 
+  /* Theme system (src/lib/theme.ts + ThemeProvider): these 4 are overridden via
+     inline style on <html> once ThemeProvider mounts and applies the viewer's
+     saved/default theme. The values here are only the "Mặc định" theme and the
+     pre-hydration fallback (briefly visible before JS runs). */
+  --surface: #f4f4f5;
+  --border: rgba(0, 0, 0, 0.1);
+  --primary: #2563eb;
+  --primary-foreground: #ffffff;
+
   /* dataviz: fixed categorical order (validated via scripts/validate_palette.js) */
   --chart-reading: #2a78d6;
   --chart-listening: #eb6834;
@@ -16,6 +25,10 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-border: var(--border);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
@@ -24,6 +37,10 @@
   :root {
     --background: #0a0a0a;
     --foreground: #ededed;
+    --surface: #18181b;
+    --border: rgba(255, 255, 255, 0.1);
+    --primary: #3b82f6;
+    --primary-foreground: #ffffff;
 
     --chart-reading: #3987e5;
     --chart-listening: #d95926;
@@ -38,4 +55,5 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+  transition: background-color 200ms ease, color 200ms ease;
 }

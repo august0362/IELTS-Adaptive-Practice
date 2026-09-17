@@ -218,7 +218,7 @@ export function Spinner({ initialSkills, initialDecayExponent, initialRecentRoll
           type="button"
           onClick={handleRoll}
           disabled={phase === "rolling"}
-          className="rounded-full bg-foreground px-8 py-3 text-sm font-semibold text-background transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+          className="rounded-full bg-primary px-8 py-3 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
         >
           {phase === "rolling" ? "Đang quay..." : phase === "done" ? "Quay lại" : "Quay"}
         </button>

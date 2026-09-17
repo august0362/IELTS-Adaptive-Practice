@@ -11,7 +11,7 @@ const OPTIONS: { value: "per_skill_rounded" | "raw_average"; label: string }[] =
 
 export function RoundingModeToggle({ mode, onChange, isSaving }: RoundingModeToggleProps) {
   return (
-    <div className="flex flex-col gap-2 rounded-xl border border-black/10 bg-white/60 p-4 dark:border-white/10 dark:bg-white/5">
+    <div className="flex flex-col gap-2 rounded-xl border border-border bg-surface p-4">
       <span className="text-sm font-medium text-foreground/70">Cách tính Band tổng dự đoán</span>
       <div className="flex flex-col gap-1.5 sm:flex-row sm:gap-3">
         {OPTIONS.map((opt) => (

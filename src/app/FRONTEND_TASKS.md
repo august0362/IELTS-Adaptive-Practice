@@ -12,6 +12,7 @@
 - [x] Dataviz-compliant frequency chart — validated categorical palette (light + dark), direct value labels, hover tooltip
 - [x] Fix: `export const dynamic = "force-dynamic"` on all 3 pages (a live-DB Server Component must not be statically prerendered by `next build` — see `PROJECT_CONTEXT.md` §3)
 - [x] Standing pattern: initial data via Server Component props, never a client-side `useEffect` fetch-on-mount (this project's `eslint-plugin-react-hooks` flags any `setState` reachable from an effect)
+- [x] Theme system (Milestone 4 prep, before Step 1's review) — `src/lib/theme.ts` (19 themes sourced from `src/theme/*.png`, `computeThemeRoles()`), `components/theme/ThemeProvider.tsx` + `ThemePicker.tsx`, `/settings` page, `Cài đặt` nav link. Swept every component off hardcoded `bg-white/60`/`border-black/10`/`bg-foreground text-background` onto theme-aware `bg-surface`/`border-border`/`bg-primary`/`text-primary-foreground` utilities so the whole app repaints on theme change; kept destructive/status colors (delete=red, spinner cycling/selected=blue/emerald) fixed on purpose.
 
 ## Backlog / deferred (see `document.txt` for full context on each)
 

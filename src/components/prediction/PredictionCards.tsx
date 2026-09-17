@@ -9,7 +9,7 @@ const SKILL_LABELS: { key: keyof PredictionResponseDTO["perSkill"]; name: string
 
 function SkillCard({ name, result }: { name: string; result: SkillPredictionResultDTO }) {
   return (
-    <div className="flex flex-col items-center gap-1 rounded-xl border border-black/10 bg-white/60 p-4 text-center dark:border-white/10 dark:bg-white/5">
+    <div className="flex flex-col items-center gap-1 rounded-xl border border-border bg-surface p-4 text-center">
       <span className="text-xs font-medium text-foreground/60">{name}</span>
       {result.predictedBand === null ? (
         <span className="text-sm text-foreground/40">Chưa đủ dữ liệu</span>
@@ -32,14 +32,12 @@ export function PredictionCards({ prediction }: { prediction: PredictionResponse
           <SkillCard key={key} name={name} result={prediction.perSkill[key]} />
         ))}
       </div>
-      <div className="flex flex-col items-center gap-1 rounded-xl border-2 border-emerald-500 bg-emerald-50 p-4 text-center dark:border-emerald-500 dark:bg-emerald-950">
-        <span className="text-xs font-medium text-emerald-800 dark:text-emerald-200">Overall dự đoán</span>
+      <div className="flex flex-col items-center gap-1 rounded-xl border-2 border-primary bg-primary/10 p-4 text-center">
+        <span className="text-xs font-medium text-primary">Overall dự đoán</span>
         {prediction.overall === null ? (
-          <span className="text-sm text-emerald-800/60 dark:text-emerald-200/60">
-            Cần đủ dữ liệu cả 4 kỹ năng
-          </span>
+          <span className="text-sm text-foreground/50">Cần đủ dữ liệu cả 4 kỹ năng</span>
         ) : (
-          <span className="text-3xl font-semibold text-emerald-900 dark:text-emerald-100">{prediction.overall}</span>
+          <span className="text-3xl font-semibold text-foreground">{prediction.overall}</span>
         )}
       </div>
     </section>

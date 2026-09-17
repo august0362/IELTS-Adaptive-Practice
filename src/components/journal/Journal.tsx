@@ -106,7 +106,7 @@ export function Journal({ initialNotes }: { initialNotes: NoteDTO[] }) {
         </p>
       )}
 
-      <section className="flex flex-col gap-3 rounded-xl border border-black/10 bg-white/60 p-4 dark:border-white/10 dark:bg-white/5">
+      <section className="flex flex-col gap-3 rounded-xl border border-border bg-surface p-4">
         <div className="flex items-center gap-3">
           <label htmlFor="note-date" className="text-sm text-foreground/60">
             Ngày
@@ -117,7 +117,7 @@ export function Journal({ initialNotes }: { initialNotes: NoteDTO[] }) {
             value={noteDate}
             onChange={(e) => setNoteDate(e.target.value)}
             disabled={editingId !== null}
-            className="rounded-md border border-black/10 bg-white px-2 py-1 text-sm text-foreground disabled:opacity-50 dark:border-white/10 dark:bg-black"
+            className="rounded-md border border-border bg-background px-2 py-1 text-sm text-foreground disabled:opacity-50"
           />
         </div>
 
@@ -130,7 +130,7 @@ export function Journal({ initialNotes }: { initialNotes: NoteDTO[] }) {
           onChange={(e) => setContent(e.target.value)}
           rows={8}
           placeholder="Viết ghi chú, từ vựng mới, ví dụ: học được idiom mới cho #Writing..."
-          className="w-full resize-y rounded-lg border border-black/10 bg-white px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-blue-400 dark:border-white/10 dark:bg-black"
+          className="w-full resize-y rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
         />
 
         <div className="flex justify-end gap-2">
@@ -138,7 +138,7 @@ export function Journal({ initialNotes }: { initialNotes: NoteDTO[] }) {
             <button
               type="button"
               onClick={resetForm}
-              className="rounded-full border border-black/10 px-4 py-2 text-sm font-medium hover:bg-black/5 dark:border-white/10 dark:hover:bg-white/10"
+              className="rounded-full border border-border px-4 py-2 text-sm font-medium hover:bg-border"
             >
               Hủy
             </button>
@@ -147,7 +147,7 @@ export function Journal({ initialNotes }: { initialNotes: NoteDTO[] }) {
             type="button"
             onClick={handleSave}
             disabled={isSaving}
-            className="rounded-full bg-foreground px-5 py-2 text-sm font-semibold text-background transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+            className="rounded-full bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
           >
             {isSaving ? "Đang lưu..." : editingId ? "Cập nhật" : "Lưu ghi chú"}
           </button>
@@ -160,7 +160,7 @@ export function Journal({ initialNotes }: { initialNotes: NoteDTO[] }) {
             type="button"
             onClick={() => setActiveTag(null)}
             className={`rounded-full px-3 py-1 text-xs font-medium ${
-              activeTag === null ? "bg-foreground text-background" : "bg-black/5 text-foreground/70 dark:bg-white/10"
+              activeTag === null ? "bg-primary text-primary-foreground" : "bg-border text-foreground/70"
             }`}
           >
             Tất cả
@@ -171,7 +171,7 @@ export function Journal({ initialNotes }: { initialNotes: NoteDTO[] }) {
               type="button"
               onClick={() => setActiveTag(tag)}
               className={`rounded-full px-3 py-1 text-xs font-medium ${
-                activeTag === tag ? "bg-foreground text-background" : "bg-black/5 text-foreground/70 dark:bg-white/10"
+                activeTag === tag ? "bg-primary text-primary-foreground" : "bg-border text-foreground/70"
               }`}
             >
               #{tag}

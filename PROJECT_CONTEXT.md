@@ -15,6 +15,7 @@ A personal, local-only web app to plan and track IELTS practice across the 4 ski
 1. **Spinner** — picks 2 of the 4 skills per session, then cascades into picking the specific part/task/block for each chosen skill.
 2. **Daily Journal** — free-text notes per day, taggable (e.g. `#Reading`, `#Vocabulary`).
 3. **Prediction Dashboard** — predicted band score per skill (and overall), based mostly on logged Cambridge mock-test results plus a small nudge from practice frequency; shows recent Cambridge test history (5 most recent + "view all") and a per-skill practice-frequency chart.
+4. **Settings** (`/settings`) — a theme picker letting the user switch the whole app's color scheme; see §9.
 
 Single user, no login, runs locally. Multi-user/auth/cloud deploy are intentionally deferred — see [`document.txt`](./document.txt).
 
@@ -70,6 +71,7 @@ drizzle.config.ts              # drizzle-kit config (dialect: sqlite, schema pat
                                 # there is no separate /history page, only the GET /api/history route above)
     /journal/page.tsx
     /prediction/page.tsx
+    /settings/page.tsx         # theme picker (ThemePicker.tsx) — see section 9
     layout.tsx
     # `page.tsx`, `journal/page.tsx`, and `prediction/page.tsx` all set
     # `export const dynamic = "force-dynamic"` — added in Milestone 3 Step 2 after
@@ -87,7 +89,9 @@ drizzle.config.ts              # drizzle-kit config (dialect: sqlite, schema pat
                                 # Cambridge tracker (add/edit/delete + recent/"view all"), composed by
                                 # PredictionPageClient.tsx (client component fed by /prediction/page.tsx's
                                 # Server Component data fetch)
+    /theme                     # ThemeProvider.tsx (context + CSS-var application), ThemePicker.tsx
   /lib
+    theme.ts                   # THEMES + computeThemeRoles() — see section 9
     /engine
       weightedRandom.ts        # Formula 1: pick from a weighted pool
       weeklyConstraint.ts      # Formula 2: weekly-minimum override for the 4-skill pool
@@ -303,6 +307,27 @@ See [`document.txt`](./document.txt) for the live, append-only list (auth, cloud
 
 ---
 
-## 9. Multi-agent framework
+## 9. Theme system
+
+Source palettes live in `src/theme/*.png` (6 named light→dark ramps + 12 Color Hunt 4-color exports — filenames of the latter encode their hex codes directly, e.g. `Color Hunt Palette 3368a066a3bfc8dfdbf2efe7.png` = `#3368a0/#66a3bf/#c8dfdb/#f2efe7`). `src/lib/theme.ts` defines `THEMES` (19 entries, including a `"default"` matching the app's original look) and `computeThemeRoles(colors)`, which derives 6 usable UI roles from each theme's 4 raw colors:
+
+```
+background, foreground   — a FIXED safe light/dark neutral pair (never taken from the palette itself)
+surface, border           — the palette color closest to the background's lightness tier (subtle card tinting)
+primary, primaryForeground — the most usable saturated/mid-lightness palette color for buttons/accents;
+                             synthesized (same hue, boosted saturation/clamped lightness) if none of the
+                             4 raw colors qualify — several source palettes are 4 close-lightness pastels
+                             with nothing dark/saturated enough to read well as a button otherwise
+```
+
+`background`/`foreground` are deliberately NOT derived from the palette's own lightest/darkest color: some source palettes (e.g. "Sorbet": `ffeecc/ffddcc/ffcccc/febbcc`) are 4 pastels with no genuinely dark color at all, so naively using the palette's own extremes would produce unreadable text. Which fixed pair is used (light vs. dark neutrals) is decided by the palette's *average* luminance (`isDark` in `ThemeRoles`).
+
+**Runtime**: `src/components/theme/ThemeProvider.tsx` wraps the app (in `layout.tsx`). It reads the saved choice from `localStorage` (key `ielts-app-theme`) via a `useState` **lazy initializer** — not a `useEffect` — specifically to avoid the same `react-hooks/set-state-in-effect` rule documented in §2.1's Milestone 2 Step 2 history; the effect that actually applies the theme (`document.documentElement.style.setProperty(...)` for `--background`/`--foreground`/`--surface`/`--border`/`--primary`/`--primary-foreground`) calls no `setState`, so it's exempt. `src/app/globals.css` maps these 6 CSS custom properties through `@theme inline` into Tailwind utilities (`bg-surface`, `border-border`, `bg-primary`, `text-primary-foreground`, etc.) — component code uses those utilities exclusively, never a raw hex, so every themed surface repaints when the user picks a different theme. `src/components/theme/ThemePicker.tsx` (rendered on `/settings`) is the picker UI; clicking a swatch calls `setThemeId`, which applies the new theme and persists it.
+
+Status/semantic colors (delete = red, the Spinner's "cycling"/"selected" animation states = blue/emerald) are intentionally left as fixed Tailwind colors, not themed — same reasoning as the dataviz palette's "status colors are reserved" rule.
+
+---
+
+## 10. Multi-agent framework
 
 See [`CLAUDE.md`](./CLAUDE.md) for agent roles, review workflow, and the milestone execution plan.

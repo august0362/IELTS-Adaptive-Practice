@@ -12,7 +12,7 @@ interface CambridgeRowProps {
 
 export function CambridgeRow({ result, onEdit, onDelete }: CambridgeRowProps) {
   return (
-    <li className="flex flex-col gap-2 rounded-xl border border-black/10 bg-white/60 p-4 dark:border-white/10 dark:bg-white/5 sm:flex-row sm:items-center sm:justify-between">
+    <li className="flex flex-col gap-2 rounded-xl border border-border bg-surface p-4 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex flex-col gap-1">
         <span className="text-sm font-medium text-foreground">{result.testName}</span>
         <span className="text-xs text-foreground/50">{formatDate(result.testDate)}</span>
@@ -24,7 +24,7 @@ export function CambridgeRow({ result, onEdit, onDelete }: CambridgeRowProps) {
         <span>L {result.listeningBand}</span>
         <span>W {result.writingBand}</span>
         <span>S {result.speakingBand}</span>
-        <span className="rounded-full bg-emerald-100 px-2 py-1 font-semibold text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200">
+        <span className="rounded-full bg-primary/15 px-2 py-1 font-semibold text-primary">
           Overall {result.overallBand}
         </span>
       </div>

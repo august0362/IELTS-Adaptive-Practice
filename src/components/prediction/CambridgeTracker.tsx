@@ -180,7 +180,7 @@ export function CambridgeTracker({ initialResults, onChanged }: CambridgeTracker
         </p>
       )}
 
-      <div className="flex flex-col gap-3 rounded-xl border border-black/10 bg-white/60 p-4 dark:border-white/10 dark:bg-white/5">
+      <div className="flex flex-col gap-3 rounded-xl border border-border bg-surface p-4">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <label className="flex flex-col gap-1 text-sm text-foreground/60">
             Ngày thi
@@ -188,7 +188,7 @@ export function CambridgeTracker({ initialResults, onChanged }: CambridgeTracker
               type="date"
               value={form.testDate}
               onChange={(e) => setForm((f) => ({ ...f, testDate: e.target.value }))}
-              className="rounded-md border border-black/10 bg-white px-2 py-1 text-sm text-foreground dark:border-white/10 dark:bg-black"
+              className="rounded-md border border-border bg-background px-2 py-1 text-sm text-foreground"
             />
           </label>
           <label className="flex flex-col gap-1 text-sm text-foreground/60">
@@ -198,7 +198,7 @@ export function CambridgeTracker({ initialResults, onChanged }: CambridgeTracker
               value={form.testName}
               onChange={(e) => setForm((f) => ({ ...f, testName: e.target.value }))}
               placeholder="Cambridge 18 - Test 2"
-              className="rounded-md border border-black/10 bg-white px-2 py-1 text-sm text-foreground dark:border-white/10 dark:bg-black"
+              className="rounded-md border border-border bg-background px-2 py-1 text-sm text-foreground"
             />
           </label>
         </div>
@@ -214,7 +214,7 @@ export function CambridgeTracker({ initialResults, onChanged }: CambridgeTracker
                 step={0.5}
                 value={form[key]}
                 onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
-                className="rounded-md border border-black/10 bg-white px-2 py-1 text-sm text-foreground dark:border-white/10 dark:bg-black"
+                className="rounded-md border border-border bg-background px-2 py-1 text-sm text-foreground"
               />
             </label>
           ))}
@@ -226,7 +226,7 @@ export function CambridgeTracker({ initialResults, onChanged }: CambridgeTracker
             type="text"
             value={form.note}
             onChange={(e) => setForm((f) => ({ ...f, note: e.target.value }))}
-            className="rounded-md border border-black/10 bg-white px-2 py-1 text-sm text-foreground dark:border-white/10 dark:bg-black"
+            className="rounded-md border border-border bg-background px-2 py-1 text-sm text-foreground"
           />
         </label>
 
@@ -235,7 +235,7 @@ export function CambridgeTracker({ initialResults, onChanged }: CambridgeTracker
             <button
               type="button"
               onClick={resetForm}
-              className="rounded-full border border-black/10 px-4 py-2 text-sm font-medium hover:bg-black/5 dark:border-white/10 dark:hover:bg-white/10"
+              className="rounded-full border border-border px-4 py-2 text-sm font-medium hover:bg-border"
             >
               Hủy
             </button>
@@ -244,7 +244,7 @@ export function CambridgeTracker({ initialResults, onChanged }: CambridgeTracker
             type="button"
             onClick={handleSave}
             disabled={isSaving}
-            className="rounded-full bg-foreground px-5 py-2 text-sm font-semibold text-background transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+            className="rounded-full bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
           >
             {isSaving ? "Đang lưu..." : editingId ? "Cập nhật" : "Thêm kết quả"}
           </button>

@@ -66,101 +66,6 @@ PENDING
 DONE
 ----
 
-[2026-09-18] Milestone 5, all 4 hats + Supervisor review. MILESTONE 5 DONE.
-  User-requested feature set: question-type pool per skill, delete-a-roll
-  (revert), manual practice logging, per-skill stats page, minimal Chủ đề
-  (topics) CRUD, and a themed-text-color fix. Scoped over several rounds of
-  clarifying questions before any code was written (block-splitting for
-  question-type draws, manual-practice granularity, delete-revert semantics,
-  stats-page placement, topics scope) — see the conversation for the full
-  Q&A; only the resulting decisions are recorded here.
-  - Backend: schema additions (questionTypes, rollResultQuestionTypes,
-    topics tables; skillParts.questionTypeRollCount; rollSessions.source).
-    New engine helper pickWeightedIndependent() (Formula 1 reused, N
-    independent draws with replacement — no new formula needed). Seed data:
-    10 Reading / 7 Listening / 7 Writing question types (Writing's 4 common
-    chart types weighted 2x the 3 rarer ones), and questionTypeRollCount per
-    part matching the real passage/part count each block bundles (Reading
-    Block A=2, Block B=1; Listening A/B=2 each; Writing Task1=1, Task2=0;
-    Speaking=0 both). New endpoints: DELETE /api/history/:id (reverts
-    counters + recomputes lastAppearedAt from remaining history — documented
-    best-effort limitation if a count-soft-reset happened since), POST
-    /api/practice (manual logging, reuses rollSessions/rollResults with
-    source="manual" so it automatically participates in Formula 1 fairness
-    and Formula 3's 30-day frequency nudge with zero extra wiring), GET
-    /api/stats/:skillCode, GET/POST /api/topics + DELETE /api/topics/:id.
-    getSkillStats()/getAllTopics() added to queries.ts, shared between their
-    routes and Server Components (same pattern as getPredictionData()).
-  - Frontend: Spinner cascades one level deeper (0-2 question-type draws per
-    part, independent per passage/part bundled in a block); RecentRolls
-    gained a confirm-guarded delete button + "Tự học" badge; new
-    ManualPractice form on the Vòng quay page; new Topics CRUD on Cài đặt;
-    new /stats/[skillCode] page (practice log + count/percentage bar charts
-    + a radar "balance" chart) linked from both the Spinner's and
-    Prediction dashboard's skill cards. Followed the dataviz skill before
-    writing chart code: a skill's own question-type breakdown is a
-    magnitude-per-category job on ONE entity, not an identity comparison
-    across several, so bars use a single hue (that skill's existing
-    --chart-* var) instead of inventing a new categorical palette.
-  - Design (delegated to a real spawned Design/UI-UX agent — new
-    Frontend-only exception added to CLAUDE.md's "no subagent per step"
-    rule, scoped to genuinely visual/aesthetic decisions only): theme.ts's
-    `foreground` role was a flat #171717/#ededed constant shared by all 19
-    themes ("màu chữ chỉ có trắng với đen thôi" — user complaint). Now
-    tinted toward each theme's own dominant hue (dominantHue() +
-    tintNeutral(), preserving the original lightness exactly) at a low
-    0.06 saturation cap. background itself intentionally left untouched —
-    tinting the much larger area risked reading as "a colored page." Two
-    new regression tests guarantee WCAG AA (>=4.5:1) background/foreground
-    contrast across all 19 themes and that two different-hued themes
-    produce different foreground values. Also a light polish pass (shadows,
-    spacing, hover transitions) scoped only to this milestone's new
-    surfaces, per the user's own explicit scoping ("hiện có thì có vẻ ổn
-    rồi, redesign 1 số chỗ thôi") — nothing pre-existing was restyled.
-  - QA: pickWeightedIndependent unit tests; 4 new component test files
-    (RecentRolls, ManualPractice, Topics, PracticeLog); Spinner gained a
-    question-type-cascade test; 3 new e2e specs (delete-roll,
-    manual-practice, topics). Caught and fixed a real gap while writing
-    RecentRolls.test.tsx: its delete button had no confirm() guard, unlike
-    Journal/CambridgeTracker's established destructive-delete pattern —
-    added one.
-  - REAL BUG FOUND while writing/running the new e2e specs (not the
-    gated-review pass — caught earlier, during QA's own self-check): nested
-    question-type cascades reused the skill/part draws' animation pace.
-    A roll landing on parts with several question-type draws (up to 4 in
-    one roll: 2 skills x 2 draws each, e.g. both Reading and Listening
-    landing on their 2-draw blocks) could take ~35s of real animation time
-    in the worst case, intermittently blowing past roll.spec.ts's and
-    delete-roll.spec.ts's timeouts. Fixed at the root cause — gave the
-    question-type sub-cascade its own faster pace (lower
-    minSteps/baseDelayMs in the runCycleAnimation call) instead of just
-    padding the test timeout, which is also a better user experience (four
-    nested full-length flourishes read as sluggish, not exciting).
-    Verified stable with `npx playwright test --repeat-each=3`.
-  - Supervisor gated review (diff 9108a26..HEAD, 4 commits): traced the
-    delete-revert logic by hand for 0/1/2 rollResults x 0/1/2
-    rollResultQuestionTypes per result including same-type-drawn-twice,
-    confirmed every lastAppearedAt-recompute query correctly excludes the
-    session being deleted, confirmed manual-practice's cross-skill
-    ownership checks are real (not just presence checks), confirmed the
-    question-type roll/soft-reset scoping matches spec, cross-checked seed
-    data against PROJECT_CONTEXT.md 5.7's table (exact match), spot-checked
-    new tests for genuineness. Found one trivial issue (a doc-comment on
-    the topics table pointed at the wrong PROJECT_CONTEXT.md subsection —
-    5.9 instead of 5.11) and fixed it directly. Flagged, not a bug: the new
-    delete-roll e2e spec only asserted the history row disappeared, not the
-    counter-reversion side effect PROJECT_CONTEXT.md 5.9 actually promises
-    — strengthened after the review by snapshotting GET /api/skills
-    before/after the roll+delete pair and asserting a full deep-equal
-    revert; re-ran 3x, stable (~15-17s each).
-  - Final state: 122/122 unit+component tests, 6/6 e2e specs, typecheck
-    and lint all green. No open bugs. Deferred/backlog items from this
-    milestone (not blockers): question-type ratio-editing UI, Chủ đề not
-    yet wired into the roll (more fields expected later, per the user) —
-    both intentionally out of scope per the scoping Q&A, not oversights.
-
-
-
 [2026-09-17] Milestone 1, Step 1: Scaffold + DB layer.
   - Scaffolded Next.js 16.3.5 / React 19.2.8 (TypeScript, Tailwind v4, App Router)
     via create-next-app (had to scaffold into a temp dir with a lowercase name and
@@ -491,4 +396,135 @@ DONE
     browser's dark-mode-for-web-content toggle for this site, not more app
     code — flagged clearly to the user rather than implying it's fixable
     from the page alone.
+
+[2026-09-18] Milestone 5, all 4 hats + Supervisor review. MILESTONE 5 DONE.
+  User-requested feature set: question-type pool per skill, delete-a-roll
+  (revert), manual practice logging, per-skill stats page, minimal Chủ đề
+  (topics) CRUD, and a themed-text-color fix. Scoped over several rounds of
+  clarifying questions before any code was written (block-splitting for
+  question-type draws, manual-practice granularity, delete-revert semantics,
+  stats-page placement, topics scope) — see the conversation for the full
+  Q&A; only the resulting decisions are recorded here.
+  - Backend: schema additions (questionTypes, rollResultQuestionTypes,
+    topics tables; skillParts.questionTypeRollCount; rollSessions.source).
+    New engine helper pickWeightedIndependent() (Formula 1 reused, N
+    independent draws with replacement — no new formula needed). Seed data:
+    10 Reading / 7 Listening / 7 Writing question types (Writing's 4 common
+    chart types weighted 2x the 3 rarer ones), and questionTypeRollCount per
+    part matching the real passage/part count each block bundles (Reading
+    Block A=2, Block B=1; Listening A/B=2 each; Writing Task1=1, Task2=0;
+    Speaking=0 both). New endpoints: DELETE /api/history/:id (reverts
+    counters + recomputes lastAppearedAt from remaining history — documented
+    best-effort limitation if a count-soft-reset happened since), POST
+    /api/practice (manual logging, reuses rollSessions/rollResults with
+    source="manual" so it automatically participates in Formula 1 fairness
+    and Formula 3's 30-day frequency nudge with zero extra wiring), GET
+    /api/stats/:skillCode, GET/POST /api/topics + DELETE /api/topics/:id.
+    getSkillStats()/getAllTopics() added to queries.ts, shared between their
+    routes and Server Components (same pattern as getPredictionData()).
+  - Frontend: Spinner cascades one level deeper (0-2 question-type draws per
+    part, independent per passage/part bundled in a block); RecentRolls
+    gained a confirm-guarded delete button + "Tự học" badge; new
+    ManualPractice form on the Vòng quay page; new Topics CRUD on Cài đặt;
+    new /stats/[skillCode] page (practice log + count/percentage bar charts
+    + a radar "balance" chart) linked from both the Spinner's and
+    Prediction dashboard's skill cards. Followed the dataviz skill before
+    writing chart code: a skill's own question-type breakdown is a
+    magnitude-per-category job on ONE entity, not an identity comparison
+    across several, so bars use a single hue (that skill's existing
+    --chart-* var) instead of inventing a new categorical palette.
+  - Design (delegated to a real spawned Design/UI-UX agent — new
+    Frontend-only exception added to CLAUDE.md's "no subagent per step"
+    rule, scoped to genuinely visual/aesthetic decisions only): theme.ts's
+    `foreground` role was a flat #171717/#ededed constant shared by all 19
+    themes ("màu chữ chỉ có trắng với đen thôi" — user complaint). Now
+    tinted toward each theme's own dominant hue (dominantHue() +
+    tintNeutral(), preserving the original lightness exactly) at a low
+    0.06 saturation cap. background itself intentionally left untouched —
+    tinting the much larger area risked reading as "a colored page." Two
+    new regression tests guarantee WCAG AA (>=4.5:1) background/foreground
+    contrast across all 19 themes and that two different-hued themes
+    produce different foreground values. Also a light polish pass (shadows,
+    spacing, hover transitions) scoped only to this milestone's new
+    surfaces, per the user's own explicit scoping ("hiện có thì có vẻ ổn
+    rồi, redesign 1 số chỗ thôi") — nothing pre-existing was restyled.
+  - QA: pickWeightedIndependent unit tests; 4 new component test files
+    (RecentRolls, ManualPractice, Topics, PracticeLog); Spinner gained a
+    question-type-cascade test; 3 new e2e specs (delete-roll,
+    manual-practice, topics). Caught and fixed a real gap while writing
+    RecentRolls.test.tsx: its delete button had no confirm() guard, unlike
+    Journal/CambridgeTracker's established destructive-delete pattern —
+    added one.
+  - REAL BUG FOUND while writing/running the new e2e specs (not the
+    gated-review pass — caught earlier, during QA's own self-check): nested
+    question-type cascades reused the skill/part draws' animation pace.
+    A roll landing on parts with several question-type draws (up to 4 in
+    one roll: 2 skills x 2 draws each, e.g. both Reading and Listening
+    landing on their 2-draw blocks) could take ~35s of real animation time
+    in the worst case, intermittently blowing past roll.spec.ts's and
+    delete-roll.spec.ts's timeouts. Fixed at the root cause — gave the
+    question-type sub-cascade its own faster pace (lower
+    minSteps/baseDelayMs in the runCycleAnimation call) instead of just
+    padding the test timeout, which is also a better user experience (four
+    nested full-length flourishes read as sluggish, not exciting).
+    Verified stable with `npx playwright test --repeat-each=3`.
+  - Supervisor gated review (diff 9108a26..HEAD, 4 commits): traced the
+    delete-revert logic by hand for 0/1/2 rollResults x 0/1/2
+    rollResultQuestionTypes per result including same-type-drawn-twice,
+    confirmed every lastAppearedAt-recompute query correctly excludes the
+    session being deleted, confirmed manual-practice's cross-skill
+    ownership checks are real (not just presence checks), confirmed the
+    question-type roll/soft-reset scoping matches spec, cross-checked seed
+    data against PROJECT_CONTEXT.md 5.7's table (exact match), spot-checked
+    new tests for genuineness. Found one trivial issue (a doc-comment on
+    the topics table pointed at the wrong PROJECT_CONTEXT.md subsection —
+    5.9 instead of 5.11) and fixed it directly. Flagged, not a bug: the new
+    delete-roll e2e spec only asserted the history row disappeared, not the
+    counter-reversion side effect PROJECT_CONTEXT.md 5.9 actually promises
+    — strengthened after the review by snapshotting GET /api/skills
+    before/after the roll+delete pair and asserting a full deep-equal
+    revert; re-ran 3x, stable (~15-17s each).
+  - Final state: 122/122 unit+component tests, 6/6 e2e specs, typecheck
+    and lint all green. No open bugs. Deferred/backlog items from this
+    milestone (not blockers): question-type ratio-editing UI, Chủ đề not
+    yet wired into the roll (more fields expected later, per the user) —
+    both intentionally out of scope per the scoping Q&A, not oversights.
+
+[2026-09-18] Post-launch bug fix: weekly-overdue tie-break wasn't random.
+  - User reported, while actually using the app: "why does it always pick
+    Reading first, then Listening?" Root cause in weeklyConstraint.ts's
+    partitionByWeeklyOverdue(): when 2+ skills tie exactly on days-since-
+    last-appeared (most commonly all 4 on a fresh app, all null ->
+    Infinity), the sort comparator computes `Infinity - Infinity` = NaN. A
+    NaN comparator return value makes Array.sort's stable-sort guarantee
+    leave tied items in their pre-sort order, which was always DB/seed
+    insertion order (Reading, Listening, Writing, Speaking) — so the first
+    `slotsNeeded` skills in that fixed order won every tie, forever, not
+    randomly. This bug predates Milestone 5 (Formula 2, Milestone 1) but
+    only surfaced now that the user was actually rolling repeatedly on a
+    fresh-ish dev.db. The existing unit test for this exact scenario
+    ("all 4 null, ties as always-overdue") only asserted "doesn't throw,
+    forced has length 2, no overlap with remaining" — it never asserted
+    WHICH 2 won, so the deterministic bias went uncaught.
+  - Fixed by Fisher-Yates shuffling the items (injectable RNG, same
+    `random?: () => number` convention as weightedRandom.ts) before the
+    sort, and making the comparator return 0 (not NaN) for a genuine tie —
+    Array.sort's stability then preserves the shuffled (random) order for
+    ties while still correctly ordering skills with real, distinct
+    overdue-durations. pickSkillsWithWeeklyConstraint threads its existing
+    `options.random` through. No formula/contract change (PROJECT_CONTEXT.md
+    5.3's spec — "most overdue first" — was already correct; this fixes an
+    implementation bug in how ties specifically were broken), so no doc
+    update needed there.
+  - Added 2 regression tests to weeklyConstraint.test.ts: one proving a
+    different injected RNG produces a different forced pair (not fixed to
+    seed order), one running 200 trials with real Math.random and asserting
+    more than 1 distinct pair shows up (the bug would have produced exactly
+    1, always reading+listening).
+  - 124/124 tests, typecheck, lint all green. Did not touch the user's live
+    dev server or dev.db while investigating — confirmed via `Get-
+    NetTCPConnection -LocalPort 3000` that their own `next dev` (PID 6596)
+    was already running before doing anything, so all verification was via
+    reading code + running the unit test suite only (no curl/API calls
+    against their live session).
   - 99/99 tests, typecheck, lint all green.

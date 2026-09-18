@@ -6,7 +6,9 @@
 
 ## Khởi động ứng dụng
 
-Trong thư mục dự án, chạy:
+**Cách nhanh nhất**: bấm đúp vào file **`start-app.bat`** ở thư mục gốc dự án. Script sẽ tự kiểm tra và cài dependencies nếu thiếu, tự tạo database nếu chưa có, khởi động server, và tự mở trình duyệt vào `http://localhost:3000` sau vài giây. Đóng cửa sổ đen (hoặc bấm Ctrl+C) để tắt ứng dụng.
+
+**Cách thủ công**: trong thư mục dự án, chạy:
 
 ```bash
 npm run dev

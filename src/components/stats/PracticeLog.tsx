@@ -16,17 +16,17 @@ export function PracticeLog({ entries }: { entries: SkillStatsResponse["practice
   }
 
   return (
-    <ul className="flex max-h-80 flex-col gap-1.5 overflow-y-auto pr-1">
+    <ul className="flex max-h-80 flex-col gap-2 overflow-y-auto pr-1">
       {entries.map((entry, i) => (
         <li
           key={i}
-          className="flex flex-col gap-1 rounded-lg border border-border bg-surface/70 px-3 py-1.5 text-sm sm:flex-row sm:items-center sm:justify-between"
+          className="flex flex-col gap-1 rounded-lg border border-border bg-surface/70 px-3 py-1.5 text-sm shadow-sm sm:flex-row sm:items-center sm:justify-between"
         >
           <span className="text-foreground/50">{formatDateTime(entry.rolledAt)}</span>
           <div className="flex items-center gap-2">
             <span className="font-medium">{entry.part.name}</span>
             {entry.source === "manual" && (
-              <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
+              <span className="rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
                 Tự học
               </span>
             )}

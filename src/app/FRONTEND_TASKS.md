@@ -25,7 +25,7 @@
 - [x] `PredictionCards.tsx` — thẻ kỹ năng cũng thành link sang `/stats/[skillCode]`
 - [x] `queries.ts` — thêm `getSkillStats()`, `getAllTopics()` dùng chung giữa Server Component và route API (đúng pattern của `getPredictionData()`)
 - [x] Smoke-test qua dev server + curl: `/`, `/settings`, `/stats/READING`, `/stats/SPEAKING`, `/stats/BOGUS` (404), roll → stats cập nhật → xóa → revert đúng
-- [ ] Tinh chỉnh màu chữ (`foreground`) theo tông màu từng theme + polish trực quan các mặt mới (biểu đồ stats, Topics, nút xóa/cộng luyện) — giao cho agent Design/UI-UX riêng (xem `CLAUDE.md`)
+- [x] Tinh chỉnh màu chữ (`foreground`) theo tông màu từng theme + polish trực quan các mặt mới (biểu đồ stats, Topics, nút xóa/cộng luyện) — do agent Design/UI-UX riêng thực hiện (`src/lib/theme.ts`'s `tintNeutral()`/`dominantHue()`, xem `PROJECT_CONTEXT.md` mục 9), đã tự kiểm `typecheck`/`lint`/`test` xanh, đã review diff trước khi commit
 
 ## Việc còn chờ / chưa làm (xem `document.txt` để biết đầy đủ bối cảnh từng việc)
 

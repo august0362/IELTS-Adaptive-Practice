@@ -61,7 +61,7 @@ export function RecentRolls({ sessions, onDeleted }: RecentRollsProps) {
             <div className="flex flex-col gap-0.5 sm:flex-row sm:items-center sm:gap-2">
               <span className="text-foreground/50">{formatDateTime(session.rolledAt)}</span>
               {session.source === "manual" && (
-                <span className="w-fit rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
+                <span className="w-fit rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
                   Tự học
                 </span>
               )}
@@ -72,7 +72,7 @@ export function RecentRolls({ sessions, onDeleted }: RecentRollsProps) {
               onClick={() => handleDelete(session.id)}
               disabled={deletingId === session.id}
               aria-label={`Xóa lượt quay lúc ${formatDateTime(session.rolledAt)}`}
-              className="w-fit text-xs font-medium text-red-600 transition-opacity hover:opacity-70 disabled:cursor-not-allowed disabled:opacity-40"
+              className="w-fit rounded-md px-2 py-1 text-xs font-medium text-red-600 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40"
             >
               {deletingId === session.id ? "Đang xóa..." : "Xóa"}
             </button>

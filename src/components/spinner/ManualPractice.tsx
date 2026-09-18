@@ -69,7 +69,7 @@ export function ManualPractice({ skills, onLogged }: ManualPracticeProps) {
   }
 
   return (
-    <section className="flex flex-col gap-3 rounded-xl border border-border bg-surface p-4">
+    <section className="flex flex-col gap-3 rounded-xl border border-border bg-surface p-4 shadow-sm">
       <div>
         <h2 className="text-sm font-medium text-foreground/70">Tự học (không qua vòng quay)</h2>
         <p className="mt-0.5 text-xs text-foreground/50">

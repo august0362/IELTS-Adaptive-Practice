@@ -27,7 +27,7 @@ export function QuestionTypeRadarChart({ data, color }: QuestionTypeRadarChartPr
       <ResponsiveContainer>
         <RadarChart data={data} outerRadius="70%">
           <PolarGrid stroke="var(--chart-gridline)" />
-          <PolarAngleAxis dataKey="name" tick={{ fill: "var(--chart-muted)", fontSize: 10 }} />
+          <PolarAngleAxis dataKey="name" tick={{ fill: "var(--chart-muted)", fontSize: 11 }} />
           <PolarRadiusAxis
             angle={90}
             domain={[0, "dataMax"]}

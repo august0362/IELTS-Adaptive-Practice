@@ -24,7 +24,12 @@ export function QuestionTypeBarChart({ data, color, unit }: QuestionTypeBarChart
   return (
     <div style={{ width: "100%", height }}>
       <ResponsiveContainer>
-        <BarChart data={data} layout="vertical" margin={{ top: 4, right: 32, left: 8, bottom: 4 }}>
+        <BarChart
+          data={data}
+          layout="vertical"
+          barCategoryGap="24%"
+          margin={{ top: 4, right: 36, left: 8, bottom: 4 }}
+        >
           <CartesianGrid horizontal={false} stroke="var(--chart-gridline)" />
           <XAxis type="number" hide />
           <YAxis
@@ -33,7 +38,7 @@ export function QuestionTypeBarChart({ data, color, unit }: QuestionTypeBarChart
             width={160}
             tickLine={false}
             axisLine={{ stroke: "var(--chart-gridline)" }}
-            tick={{ fill: "var(--chart-muted)", fontSize: 11 }}
+            tick={{ fill: "var(--chart-muted)", fontSize: 12 }}
           />
           <Tooltip
             cursor={{ fill: "var(--chart-gridline)", opacity: 0.4 }}
@@ -51,7 +56,7 @@ export function QuestionTypeBarChart({ data, color, unit }: QuestionTypeBarChart
               dataKey="value"
               position="right"
               formatter={(value) => `${value}${unit === "%" ? "%" : ""}`}
-              style={{ fill: "var(--foreground)", fontSize: 11 }}
+              style={{ fill: "var(--foreground)", fontSize: 12 }}
             />
           </Bar>
         </BarChart>

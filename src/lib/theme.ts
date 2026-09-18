@@ -20,6 +20,20 @@
  * (text inputs/textareas — always the palette's own *lightest* color, so a
  * writing surface never just inherits a dark theme's near-black background
  * and reads as unreadable/"turned off").
+ *
+ * `foreground` (body text) is a step further than a flat fixed pair, though:
+ * it's the same fixed near-black/near-white *lightness* as before, but
+ * re-hued toward the palette's own dominant hue at a very low saturation
+ * (see `FOREGROUND_TINT_SATURATION`) — reported complaint: "màu chữ chỉ có
+ * trắng với đen thôi, muốn đổi nó sao cho hợp với theme" (text color is only
+ * ever black/white, want it to feel like it belongs to the theme). This
+ * keeps text reading as "basically black/white" up close (WCAG AA against
+ * `background` is asserted for every theme in theme.test.ts, not just
+ * eyeballed) while subtly warming/cooling to match the theme when compared
+ * side by side. `background` itself stays the literal fixed hex — tinting
+ * the much larger background area risked looking like a colored page rather
+ * than "basically white/black", which is what the pastel-palette design rule
+ * above depends on.
  */
 
 export interface ThemeDefinition {
@@ -108,6 +122,32 @@ function hslToHex(h: number, s: number, l: number): string {
   return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
 }
 
+const FOREGROUND_TINT_SATURATION = 0.06;
+
+/**
+ * Hue (0-360) of the palette's own most-saturated raw color — reused as the
+ * theme's "dominant" hue for `foreground`'s tint. Deliberately the simplest
+ * reasonable signal (mirrors the first step of `pickPrimary`'s own sort)
+ * rather than an average across all 4 colors, which would blur toward gray
+ * for exactly the all-pastel palettes where a clear hue matters most.
+ */
+function dominantHue(colors: string[]): number {
+  const bySaturation = colors.map((color) => hexToHsl(color)).sort((a, b) => b[1] - a[1]);
+  return bySaturation[0][0];
+}
+
+/**
+ * Re-hues a fixed near-black/near-white neutral toward `hue` at a low,
+ * capped `saturation`. Lightness is preserved exactly (only hue/saturation
+ * change), so this is a *tint*, not a replacement — the near-black/near-white
+ * character (and thus its WCAG contrast against the theme's fixed
+ * background) barely moves.
+ */
+function tintNeutral(hex: string, hue: number, saturation: number): string {
+  const [, , lightness] = hexToHsl(hex);
+  return hslToHex(hue, saturation, lightness);
+}
+
 const PRIMARY_MIN_LIGHTNESS = 0.32;
 const PRIMARY_MAX_LIGHTNESS = 0.68;
 const PRIMARY_MIN_SATURATION = 0.35;
@@ -194,7 +234,7 @@ export function computeThemeRoles(colors: [string, string, string, string]): The
   const isDark = lightComponentCount < 2;
 
   const background = isDark ? "#0a0a0a" : "#ffffff";
-  const foreground = isDark ? "#ededed" : "#171717";
+  const foreground = tintNeutral(isDark ? "#ededed" : "#171717", dominantHue(colors), FOREGROUND_TINT_SATURATION);
   const surface = pickClosestLightness(colors, isDark ? 0.16 : 0.94);
   const border = surface;
   const primary = pickPrimary(colors);

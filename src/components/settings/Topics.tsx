@@ -52,7 +52,7 @@ export function Topics({ initialTopics }: { initialTopics: TopicDTO[] }) {
   }
 
   return (
-    <section className="flex flex-col gap-3 rounded-xl border border-border bg-surface p-4">
+    <section className="flex flex-col gap-3 rounded-xl border border-border bg-surface p-4 shadow-sm">
       <div>
         <h2 className="text-sm font-medium text-foreground/70">Chủ đề luyện tập</h2>
         <p className="mt-0.5 text-xs text-foreground/50">Tự thêm chủ đề để theo dõi riêng — chưa gắn vào vòng quay.</p>
@@ -89,14 +89,14 @@ export function Topics({ initialTopics }: { initialTopics: TopicDTO[] }) {
           {topics.map((topic) => (
             <li
               key={topic.id}
-              className="flex items-center gap-1.5 rounded-full border border-border bg-background px-3 py-1 text-sm"
+              className="flex items-center gap-1.5 rounded-full border border-border bg-background px-3 py-1 text-sm shadow-sm transition-colors hover:border-primary/30"
             >
               <span>{topic.name}</span>
               <button
                 type="button"
                 onClick={() => handleDelete(topic.id)}
                 aria-label={`Xóa chủ đề ${topic.name}`}
-                className="text-foreground/40 hover:text-red-600"
+                className="text-foreground/40 transition-colors hover:text-red-600"
               >
                 ×
               </button>

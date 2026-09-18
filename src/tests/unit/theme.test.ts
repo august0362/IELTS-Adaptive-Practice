@@ -2,20 +2,23 @@ import { describe, expect, it } from "vitest";
 import { computeThemeRoles, getThemeById, THEMES } from "../../lib/theme";
 
 describe("computeThemeRoles", () => {
-  it("keeps background/foreground a safe fixed light pair for an all-light pastel palette (no genuinely dark color)", () => {
+  it("keeps background fixed and foreground a safe near-black (subtly tinted) for an all-light pastel palette (no genuinely dark color)", () => {
     // "Sorbet": all 4 colors are light pastels — a naive lightest/darkest split
     // would produce unreadable near-white-on-near-white text.
     const roles = computeThemeRoles(["#ffeecc", "#ffddcc", "#ffcccc", "#febbcc"]);
     expect(roles.isDark).toBe(false);
     expect(roles.background).toBe("#ffffff");
-    expect(roles.foreground).toBe("#171717");
+    // foreground is no longer the flat "#171717" constant for every theme — it
+    // picks up a subtle hue tint from the palette (see the dedicated tint/contrast
+    // tests below) while staying near-black.
+    expect(roles.foreground.toLowerCase()).not.toBe("#171717");
   });
 
-  it("picks a dark fixed background/foreground pair for a palette where only 1 of 4 colors is individually light", () => {
+  it("picks a dark fixed background and a near-white (subtly tinted) foreground for a palette where only 1 of 4 colors is individually light", () => {
     const roles = computeThemeRoles(["#0c1440", "#1c2fbe", "#7c93f5", "#afcffa"]);
     expect(roles.isDark).toBe(true);
     expect(roles.background).toBe("#0a0a0a");
-    expect(roles.foreground).toBe("#ededed");
+    expect(roles.foreground.toLowerCase()).not.toBe("#ededed");
   });
 
   it("uses one of the 4 input colors as primary when it's already usable (saturated, mid-lightness)", () => {
@@ -98,7 +101,7 @@ describe("computeThemeRoles", () => {
     const roles = computeThemeRoles(forestColors);
     expect(roles.isDark).toBe(false);
     expect(roles.background).toBe("#ffffff");
-    expect(roles.foreground).toBe("#171717");
+    expect(roles.foreground.toLowerCase()).not.toBe("#171717");
   });
 
   it("lightens the input color further (keeping its hue) when even the lightest of the 4 raw colors isn't bright enough", () => {
@@ -172,6 +175,47 @@ describe("computeThemeRoles", () => {
     const roles = computeThemeRoles(["#2196f3", "#e3f0fb", "#93c9f5", "#0e4c9b"]);
     expect(roles.primary).toBe("#2196f3");
     expect(roles.primaryForeground).toBe("#111111");
+  });
+
+  // Regression test for the reported complaint: "màu chữ chỉ có trắng với đen thôi,
+  // muốn đổi nó sao cho hợp với theme" (body text is only ever flat black/white, want
+  // it to feel like it belongs to the theme). `foreground` now picks up a subtle hue
+  // tint from the palette's own dominant color instead of being one of exactly 2 flat
+  // constants for all 19 themes — this must never come at the cost of WCAG AA body-text
+  // contrast, so assert the real worst case across every shipped theme rather than
+  // trusting the tint's saturation cap is "obviously" safe.
+  it("guarantees WCAG AA contrast (>= 4.5:1) between background and foreground for every defined theme", () => {
+    function relativeLuminance(hex: string): number {
+      const clean = hex.replace("#", "");
+      const [r, g, b] = [0, 2, 4].map((i) => parseInt(clean.slice(i, i + 2), 16) / 255);
+      const [rl, gl, bl] = [r, g, b].map((s) => (s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4)));
+      return 0.2126 * rl + 0.7152 * gl + 0.0722 * bl;
+    }
+    function contrastRatio(a: string, b: string): number {
+      const l1 = relativeLuminance(a);
+      const l2 = relativeLuminance(b);
+      return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
+    }
+
+    for (const theme of THEMES) {
+      const roles = computeThemeRoles(theme.colors);
+      const ratio = contrastRatio(roles.background, roles.foreground);
+      expect(ratio, `theme "${theme.id}": background=${roles.background} foreground=${roles.foreground}`).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+
+  it("tints foreground with the theme's own dominant hue instead of a flat constant shared by every theme", () => {
+    // "cold" (blue-dominant) and "ch-forest" (green-dominant) are both light themes,
+    // so under the old flat logic both would produce the exact same "#171717"
+    // foreground. They must now diverge, and neither should collapse back to the old
+    // flat constant now that both are tinted.
+    const cold = computeThemeRoles(getThemeById("cold").colors);
+    const forest = computeThemeRoles(getThemeById("ch-forest").colors);
+    expect(cold.isDark).toBe(false);
+    expect(forest.isDark).toBe(false);
+    expect(cold.foreground.toLowerCase()).not.toBe(forest.foreground.toLowerCase());
+    expect(cold.foreground.toLowerCase()).not.toBe("#171717");
+    expect(forest.foreground.toLowerCase()).not.toBe("#171717");
   });
 });
 

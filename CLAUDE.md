@@ -13,7 +13,9 @@
 | **Frontend/UI** | `src/app/**` (pages), `src/components/**` | [`src/app/FRONTEND_TASKS.md`](./src/app/FRONTEND_TASKS.md) | Pages/components per `PROJECT_CONTEXT.md`. Never invents an API shape — flag it instead of guessing. |
 | **QA/Testing** | `src/tests/**` | [`src/tests/TEST_TASKS.md`](./src/tests/TEST_TASKS.md) | Unit (Vitest, node), component (Vitest+RTL, jsdom), e2e (Playwright) tests. Flags any `PROJECT_CONTEXT.md` requirement with no corresponding test rather than silently skipping it. |
 
-These are hats the same session wears in sequence, not separate spawned agents — the only agent this file has you spawn is the milestone-gate review below. Each role's checklist (`- [ ]` / `- [x]`) lives in its own `*_TASKS.md`, updated in the same step that finishes a task — never batched up later, never left for someone else to mark done.
+These are hats the same session wears in sequence, not separate spawned agents — the only agents this file has you spawn are the milestone-gate review below and the one narrow exception right after it. Each role's checklist (`- [ ]` / `- [x]`) lives in its own `*_TASKS.md`, updated in the same step that finishes a task — never batched up later, never left for someone else to mark done.
+
+**Exception — Design/UI-UX agent:** Frontend/UI may spawn a real Agent (not just wear the hat) for genuinely visual/aesthetic decisions — color-palette/contrast tuning (e.g. theme-derived text color), chart visual design, "does this look good" polish passes. Scope it to specific files/components, never a full-app redesign pass, and never for plumbing (schema, API wiring, state management) — that stays with the Frontend hat itself. The agent self-checks with the same `typecheck`/`lint`/`test` commands as any other step and leaves its diff uncommitted for the spawning session to review before committing. It still only participates in the one milestone-gate review below like everything else — it is not a second review layer.
 
 ---
 

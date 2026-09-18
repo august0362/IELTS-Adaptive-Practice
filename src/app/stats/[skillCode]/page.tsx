@@ -38,14 +38,14 @@ export default async function SkillStatsPage({ params }: { params: Promise<{ ski
             {practiceLog.length} lần luyện ghi nhận (cả quay và tự học).
           </p>
         </div>
-        <Link href="/" className="text-sm font-medium text-primary hover:opacity-80">
+        <Link href="/" className="text-sm font-medium text-primary transition-opacity hover:opacity-80">
           ← Vòng quay
         </Link>
       </div>
 
       {stats.questionTypeStats === null ? (
         <p className="rounded-lg border border-border bg-surface px-4 py-3 text-sm text-foreground/60">
-          {stats.skill.name} không có dạng bài để thống kê.
+          Kỹ năng {stats.skill.name} không chia theo dạng bài.
         </p>
       ) : stats.questionTypeStats.every((t) => t.count === 0) ? (
         <p className="rounded-lg border border-border bg-surface px-4 py-3 text-sm text-foreground/60">
@@ -53,24 +53,24 @@ export default async function SkillStatsPage({ params }: { params: Promise<{ ski
         </p>
       ) : (
         <>
-          <section className="flex flex-col gap-2 rounded-xl border border-border bg-surface p-4">
+          <section className="flex flex-col gap-3 rounded-xl border border-border bg-surface p-5 shadow-sm">
             <h2 className="text-sm font-medium text-foreground/70">Số lần theo dạng bài</h2>
             <QuestionTypeBarChart data={countData} color={color} unit="lần" />
           </section>
 
-          <section className="flex flex-col gap-2 rounded-xl border border-border bg-surface p-4">
+          <section className="flex flex-col gap-3 rounded-xl border border-border bg-surface p-5 shadow-sm">
             <h2 className="text-sm font-medium text-foreground/70">Tỉ lệ % theo dạng bài</h2>
             <QuestionTypeBarChart data={percentData} color={color} unit="%" />
           </section>
 
-          <section className="flex flex-col gap-2 rounded-xl border border-border bg-surface p-4">
+          <section className="flex flex-col gap-3 rounded-xl border border-border bg-surface p-5 shadow-sm">
             <h2 className="text-sm font-medium text-foreground/70">Cân bằng dạng bài</h2>
             <QuestionTypeRadarChart data={percentData} color={color} />
           </section>
         </>
       )}
 
-      <section className="flex flex-col gap-2">
+      <section className="flex flex-col gap-3">
         <h2 className="text-sm font-medium text-foreground/70">Lịch sử luyện</h2>
         <PracticeLog entries={practiceLog} />
       </section>

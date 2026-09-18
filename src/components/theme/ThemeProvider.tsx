@@ -25,6 +25,8 @@ function applyTheme(themeId: string) {
   root.style.setProperty("--border", roles.border);
   root.style.setProperty("--primary", roles.primary);
   root.style.setProperty("--primary-foreground", roles.primaryForeground);
+  root.style.setProperty("--input", roles.input);
+  root.style.setProperty("--input-foreground", roles.inputForeground);
 }
 
 interface ThemeContextValue {

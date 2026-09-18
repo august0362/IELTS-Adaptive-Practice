@@ -49,9 +49,73 @@ describe("computeThemeRoles", () => {
   it("every defined theme produces valid hex roles without throwing", () => {
     for (const theme of THEMES) {
       const roles = computeThemeRoles(theme.colors);
-      for (const value of [roles.background, roles.foreground, roles.surface, roles.primary, roles.primaryForeground]) {
+      for (const value of [
+        roles.background,
+        roles.foreground,
+        roles.surface,
+        roles.primary,
+        roles.primaryForeground,
+        roles.input,
+        roles.inputForeground,
+      ]) {
         expect(value).toMatch(/^#[0-9a-fA-F]{6}$/);
       }
+    }
+  });
+
+  // Regression test for a real reported bug: on a dark theme ("Forest"), the
+  // Journal textarea used `bg-background` (the theme's fixed near-black page
+  // background) instead of its own role, so a "writing surface" rendered as a
+  // near-invisible dark box inside a much brighter green card — the opposite
+  // of "sáng lên" (should light up). `input` must always be bright regardless
+  // of the theme's overall light/dark mode.
+  it("keeps the input background bright even for a fully dark theme (the reported 'Forest' textarea bug)", () => {
+    const forestColors: [string, string, string, string] = ["#499a13", "#bbdc12", "#8eca3c", "#276f27"];
+    const roles = computeThemeRoles(forestColors);
+    expect(roles.isDark).toBe(true);
+    function lightnessOf(hex: string): number {
+      const clean = hex.replace("#", "");
+      const [r, g, b] = [0, 2, 4].map((i) => parseInt(clean.slice(i, i + 2), 16) / 255);
+      return (Math.max(r, g, b) + Math.min(r, g, b)) / 2;
+    }
+    // >= ~0.84, not a strict 0.85: HSL->RGB->hex round-trips through 8-bit
+    // channels, so hitting the 0.85 lightness target exactly can round down by
+    // a fraction of a percent (e.g. 0.8490...) — imperceptible, not a real bug.
+    expect(lightnessOf(roles.input)).toBeGreaterThanOrEqual(0.84);
+    expect(roles.inputForeground).toBe("#111111"); // dark text on the now-bright input
+  });
+
+  it("lightens the input color further (keeping its hue) when even the lightest of the 4 raw colors isn't bright enough", () => {
+    // "Dark Cold"'s lightest raw color (#afcffa) has lightness ~0.833, just under
+    // the 0.85 floor — must not be returned verbatim; must still be recognizably
+    // the same blue hue family, just lighter.
+    const roles = computeThemeRoles(["#afcffa", "#7c93f5", "#1c2fbe", "#0c1440"]);
+    expect(roles.input.toLowerCase()).not.toBe("#afcffa");
+    function lightnessOf(hex: string): number {
+      const clean = hex.replace("#", "");
+      const [r, g, b] = [0, 2, 4].map((i) => parseInt(clean.slice(i, i + 2), 16) / 255);
+      return (Math.max(r, g, b) + Math.min(r, g, b)) / 2;
+    }
+    expect(lightnessOf(roles.input)).toBeGreaterThanOrEqual(0.84); // see rounding note above
+  });
+
+  it("guarantees WCAG AA contrast (>= 4.5:1) between input and inputForeground for every defined theme", () => {
+    function relativeLuminance(hex: string): number {
+      const clean = hex.replace("#", "");
+      const [r, g, b] = [0, 2, 4].map((i) => parseInt(clean.slice(i, i + 2), 16) / 255);
+      const [rl, gl, bl] = [r, g, b].map((s) => (s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4)));
+      return 0.2126 * rl + 0.7152 * gl + 0.0722 * bl;
+    }
+    function contrastRatio(a: string, b: string): number {
+      const l1 = relativeLuminance(a);
+      const l2 = relativeLuminance(b);
+      return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
+    }
+
+    for (const theme of THEMES) {
+      const roles = computeThemeRoles(theme.colors);
+      const ratio = contrastRatio(roles.input, roles.inputForeground);
+      expect(ratio, `theme "${theme.id}": input=${roles.input} inputForeground=${roles.inputForeground}`).toBeGreaterThanOrEqual(4.5);
     }
   });
 

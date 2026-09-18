@@ -117,7 +117,7 @@ export function Journal({ initialNotes }: { initialNotes: NoteDTO[] }) {
             value={noteDate}
             onChange={(e) => setNoteDate(e.target.value)}
             disabled={editingId !== null}
-            className="rounded-md border border-border bg-background px-2 py-1 text-sm text-foreground disabled:opacity-50"
+            className="rounded-md border border-border bg-input px-2 py-1 text-sm text-input-foreground disabled:opacity-50"
           />
         </div>
 
@@ -130,7 +130,7 @@ export function Journal({ initialNotes }: { initialNotes: NoteDTO[] }) {
           onChange={(e) => setContent(e.target.value)}
           rows={8}
           placeholder="Viết ghi chú, từ vựng mới, ví dụ: học được idiom mới cho #Writing..."
-          className="w-full resize-y rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+          className="w-full resize-y rounded-lg border border-border bg-input px-3 py-2 text-sm text-input-foreground placeholder:text-input-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary"
         />
 
         <div className="flex justify-end gap-2">

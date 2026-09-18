@@ -12,6 +12,8 @@
   --border: rgba(0, 0, 0, 0.1);
   --primary: #2563eb;
   --primary-foreground: #ffffff;
+  --input: #ffffff;
+  --input-foreground: #111111;
 
   /* dataviz: fixed categorical order (validated via scripts/validate_palette.js) */
   --chart-reading: #2a78d6;
@@ -29,6 +31,8 @@
   --color-border: var(--border);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
+  --color-input: var(--input);
+  --color-input-foreground: var(--input-foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
@@ -41,6 +45,8 @@
     --border: rgba(255, 255, 255, 0.1);
     --primary: #3b82f6;
     --primary-foreground: #ffffff;
+    --input: #f4f4f5;
+    --input-foreground: #111111;
 
     --chart-reading: #3987e5;
     --chart-listening: #d95926;

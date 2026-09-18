@@ -13,8 +13,11 @@
  * So background/foreground stay a fixed safe light/dark neutral pair per
  * theme (decided by the palette's *average* luminance), and the palette's
  * character shows up in `primary` (buttons, active states — the most
- * saturated usable color) and `surface` (card tinting — closest to the
- * background's lightness tier, but still a distinct hue).
+ * saturated usable color), `surface` (card tinting — closest to the
+ * background's lightness tier, but still a distinct hue), and `input`
+ * (text inputs/textareas — always the palette's own *lightest* color, so a
+ * writing surface never just inherits a dark theme's near-black background
+ * and reads as unreadable/"turned off").
  */
 
 export interface ThemeDefinition {
@@ -30,6 +33,8 @@ export interface ThemeRoles {
   border: string;
   primary: string;
   primaryForeground: string;
+  input: string;
+  inputForeground: string;
   isDark: boolean;
 }
 
@@ -130,6 +135,33 @@ function pickPrimary(colors: string[]): string {
   return hslToHex(hue, adjustedSaturation, adjustedLightness);
 }
 
+const INPUT_MIN_LIGHTNESS = 0.85;
+
+/**
+ * A text input / textarea should always read as a bright, legible "writing
+ * surface" — never just inherit the page's `background`, which for a dark
+ * theme is a fixed near-black. Picks the palette's own lightest color (so it
+ * still varies per theme rather than being one flat white everywhere), with
+ * a floor: if even the lightest of the 4 isn't bright enough, keep its hue
+ * but lighten it further rather than let a dim input pass through.
+ */
+function pickInputBackground(colors: string[]): string {
+  let lightest = colors[0];
+  let lightestLightness = hexToHsl(colors[0])[2];
+  for (const color of colors) {
+    const lightness = hexToHsl(color)[2];
+    if (lightness > lightestLightness) {
+      lightest = color;
+      lightestLightness = lightness;
+    }
+  }
+
+  if (lightestLightness >= INPUT_MIN_LIGHTNESS) return lightest;
+
+  const [hue, saturation] = hexToHsl(lightest);
+  return hslToHex(hue, Math.min(saturation, 0.4), INPUT_MIN_LIGHTNESS);
+}
+
 /** Picks the palette color whose lightness is closest to the target (e.g. 0.94 for a light theme's card surface). */
 function pickClosestLightness(colors: string[], targetLightness: number): string {
   let best = colors[0];
@@ -164,7 +196,10 @@ export function computeThemeRoles(colors: [string, string, string, string]): The
   const primaryForeground =
     contrastRatio(primary, "#111111") >= contrastRatio(primary, "#ffffff") ? "#111111" : "#ffffff";
 
-  return { background, foreground, surface, border, primary, primaryForeground, isDark };
+  const input = pickInputBackground(colors);
+  const inputForeground = contrastRatio(input, "#111111") >= contrastRatio(input, "#ffffff") ? "#111111" : "#ffffff";
+
+  return { background, foreground, surface, border, primary, primaryForeground, input, inputForeground, isDark };
 }
 
 export const DEFAULT_THEME_ID = "default";

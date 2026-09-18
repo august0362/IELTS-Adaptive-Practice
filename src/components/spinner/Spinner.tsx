@@ -1,11 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { computeProbabilities } from "@/lib/engine/weightedRandom";
 import { runCycleAnimation, sleep } from "@/lib/spinnerAnimation";
 import type { HistorySession, RollResultItem, SkillDTO } from "@/lib/types";
 import { PickCard, type PickCardState } from "./PickCard";
 import { RecentRolls } from "./RecentRolls";
+import { ManualPractice } from "./ManualPractice";
 
 type Phase = "idle" | "rolling" | "done" | "error";
 
@@ -33,6 +35,12 @@ export function Spinner({ initialSkills, initialDecayExponent, initialRecentRoll
   );
   const [orderedSelectedSkillIds, setOrderedSelectedSkillIds] = useState<string[]>([]);
   const [partStatesBySkillId, setPartStatesBySkillId] = useState<Record<string, Record<string, PickCardState>>>({});
+  // One state-map per question-type draw for that skill (e.g. Reading Block A
+  // draws 2 independent types — one per passage — see PROJECT_CONTEXT.md 5.7).
+  const [typeDrawStatesBySkillId, setTypeDrawStatesBySkillId] = useState<
+    Record<string, Record<string, PickCardState>[]>
+  >({});
+  const [chosenTypeNamesBySkillId, setChosenTypeNamesBySkillId] = useState<Record<string, string[]>>({});
 
   const skillProbabilities = computeProbabilities(
     skills.map((s) => ({ id: s.id, occurrenceCount: s.occurrenceCount })),
@@ -42,6 +50,13 @@ export function Spinner({ initialSkills, initialDecayExponent, initialRecentRoll
   function partProbabilitiesFor(skill: SkillDTO): Map<string, number> {
     return computeProbabilities(
       skill.parts.map((p) => ({ id: p.id, occurrenceCount: p.occurrenceCount, baseRatio: p.baseRatio })),
+      initialDecayExponent
+    );
+  }
+
+  function typeProbabilitiesFor(skill: SkillDTO): Map<string, number> {
+    return computeProbabilities(
+      skill.questionTypes.map((t) => ({ id: t.id, occurrenceCount: t.occurrenceCount, baseRatio: t.baseRatio })),
       initialDecayExponent
     );
   }
@@ -59,7 +74,9 @@ export function Spinner({ initialSkills, initialDecayExponent, initialRecentRoll
               ([, state]) => state === "selected"
             )?.[0];
             const part = skill.parts.find((p) => p.id === selectedPartId);
-            return part ? `${skill.name}: ${part.name}` : skill.name;
+            const typeNames = chosenTypeNamesBySkillId[skillId];
+            const typesSuffix = typeNames && typeNames.length > 0 ? ` (${typeNames.join(", ")})` : "";
+            return part ? `${skill.name}: ${part.name}${typesSuffix}` : skill.name;
           })
           .filter((entry): entry is string => entry !== null)
           .join(", ")
@@ -110,6 +127,40 @@ export function Spinner({ initialSkills, initialDecayExponent, initialRecentRoll
         ),
       }));
 
+      await sleep(400);
+
+      // Question-type sub-draws (PROJECT_CONTEXT.md 5.7) — 0..2 independent
+      // cascades over the skill's own type pool, one per result.questionTypes entry.
+      const typePool = chosenSkill.questionTypes;
+      const drawStates: Record<string, PickCardState>[] = [];
+      setTypeDrawStatesBySkillId((prev) => ({ ...prev, [chosenSkill.id]: [] }));
+
+      for (const chosenType of result.questionTypes) {
+        const typeLandIndex = typePool.findIndex((t) => t.code === chosenType.code);
+        if (typeLandIndex === -1) continue; // defensive: server result must match a known type
+
+        const drawIndex = drawStates.length;
+        drawStates.push(Object.fromEntries(typePool.map((t) => [t.id, "idle" as PickCardState])));
+
+        await runCycleAnimation(typePool.length, typeLandIndex, (i) => {
+          drawStates[drawIndex] = Object.fromEntries(
+            typePool.map((t, idx) => [t.id, idx === i ? "cycling" : "idle"])
+          );
+          setTypeDrawStatesBySkillId((prev) => ({ ...prev, [chosenSkill.id]: [...drawStates] }));
+        });
+
+        drawStates[drawIndex] = Object.fromEntries(
+          typePool.map((t, idx) => [t.id, idx === typeLandIndex ? "selected" : "dimmed"])
+        );
+        setTypeDrawStatesBySkillId((prev) => ({ ...prev, [chosenSkill.id]: [...drawStates] }));
+        setChosenTypeNamesBySkillId((prev) => ({
+          ...prev,
+          [chosenSkill.id]: [...(prev[chosenSkill.id] ?? []), typePool[typeLandIndex].name],
+        }));
+
+        await sleep(300);
+      }
+
       candidateSkills = candidateSkills.filter((s) => s.id !== chosenSkill.id);
       await sleep(400);
     }
@@ -121,11 +172,27 @@ export function Spinner({ initialSkills, initialDecayExponent, initialRecentRoll
     });
   }
 
+  async function refreshSkillsAndHistory(): Promise<boolean> {
+    try {
+      const [freshSkills, freshHistory] = await Promise.all([
+        fetchJson<SkillDTO[]>("/api/skills"),
+        fetchJson<{ items: HistorySession[] }>("/api/history?limit=5"),
+      ]);
+      setSkills(freshSkills);
+      setRecentRolls(freshHistory.items);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   async function handleRoll() {
     setPhase("rolling");
     setErrorMessage(null);
     setOrderedSelectedSkillIds([]);
     setPartStatesBySkillId({});
+    setTypeDrawStatesBySkillId({});
+    setChosenTypeNamesBySkillId({});
     setSkillStates(Object.fromEntries(skills.map((s) => [s.id, "idle" as PickCardState])));
 
     try {
@@ -144,18 +211,20 @@ export function Spinner({ initialSkills, initialDecayExponent, initialRecentRoll
     // finished showing it — a failure here is only a stale-data refresh
     // problem, not a failed roll, so it must not overwrite `phase`/the error
     // message with the "roll failed" state above.
-    try {
-      const [freshSkills, freshHistory] = await Promise.all([
-        fetchJson<SkillDTO[]>("/api/skills"),
-        fetchJson<{ items: HistorySession[] }>("/api/history?limit=5"),
-      ]);
-      setSkills(freshSkills);
-      setRecentRolls(freshHistory.items);
-    } catch {
+    const refreshed = await refreshSkillsAndHistory();
+    if (!refreshed) {
       setErrorMessage(
         "Quay thành công nhưng không tải được số liệu mới nhất. Số liệu sẽ cập nhật ở lần quay hoặc tải trang tiếp theo."
       );
     }
+  }
+
+  async function handleHistoryDeleted() {
+    await refreshSkillsAndHistory();
+  }
+
+  async function handlePracticeLogged() {
+    await refreshSkillsAndHistory();
   }
 
   return (
@@ -182,12 +251,18 @@ export function Spinner({ initialSkills, initialDecayExponent, initialRecentRoll
 
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {skills.map((skill) => (
-          <PickCard
+          <Link
             key={skill.id}
-            name={skill.name}
-            probabilityPercent={(skillProbabilities.get(skill.id) ?? 0) * 100}
-            state={skillStates[skill.id] ?? "idle"}
-          />
+            href={`/stats/${skill.code}`}
+            aria-label={`Xem thống kê ${skill.name}`}
+            className="rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          >
+            <PickCard
+              name={skill.name}
+              probabilityPercent={(skillProbabilities.get(skill.id) ?? 0) * 100}
+              state={skillStates[skill.id] ?? "idle"}
+            />
+          </Link>
         ))}
       </section>
 
@@ -209,6 +284,26 @@ export function Spinner({ initialSkills, initialDecayExponent, initialRecentRoll
                 />
               ))}
             </div>
+            {(typeDrawStatesBySkillId[skillId] ?? []).map((drawStates, drawIndex, allDraws) => {
+              const typeProbabilities = typeProbabilitiesFor(skill);
+              return (
+                <div key={drawIndex} className="flex flex-col gap-2">
+                  <h3 className="text-xs font-medium text-foreground/50">
+                    Dạng bài{allDraws.length > 1 ? ` (đoạn ${drawIndex + 1})` : ""}
+                  </h3>
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                    {skill.questionTypes.map((type) => (
+                      <PickCard
+                        key={type.id}
+                        name={type.name}
+                        probabilityPercent={(typeProbabilities.get(type.id) ?? 0) * 100}
+                        state={drawStates[type.id] ?? "idle"}
+                      />
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
           </section>
         );
       })}
@@ -224,9 +319,11 @@ export function Spinner({ initialSkills, initialDecayExponent, initialRecentRoll
         </button>
       </div>
 
+      <ManualPractice skills={skills} onLogged={handlePracticeLogged} />
+
       <section className="flex flex-col gap-2">
         <h2 className="text-sm font-medium text-foreground/70">Lượt quay gần đây</h2>
-        <RecentRolls sessions={recentRolls} />
+        <RecentRolls sessions={recentRolls} onDeleted={handleHistoryDeleted} />
       </section>
     </main>
   );

@@ -76,7 +76,8 @@ drizzle.config.ts              # config của drizzle-kit (dialect: sqlite, đư
                                 # không có trang /history riêng, chỉ có route GET /api/history ở trên)
     /journal/page.tsx
     /prediction/page.tsx
-    /settings/page.tsx         # trang chọn theme (ThemePicker.tsx) — xem mục 9
+    /settings/page.tsx         # trang chọn theme (ThemePicker.tsx) + chủ đề (Topics.tsx) — xem mục 9, 5.11
+    /stats/[skillCode]/page.tsx   # trang thống kê theo kỹ năng (mục 5.10) — dùng chung getSkillStats() với route API
     layout.tsx
     # `page.tsx`, `journal/page.tsx`, và `prediction/page.tsx` đều khai báo
     # `export const dynamic = "force-dynamic"` — thêm vào ở Milestone 3 Bước 2 sau khi
@@ -88,13 +89,17 @@ drizzle.config.ts              # config của drizzle-kit (dialect: sqlite, đư
     # nhưng lại lỗi khi chạy `next build`/`next start` thật.
   /components
     /layout                    # Nav.tsx — thanh điều hướng trên cùng, tô sáng link đang active
-    /spinner                   # UI vòng quay may mắn, hiện lần lượt kỹ năng rồi tới part
+    /spinner                   # UI vòng quay may mắn, hiện lần lượt kỹ năng -> part -> dạng bài (0..2 lần, mục 5.7);
+                                # RecentRolls.tsx (có nút xóa, mục 5.9), ManualPractice.tsx (cộng luyện thủ công, mục 5.8)
     /journal                   # Ô soạn ghi chú + nhập tag + danh sách ghi chú
     /prediction                # Thẻ dự đoán, nút chuyển cách làm tròn, thanh trượt tỉ lệ, biểu đồ tần suất,
                                 # theo dõi Cambridge (thêm/sửa/xóa + gần đây/"xem tất cả"), ghép lại trong
                                 # PredictionPageClient.tsx (component client, nhận dữ liệu từ Server Component
                                 # của /prediction/page.tsx)
     /theme                     # ThemeProvider.tsx (context + áp CSS-var), ThemePicker.tsx
+    /stats                     # QuestionTypeBarChart.tsx (cột ngang, 1 màu — xem dataviz), QuestionTypeRadarChart.tsx,
+                                # PracticeLog.tsx — dùng ở /stats/[skillCode]
+    /settings                  # Topics.tsx — CRUD chủ đề (mục 5.11)
   /lib
     theme.ts                   # THEMES + computeThemeRoles() — xem mục 9
     /engine

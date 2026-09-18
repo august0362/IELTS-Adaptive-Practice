@@ -15,6 +15,18 @@
 - [x] Hệ thống theme (chuẩn bị cho Milestone 4, trước bước review Bước 1) — `src/lib/theme.ts` (19 theme lấy từ `src/theme/*.png`, hàm `computeThemeRoles()`), `components/theme/ThemeProvider.tsx` + `ThemePicker.tsx`, trang `/settings`, link "Cài đặt" trên nav. Đã rà toàn bộ component, bỏ hết màu cứng kiểu `bg-white/60`/`border-black/10`/`bg-foreground text-background`, chuyển sang dùng class theo theme như `bg-surface`/`border-border`/`bg-primary`/`text-primary-foreground` để cả app đổi màu đồng bộ khi đổi theme; cố tình giữ nguyên màu cố định cho các trạng thái đặc biệt (xóa = đỏ, vòng quay đang chạy/đã chọn = xanh dương/xanh ngọc). Đã được review ở Milestone 4 Bước 1 xác nhận sạch (không còn class màu cứng nào sót lại).
 - [x] Sửa lỗi ở Milestone 4 Bước 1: hàm chọn màu chữ `primaryForeground` trong `computeThemeRoles` trước đây chỉ dựa vào ngưỡng độ sáng `relativeLuminance > 0.5`, khiến 7/19 theme không đạt độ tương phản chuẩn WCAG AA (3 trong số đó còn dưới cả ngưỡng tối thiểu 3:1 cho chữ lớn/UI) — đã sửa để chọn màu nào trong `#111111`/`#ffffff` cho độ tương phản với `primary` cao hơn. Xem mục "Milestone 4, Step 1" trong `document.txt`.
 
+### Milestone 5 (frontend) — Dạng bài, xóa lượt quay, cộng luyện thủ công, thống kê, chủ đề
+
+- [x] `Spinner.tsx` — cascade thêm bước hiện dạng bài (0/1/2 lần, khớp `questionTypeRollCount`) sau khi part đã chốt, dùng lại đúng `runCycleAnimation`; thẻ kỹ năng giờ là link sang `/stats/[skillCode]`
+- [x] `RecentRolls.tsx` — nút "Xóa" mỗi lượt (gọi `DELETE /api/history/:id`), nhãn "Tự học" cho lượt `source=manual`, hiện dạng bài đã random trong tên kết quả
+- [x] `ManualPractice.tsx` (mới, trong trang Vòng quay) — form chọn Kỹ năng → Part → Dạng bài (nếu có), gọi `POST /api/practice`
+- [x] `Topics.tsx` (mới, trong trang Cài đặt) — CRUD chủ đề cơ bản (tên + nút "+"), chưa gắn vào vòng quay
+- [x] Trang `/stats/[skillCode]` (mới) — `PracticeLog.tsx`, `QuestionTypeBarChart.tsx` (cột ngang, 1 màu, theo dataviz skill), `QuestionTypeRadarChart.tsx`; dùng chung `getSkillStats()` với route API; `notFound()` cho skillCode không hợp lệ; `export const dynamic = "force-dynamic"`
+- [x] `PredictionCards.tsx` — thẻ kỹ năng cũng thành link sang `/stats/[skillCode]`
+- [x] `queries.ts` — thêm `getSkillStats()`, `getAllTopics()` dùng chung giữa Server Component và route API (đúng pattern của `getPredictionData()`)
+- [x] Smoke-test qua dev server + curl: `/`, `/settings`, `/stats/READING`, `/stats/SPEAKING`, `/stats/BOGUS` (404), roll → stats cập nhật → xóa → revert đúng
+- [ ] Tinh chỉnh màu chữ (`foreground`) theo tông màu từng theme + polish trực quan các mặt mới (biểu đồ stats, Topics, nút xóa/cộng luyện) — giao cho agent Design/UI-UX riêng (xem `CLAUDE.md`)
+
 ## Việc còn chờ / chưa làm (xem `document.txt` để biết đầy đủ bối cảnh từng việc)
 
 - [ ] UI chỉnh `baseRatio` cho Writing (Task 1/2) và Listening (Block A/B) — hiện chỉ Speaking/Reading có, đúng theo phạm vi ban đầu

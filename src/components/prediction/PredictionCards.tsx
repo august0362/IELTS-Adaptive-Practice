@@ -1,15 +1,20 @@
+import Link from "next/link";
 import type { PredictionResponseDTO, SkillPredictionResultDTO } from "@/lib/types";
 
-const SKILL_LABELS: { key: keyof PredictionResponseDTO["perSkill"]; name: string }[] = [
-  { key: "reading", name: "Reading" },
-  { key: "listening", name: "Listening" },
-  { key: "writing", name: "Writing" },
-  { key: "speaking", name: "Speaking" },
+const SKILL_LABELS: { key: keyof PredictionResponseDTO["perSkill"]; name: string; code: string }[] = [
+  { key: "reading", name: "Reading", code: "READING" },
+  { key: "listening", name: "Listening", code: "LISTENING" },
+  { key: "writing", name: "Writing", code: "WRITING" },
+  { key: "speaking", name: "Speaking", code: "SPEAKING" },
 ];
 
-function SkillCard({ name, result }: { name: string; result: SkillPredictionResultDTO }) {
+function SkillCard({ name, code, result }: { name: string; code: string; result: SkillPredictionResultDTO }) {
   return (
-    <div className="flex flex-col items-center gap-1 rounded-xl border border-border bg-surface p-4 text-center">
+    <Link
+      href={`/stats/${code}`}
+      aria-label={`Xem thống kê ${name}`}
+      className="flex flex-col items-center gap-1 rounded-xl border border-border bg-surface p-4 text-center transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+    >
       <span className="text-xs font-medium text-foreground/60">{name}</span>
       {result.predictedBand === null ? (
         <span className="text-sm text-foreground/40">Chưa đủ dữ liệu</span>
@@ -19,7 +24,7 @@ function SkillCard({ name, result }: { name: string; result: SkillPredictionResu
           <span className="text-xs text-foreground/50">{result.sampleSize} bài thi thử</span>
         </>
       )}
-    </div>
+    </Link>
   );
 }
 
@@ -28,8 +33,8 @@ export function PredictionCards({ prediction }: { prediction: PredictionResponse
     <section className="flex flex-col gap-3">
       <h2 className="text-lg font-semibold text-foreground">Band điểm dự đoán</h2>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {SKILL_LABELS.map(({ key, name }) => (
-          <SkillCard key={key} name={name} result={prediction.perSkill[key]} />
+        {SKILL_LABELS.map(({ key, name, code }) => (
+          <SkillCard key={key} name={name} code={code} result={prediction.perSkill[key]} />
         ))}
       </div>
       <div className="flex flex-col items-center gap-1 rounded-xl border-2 border-primary bg-primary/10 p-4 text-center">

@@ -1,11 +1,25 @@
 import { desc, eq, and, gte } from "drizzle-orm";
 import { db } from "./client";
-import { dailyNotes, cambridgeTestResults, rollResults, rollSessions, skills } from "./schema";
+import {
+  dailyNotes,
+  cambridgeTestResults,
+  rollResults,
+  rollSessions,
+  skills,
+  skillParts,
+  questionTypes,
+  rollResultQuestionTypes,
+  topics,
+} from "./schema";
 import { loadEngineConfig } from "./configHelpers";
 import { predictAllSkillBands, type SkillPredictionInput } from "@/lib/engine/bandPrediction";
 
 const CAMBRIDGE_SAMPLE_SIZE = 30;
 const PRACTICE_WINDOW_DAYS = 30;
+
+export function getAllTopics() {
+  return db.select().from(topics).orderBy(desc(topics.createdAt));
+}
 
 export function getSkillsWithParts() {
   return db.query.skills.findMany({ with: { parts: true, questionTypes: true } });
@@ -102,5 +116,63 @@ export async function getPredictionData() {
       speaking: practiceCounts.get("SPEAKING") ?? 0,
     },
     hasEnoughData: prediction.overallPredicted !== null,
+  };
+}
+
+/**
+ * Shared by GET /api/stats/:skillCode and the /stats/[skillCode] Server
+ * Component (PROJECT_CONTEXT.md section 5.10), same reasoning as
+ * getPredictionData above — one place computing this so the two never drift.
+ * Returns null when skillCode doesn't match a seeded skill.
+ */
+export async function getSkillStats(skillCode: string) {
+  const [skill] = await db.select().from(skills).where(eq(skills.code, skillCode));
+  if (!skill) return null;
+
+  const practiceRows = await db
+    .select({
+      rolledAt: rollSessions.rolledAt,
+      source: rollSessions.source,
+      partCode: skillParts.code,
+      partName: skillParts.name,
+    })
+    .from(rollResults)
+    .innerJoin(rollSessions, eq(rollResults.rollSessionId, rollSessions.id))
+    .innerJoin(skillParts, eq(rollResults.skillPartId, skillParts.id))
+    .where(eq(rollResults.skillId, skill.id))
+    .orderBy(desc(rollSessions.rolledAt));
+
+  const practiceLog = practiceRows.map((row) => ({
+    rolledAt: row.rolledAt,
+    source: row.source,
+    part: { code: row.partCode, name: row.partName },
+  }));
+
+  const types = await db.select().from(questionTypes).where(eq(questionTypes.skillId, skill.id));
+
+  let questionTypeStats: { code: string; name: string; count: number; percentage: number }[] | null = null;
+  if (types.length > 0) {
+    const counted = await Promise.all(
+      types.map(async (type) => {
+        const rows = await db
+          .select({ id: rollResultQuestionTypes.id })
+          .from(rollResultQuestionTypes)
+          .where(eq(rollResultQuestionTypes.questionTypeId, type.id));
+        return { type, count: rows.length };
+      })
+    );
+    const total = counted.reduce((sum, c) => sum + c.count, 0);
+    questionTypeStats = counted.map(({ type, count }) => ({
+      code: type.code,
+      name: type.name,
+      count,
+      percentage: total > 0 ? Math.round((count / total) * 1000) / 10 : 0,
+    }));
+  }
+
+  return {
+    skill: { id: skill.id, code: skill.code, name: skill.name },
+    practiceLog,
+    questionTypeStats,
   };
 }

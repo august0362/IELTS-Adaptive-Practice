@@ -1,6 +1,15 @@
 import { ThemePicker } from "@/components/theme/ThemePicker";
+import { Topics } from "@/components/settings/Topics";
+import { getAllTopics } from "@/lib/db/queries";
+import type { TopicDTO } from "@/lib/types";
 
-export default function SettingsPage() {
+// Live DB read on every request — see src/app/page.tsx's identical comment.
+export const dynamic = "force-dynamic";
+
+export default async function SettingsPage() {
+  const topicRows = await getAllTopics();
+  const initialTopics: TopicDTO[] = topicRows.map((t) => ({ ...t, createdAt: t.createdAt.toISOString() }));
+
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-4 py-10">
       <div className="text-center">
@@ -11,6 +20,7 @@ export default function SettingsPage() {
       </div>
 
       <ThemePicker />
+      <Topics initialTopics={initialTopics} />
     </main>
   );
 }

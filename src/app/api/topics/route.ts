@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
-import { desc } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { topics } from "@/lib/db/schema";
+import { getAllTopics } from "@/lib/db/queries";
 import { readJsonObject } from "@/lib/api/requestJson";
 
 export async function GET() {
-  const rows = await db.select().from(topics).orderBy(desc(topics.createdAt));
+  const rows = await getAllTopics();
   return NextResponse.json(rows);
 }
 

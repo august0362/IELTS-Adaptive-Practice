@@ -309,3 +309,37 @@ DONE
     Prediction v2, part-level weekly-minimum, soft-reset tuning, adjustable
     baseRatio UI for Writing/Listening, Config UI for engine constants) —
     none of it blocks normal use of the app as built.
+
+[2026-09-18] Post-launch bug fixes: illegible/flat form inputs on themed cards.
+  - User reported (screenshot, Forest theme) the Journal textarea rendered as
+    a near-invisible dark box inside a much brighter green card. Root cause:
+    form fields used `bg-background` (the theme's own page background, near-
+    black for a dark-classified theme) instead of a dedicated role. Fixed by
+    adding `input`/`inputForeground` to ThemeRoles: always the palette's own
+    lightest raw color, lightened further in HSL space if it doesn't clear a
+    0.85 lightness floor. Applied across all 7 form fields in Journal.tsx and
+    CambridgeTracker.tsx. 3 new regression tests (exact Forest reproduction,
+    a below-floor "Dark Cold" case, WCAG AA contrast across all 19 themes).
+  - Follow-up report on the same screenshot: the fix made the textarea
+    legible but still flat/low-contrast against the card, and separately,
+    the whole page went near-black for "Forest" when the user expected a
+    bright nature theme (reference: a light, organized layout). Two fixes:
+    (1) `isDark` in computeThemeRoles() changed from "average luminance < 0.4"
+    to "fewer than 2 of the palette's own 4 colors are individually light" —
+    Forest averages ~0.37 despite 2 of 4 colors being bright vivid greens, so
+    the average-based rule misclassified it as full dark mode; the count-based
+    rule reclassifies it as light while leaving "Dark Cold"/"Dark Winter"
+    (each only 1 of 4 light) correctly dark. (2) Added a shared `.input-paper`
+    CSS class (globals.css) giving every form field a visible colored border
+    (color-mix with primary) and a layered box-shadow (elevation + a soft glow
+    in the input's own color) instead of a flat fill, so fields read as
+    distinct "paper" surfaces lifted off the card. All 7 fields switched from
+    raw `bg-input text-input-foreground` utilities to `.input-paper`.
+  - Verified: 99/99 unit+component tests green (2 new isDark-reclassification
+    tests added, 1 existing Forest test updated to drop its now-inverted
+    isDark assertion), typecheck clean, lint clean, and the compiled CSS
+    chunk fetched live to confirm `.input-paper` produces real rules
+    referencing var(--input)/var(--primary) (with an automatic color-mix()
+    @supports fallback emitted by the build, not hand-written).
+  - Not independently visually verified by the assistant (no way to render
+    pixels) — user asked to re-check the Forest theme in-browser.

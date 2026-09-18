@@ -11,7 +11,7 @@ describe("computeThemeRoles", () => {
     expect(roles.foreground).toBe("#171717");
   });
 
-  it("picks a dark fixed background/foreground pair for a palette with low average luminance", () => {
+  it("picks a dark fixed background/foreground pair for a palette where only 1 of 4 colors is individually light", () => {
     const roles = computeThemeRoles(["#0c1440", "#1c2fbe", "#7c93f5", "#afcffa"]);
     expect(roles.isDark).toBe(true);
     expect(roles.background).toBe("#0a0a0a");
@@ -63,16 +63,14 @@ describe("computeThemeRoles", () => {
     }
   });
 
-  // Regression test for a real reported bug: on a dark theme ("Forest"), the
-  // Journal textarea used `bg-background` (the theme's fixed near-black page
-  // background) instead of its own role, so a "writing surface" rendered as a
-  // near-invisible dark box inside a much brighter green card — the opposite
-  // of "sáng lên" (should light up). `input` must always be bright regardless
-  // of the theme's overall light/dark mode.
-  it("keeps the input background bright even for a fully dark theme (the reported 'Forest' textarea bug)", () => {
+  // Regression test for a real reported bug: text inputs/textareas used
+  // `bg-background` instead of their own role, so a "writing surface" could
+  // render as a near-invisible dark box inside a much brighter themed card —
+  // the opposite of "sáng lên" (should light up). `input` must always be
+  // bright regardless of the theme's overall light/dark classification.
+  it("keeps the input background bright for the 'Forest' palette (the reported textarea bug)", () => {
     const forestColors: [string, string, string, string] = ["#499a13", "#bbdc12", "#8eca3c", "#276f27"];
     const roles = computeThemeRoles(forestColors);
-    expect(roles.isDark).toBe(true);
     function lightnessOf(hex: string): number {
       const clean = hex.replace("#", "");
       const [r, g, b] = [0, 2, 4].map((i) => parseInt(clean.slice(i, i + 2), 16) / 255);
@@ -83,6 +81,24 @@ describe("computeThemeRoles", () => {
     // a fraction of a percent (e.g. 0.8490...) — imperceptible, not a real bug.
     expect(lightnessOf(roles.input)).toBeGreaterThanOrEqual(0.84);
     expect(roles.inputForeground).toBe("#111111"); // dark text on the now-bright input
+  });
+
+  // Regression test for a second reported bug: "Forest" averages to luminance
+  // ~0.37 (just under the old flat 0.4 *average* threshold), so the whole page
+  // rendered as full dark mode (near-black background) despite 2 of its 4 raw
+  // colors being bright, vivid greens — the user expected a bright nature
+  // theme, not a night theme, and pointed to a light/organized reference
+  // layout as what they wanted instead. isDark now requires at least 3 of the
+  // 4 raw colors to be individually dark (fewer than 2 "light" components),
+  // not just a low average, so a palette that's more light than dark
+  // component-by-component renders as a light page with its own colors used
+  // as accents instead of blacking out the whole background.
+  it("classifies a palette as light when at least half its own colors are bright, even if the average luminance is low ('Forest')", () => {
+    const forestColors: [string, string, string, string] = ["#499a13", "#bbdc12", "#8eca3c", "#276f27"];
+    const roles = computeThemeRoles(forestColors);
+    expect(roles.isDark).toBe(false);
+    expect(roles.background).toBe("#ffffff");
+    expect(roles.foreground).toBe("#171717");
   });
 
   it("lightens the input color further (keeping its hue) when even the lightest of the 4 raw colors isn't bright enough", () => {

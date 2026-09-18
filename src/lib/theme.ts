@@ -11,7 +11,9 @@
  * genuinely dark color at all (e.g. "Sorbet": ffeecc/ffddcc/ffcccc/febbcc) —
  * using such a palette's own extremes for body text would be unreadable.
  * So background/foreground stay a fixed safe light/dark neutral pair per
- * theme (decided by the palette's *average* luminance), and the palette's
+ * theme (decided by how many of the palette's own 4 colors are individually
+ * light — see LIGHT_COMPONENT_LUMINANCE below — not by their average), and
+ * the palette's
  * character shows up in `primary` (buttons, active states — the most
  * saturated usable color), `surface` (card tinting — closest to the
  * background's lightness tier, but still a distinct hue), and `input`
@@ -177,9 +179,19 @@ function pickClosestLightness(colors: string[], targetLightness: number): string
   return best;
 }
 
+const LIGHT_COMPONENT_LUMINANCE = 0.4;
+
 export function computeThemeRoles(colors: [string, string, string, string]): ThemeRoles {
-  const avgLuminance = colors.reduce((sum, c) => sum + relativeLuminance(c), 0) / colors.length;
-  const isDark = avgLuminance < 0.4;
+  // A theme reads as "dark" only when MOST of its own 4 colors are dark — not
+  // just because their *average* dips under a threshold. A palette like
+  // "Forest" (499a13/bbdc12/8eca3c/276f27) averages to luminance ~0.37 despite
+  // 2 of its 4 colors being clearly bright, vivid greens; averaging alone
+  // misclassified it as full dark mode (near-black page background) when the
+  // user reported it should read as a bright nature theme. Named-dark
+  // palettes ("Dark Cold", "Dark Winter") still have only 1 of their 4 colors
+  // qualify as light, so they're unaffected by this change.
+  const lightComponentCount = colors.filter((c) => relativeLuminance(c) >= LIGHT_COMPONENT_LUMINANCE).length;
+  const isDark = lightComponentCount < 2;
 
   const background = isDark ? "#0a0a0a" : "#ffffff";
   const foreground = isDark ? "#ededed" : "#171717";

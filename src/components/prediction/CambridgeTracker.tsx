@@ -188,7 +188,7 @@ export function CambridgeTracker({ initialResults, onChanged }: CambridgeTracker
               type="date"
               value={form.testDate}
               onChange={(e) => setForm((f) => ({ ...f, testDate: e.target.value }))}
-              className="rounded-md border border-border bg-input px-2 py-1 text-sm text-input-foreground"
+              className="input-paper px-2 py-1 text-sm"
             />
           </label>
           <label className="flex flex-col gap-1 text-sm text-foreground/60">
@@ -198,7 +198,7 @@ export function CambridgeTracker({ initialResults, onChanged }: CambridgeTracker
               value={form.testName}
               onChange={(e) => setForm((f) => ({ ...f, testName: e.target.value }))}
               placeholder="Cambridge 18 - Test 2"
-              className="rounded-md border border-border bg-input px-2 py-1 text-sm text-input-foreground"
+              className="input-paper px-2 py-1 text-sm placeholder:text-input-foreground/50"
             />
           </label>
         </div>
@@ -214,7 +214,7 @@ export function CambridgeTracker({ initialResults, onChanged }: CambridgeTracker
                 step={0.5}
                 value={form[key]}
                 onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
-                className="rounded-md border border-border bg-input px-2 py-1 text-sm text-input-foreground"
+                className="input-paper px-2 py-1 text-sm"
               />
             </label>
           ))}
@@ -226,7 +226,7 @@ export function CambridgeTracker({ initialResults, onChanged }: CambridgeTracker
             type="text"
             value={form.note}
             onChange={(e) => setForm((f) => ({ ...f, note: e.target.value }))}
-            className="rounded-md border border-border bg-input px-2 py-1 text-sm text-input-foreground"
+            className="input-paper px-2 py-1 text-sm"
           />
         </label>
 

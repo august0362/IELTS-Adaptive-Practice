@@ -528,3 +528,101 @@ DONE
     reading code + running the unit test suite only (no curl/API calls
     against their live session).
   - 99/99 tests, typecheck, lint all green.
+
+[2026-09-19] Design/UI-UX pass: tách giao diện web/ứng dụng + rework theme tối.
+  - User complaint: "khi tôi để web giao diện dark thì rất tối và khó nhìn".
+    Confirmed direction: "Khung ngoài (nav, nền trang) luôn sáng cố định,
+    chỉ nội dung bên trong đổi theo theme" + "Nền tối sáng hơn (xám đậm
+    thay vì gần đen) + thêm glow/sheen nhẹ trên card".
+  - Root cause: `background`/`foreground` in computeThemeRoles() branched on
+    `isDark` exactly like `surface` did, so picking either dark theme
+    ("Dark Cold"/"Dark Winter") turned the ENTIRE page — nav bar included —
+    near-black (#0a0a0a), not just cards.
+  - Fix (src/lib/theme.ts): background/foreground dropped the isDark branch
+    entirely — always the fixed light pair now, for every theme. `surface`/
+    `border` keep varying with isDark (that's the only place a dark theme's
+    character lives now); its dark-tier value is no longer picked verbatim
+    from the palette's own darkest raw color (near-black, ~0.15 lightness)
+    but synthesized by a new pickDarkSurface() — same hue, re-rendered at a
+    fixed lighter SURFACE_DARK_LIGHTNESS=0.24 with SURFACE_DARK_MAX_
+    SATURATION=0.32 capped saturation, landing on a genuine dark GRAY
+    ("Dark Cold" surface -> #2a3051, "Dark Winter" -> #2a4c51) instead of
+    near-black. Raw palette hexes for both dark themes left untouched — only
+    how `surface` is derived from them changed; decided (after reviewing
+    src/theme/DarkColdColor.png/DarkWinterColor.png and every other theme's
+    raw colors) that no other theme's isDark classification needed to
+    change and no new dark theme was worth adding.
+  - New role `surfaceForeground`: needed because surface can still be dark
+    while background/foreground can't anymore, so text *inside* a themed
+    card needs its own contrast-safe role (same #111111-vs-#ffffff max-
+    contrast pick as primaryForeground/inputForeground). Wired through
+    ThemeProvider.tsx (`--surface-foreground`) and globals.css (`@theme
+    inline` -> `text-surface-foreground`/`bg-surface-foreground`).
+  - Nav.tsx: `bg-surface/80` -> `bg-background/80` (background is now
+    always-fixed-light, so this alone makes the nav bar "always light
+    chrome" in every theme without any nav-specific logic).
+  - Swept all ~17 files using `text-foreground` (grep -rl) plus
+    ThemePicker.tsx (didn't match the grep — uses computeThemeRoles()
+    directly via inline style, not the Tailwind class — caught by reading
+    the component, not by trusting the grep list) to split page-level text
+    (kept `text-foreground`/`roles.foreground`) from text actually inside a
+    `bg-surface`/`bg-surface/NN`/`bg-border` card (moved to
+    `text-surface-foreground`/`roles.surfaceForeground`). Files changed:
+    NoteCard.tsx, CambridgeRow.tsx, Journal.tsx (form section + bg-border
+    tag pills), CambridgeTracker.tsx (form div), PredictionCards.tsx
+    (SkillCard), RatioSliders.tsx, RoundingModeToggle.tsx, Topics.tsx,
+    ManualPractice.tsx, PickCard.tsx (idle + dimmed states), RecentRolls.tsx,
+    PracticeLog.tsx, stats/[skillCode]/page.tsx, ThemePicker.tsx (swatch
+    preview now shows roles.surface/surfaceForeground instead of
+    roles.background/foreground — otherwise every swatch would render
+    identically since background/foreground no longer vary per theme).
+    Left as page-level (unchanged): Spinner.tsx's h1/h2/h3, Journal.tsx's
+    h1, PredictionPageClient.tsx, prediction/page.tsx, settings/page.tsx,
+    stats/[skillCode]/page.tsx's h1, PredictionCards.tsx's bg-primary/10
+    overall-band div (10%-opacity wash over the always-light page reads as
+    near-white regardless of theme, confirmed safe not just assumed).
+  - Two subtler findings caught only by reading full components, not by
+    grepping `text-foreground` alone: (1) RecentRolls.tsx/PracticeLog.tsx
+    used `bg-surface/70` — safe before (background shared surface's own
+    light/dark tier), but now that background is always light, a
+    translucent dark-theme surface washes toward light instead of staying
+    dark — changed to opaque `bg-surface`. (2) AccuracyEntry.tsx renders in
+    two different color contexts (page-level under Spinner.tsx, nested
+    inside ManualPractice.tsx's bg-surface card) — gave it a `variant?:
+    "page" | "surface"` prop instead of guessing one context wrong.
+  - Glow/sheen treatment: new `.surface-glow` utility in globals.css
+    (`@layer utilities`, same layered-box-shadow family as the existing
+    `.input-paper`) — soft drop shadow + a wide, faint glow in the card's
+    own `var(--surface)` color. Applied to every bg-surface card container
+    found in the sweep above (not PickCard's "dimmed" state, which is
+    deliberately fading toward the page — a glow would fight that). Same
+    formula for light and dark themes on purpose: negligible visually on a
+    near-white light-theme surface, does the actual "phản quang" work on a
+    dark-theme surface.
+  - Added regression tests to theme.test.ts: background fixed to #ffffff
+    for all 19 THEMES (including both dark ones explicitly by id); rewrote
+    the old test that asserted a dark palette's background === "#0a0a0a"
+    (that behavior is exactly what was fixed, so the assertion was
+    updated, not weakened, to check the new contract instead — plus that
+    surface's own lightness lands in the intended 0.18-0.30 dark-gray
+    band); WCAG AA (>=4.5:1) contrast test for surface/surfaceForeground
+    across all 19 themes, same pattern as the existing input/primary
+    tests; surfaceForeground picks white for a dark theme's surface and
+    black for a light theme's surface; border stays equal to surface (used
+    as a solid fill in a few spots, e.g. bg-border tag pills, not just an
+    outline).
+  - PROJECT_CONTEXT.md section 9 updated in the same step (new role, the
+    always-light shell, pickDarkSurface, .surface-glow, the ThemePicker/
+    Nav/AccuracyEntry-variant fixes). src/app/FRONTEND_TASKS.md's matching
+    unchecked item ticked off.
+  - Verified end-to-end with a real production build against a disposable
+    DB (DATABASE_PATH=./_design_check.db, port 3099, never touched the
+    user's live dev server/dev.db/port 3000): confirmed Nav's HTML actually
+    ships `bg-background/80`, confirmed the compiled CSS chunk contains the
+    `.surface-glow` box-shadow rule, the `--surface-foreground` custom
+    property, and a `text-surface-foreground` utility. Server stopped and
+    the throwaway DB + seed script deleted immediately after.
+  - 138/138 tests (up from 133; net +5: 4 new tests plus one existing test's
+    assertions rewritten in place for the new background contract),
+    typecheck and lint all green. Diff left uncommitted for the calling
+    session to review.

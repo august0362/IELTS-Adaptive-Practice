@@ -13,8 +13,8 @@ function RatioSlider({ skillName, blockA, blockB, onSave }: RatioSliderProps) {
 
   return (
     <div className="flex flex-col gap-1.5">
-      <div className="flex items-center justify-between text-xs text-foreground/60">
-        <span className="font-medium text-foreground">{skillName}</span>
+      <div className="flex items-center justify-between text-xs text-surface-foreground/60">
+        <span className="font-medium text-surface-foreground">{skillName}</span>
         <span>
           {blockA.name}: {percent}% — {blockB.name}: {100 - percent}%
         </span>
@@ -60,8 +60,8 @@ export function RatioSliders({ skills }: { skills: SkillDTO[] }) {
   }
 
   return (
-    <section className="flex flex-col gap-3 rounded-xl border border-border bg-surface p-4">
-      <h2 className="text-sm font-medium text-foreground/70">
+    <section className="surface-glow flex flex-col gap-3 rounded-xl border border-border bg-surface p-4">
+      <h2 className="text-sm font-medium text-surface-foreground/70">
         Tỉ lệ Block A / Block B (Speaking &amp; Reading)
       </h2>
       {errorMessage && (

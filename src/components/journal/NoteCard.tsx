@@ -15,14 +15,14 @@ export function NoteCard({ note, onEdit, onDelete }: NoteCardProps) {
   const tags = parseTagsString(note.tags);
 
   return (
-    <li className="flex flex-col gap-2 rounded-xl border border-border bg-surface p-4">
+    <li className="surface-glow flex flex-col gap-2 rounded-xl border border-border bg-surface p-4">
       <div className="flex items-center justify-between gap-2">
-        <span className="text-xs font-medium text-foreground/50">{formatDate(note.noteDate)}</span>
+        <span className="text-xs font-medium text-surface-foreground/50">{formatDate(note.noteDate)}</span>
         <div className="flex gap-2">
           <button
             type="button"
             onClick={onEdit}
-            className="text-xs font-medium text-foreground/60 hover:text-foreground hover:underline"
+            className="text-xs font-medium text-surface-foreground/60 hover:text-surface-foreground hover:underline"
           >
             Sửa
           </button>
@@ -36,7 +36,7 @@ export function NoteCard({ note, onEdit, onDelete }: NoteCardProps) {
         </div>
       </div>
 
-      <p className="whitespace-pre-wrap text-sm text-foreground">{note.content}</p>
+      <p className="whitespace-pre-wrap text-sm text-surface-foreground">{note.content}</p>
 
       {tags.length > 0 && (
         <div className="flex flex-wrap gap-1.5">

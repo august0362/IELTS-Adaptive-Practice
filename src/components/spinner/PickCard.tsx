@@ -7,10 +7,15 @@ interface PickCardProps {
 }
 
 const STATE_CLASSES: Record<PickCardState, string> = {
-  idle: "border-border bg-surface text-foreground",
+  idle: "surface-glow border-border bg-surface text-surface-foreground",
   cycling: "border-blue-400 bg-blue-50 text-blue-900 scale-105 shadow-md",
   selected: "border-emerald-500 bg-emerald-50 text-emerald-900 shadow-md",
-  dimmed: "border-border/50 bg-surface/50 text-foreground/40",
+  // Deliberately no `.surface-glow` here: "dimmed" is meant to read as faded/
+  // washed out toward the page (the card that *wasn't* picked), so both its
+  // background and text already fade toward transparency together via the
+  // same /50 and /40 opacity — adding a glow would fight that fade instead of
+  // reinforcing it.
+  dimmed: "border-border/50 bg-surface/50 text-surface-foreground/40",
 };
 
 export function PickCard({ name, probabilityPercent, state }: PickCardProps) {

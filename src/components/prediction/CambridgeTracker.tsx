@@ -180,9 +180,9 @@ export function CambridgeTracker({ initialResults, onChanged }: CambridgeTracker
         </p>
       )}
 
-      <div className="flex flex-col gap-3 rounded-xl border border-border bg-surface p-4">
+      <div className="surface-glow flex flex-col gap-3 rounded-xl border border-border bg-surface p-4">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <label className="flex flex-col gap-1 text-sm text-foreground/60">
+          <label className="flex flex-col gap-1 text-sm text-surface-foreground/60">
             Ngày thi
             <input
               type="date"
@@ -191,7 +191,7 @@ export function CambridgeTracker({ initialResults, onChanged }: CambridgeTracker
               className="input-paper px-2 py-1 text-sm"
             />
           </label>
-          <label className="flex flex-col gap-1 text-sm text-foreground/60">
+          <label className="flex flex-col gap-1 text-sm text-surface-foreground/60">
             Tên đề thi
             <input
               type="text"
@@ -205,7 +205,7 @@ export function CambridgeTracker({ initialResults, onChanged }: CambridgeTracker
 
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {BAND_FIELDS.map(({ key, label }) => (
-            <label key={key} className="flex flex-col gap-1 text-sm text-foreground/60">
+            <label key={key} className="flex flex-col gap-1 text-sm text-surface-foreground/60">
               {label}
               <input
                 type="number"
@@ -220,7 +220,7 @@ export function CambridgeTracker({ initialResults, onChanged }: CambridgeTracker
           ))}
         </div>
 
-        <label className="flex flex-col gap-1 text-sm text-foreground/60">
+        <label className="flex flex-col gap-1 text-sm text-surface-foreground/60">
           Ghi chú (tùy chọn)
           <input
             type="text"
@@ -235,7 +235,7 @@ export function CambridgeTracker({ initialResults, onChanged }: CambridgeTracker
             <button
               type="button"
               onClick={resetForm}
-              className="rounded-full border border-border px-4 py-2 text-sm font-medium hover:bg-border"
+              className="rounded-full border border-border px-4 py-2 text-sm font-medium text-surface-foreground hover:bg-border"
             >
               Hủy
             </button>

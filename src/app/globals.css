@@ -17,6 +17,7 @@
      dark mode." The app's theme system is the only source of truth for these
      colors now; there is no OS-driven fallback. */
   --surface: #f4f4f5;
+  --surface-foreground: #111111;
   --border: rgba(0, 0, 0, 0.1);
   --primary: #2563eb;
   --primary-foreground: #ffffff;
@@ -36,6 +37,7 @@
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-surface: var(--surface);
+  --color-surface-foreground: var(--surface-foreground);
   --color-border: var(--border);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
@@ -84,5 +86,26 @@ body {
 
   .input-paper:disabled {
     opacity: 0.5;
+  }
+
+  /* Adds depth + a soft "phản quang" (reflective) sheen, in the card's own
+     `surface` color, to any themed card (`bg-surface` container) — the same
+     layered-shadow family as `.input-paper` above, but for a static surface
+     instead of a focusable input (no border/focus-ring changes, just shadow).
+     Matters most for a theme whose `surface` renders dark-toned (see
+     `pickDarkSurface` in theme.ts): a flat dark-gray box next to this app's
+     now-always-light page shell read as dull/muddy rather than "a card with
+     depth" — direction from the user once the outer shell stopped going dark:
+     "Nền tối sáng hơn (xám đậm thay vì gần đen) + thêm glow/sheen nhẹ trên
+     card". A light theme's `surface` (~0.94 lightness, near-white) runs
+     through the exact same box-shadow formula, but the glow term is barely
+     visible against a near-white card on a near-white page — intentional:
+     light cards already read as light and clean, so one shared rule covers
+     both without a light/dark branch here. */
+  .surface-glow {
+    box-shadow:
+      0 1px 3px rgba(0, 0, 0, 0.1),
+      0 10px 24px -14px rgba(0, 0, 0, 0.45),
+      0 0 22px -6px var(--surface);
   }
 }

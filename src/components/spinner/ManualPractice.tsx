@@ -77,10 +77,10 @@ export function ManualPractice({ skills, onLogged }: ManualPracticeProps) {
   }
 
   return (
-    <section className="flex flex-col gap-3 rounded-xl border border-border bg-surface p-4 shadow-sm">
+    <section className="surface-glow flex flex-col gap-3 rounded-xl border border-border bg-surface p-4 shadow-sm">
       <div>
-        <h2 className="text-sm font-medium text-foreground/70">Tự học (không qua vòng quay)</h2>
-        <p className="mt-0.5 text-xs text-foreground/50">
+        <h2 className="text-sm font-medium text-surface-foreground/70">Tự học (không qua vòng quay)</h2>
+        <p className="mt-0.5 text-xs text-surface-foreground/50">
           Đã tự luyện 1 kỹ năng mà không quay? Ghi lại ở đây để vẫn tính vào thống kê và dự đoán.
         </p>
       </div>
@@ -91,10 +91,10 @@ export function ManualPractice({ skills, onLogged }: ManualPracticeProps) {
         </p>
       )}
       {confirmation && <p className="text-xs text-emerald-600">{confirmation}</p>}
-      {loggedResult && <AccuracyEntry resultId={loggedResult.resultId} />}
+      {loggedResult && <AccuracyEntry resultId={loggedResult.resultId} variant="surface" />}
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-2 sm:flex-row sm:items-end sm:gap-3">
-        <label className="flex flex-1 flex-col gap-1 text-xs text-foreground/60">
+        <label className="flex flex-1 flex-col gap-1 text-xs text-surface-foreground/60">
           Kỹ năng
           <select
             value={skillCode}
@@ -109,7 +109,7 @@ export function ManualPractice({ skills, onLogged }: ManualPracticeProps) {
           </select>
         </label>
 
-        <label className="flex flex-1 flex-col gap-1 text-xs text-foreground/60">
+        <label className="flex flex-1 flex-col gap-1 text-xs text-surface-foreground/60">
           Part
           <select
             value={partCode}
@@ -125,7 +125,7 @@ export function ManualPractice({ skills, onLogged }: ManualPracticeProps) {
         </label>
 
         {needsType && (
-          <label className="flex flex-1 flex-col gap-1 text-xs text-foreground/60">
+          <label className="flex flex-1 flex-col gap-1 text-xs text-surface-foreground/60">
             Dạng bài (tùy chọn)
             <select
               value={questionTypeCode}

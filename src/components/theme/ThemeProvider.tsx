@@ -22,6 +22,7 @@ function applyTheme(themeId: string) {
   root.style.setProperty("--background", roles.background);
   root.style.setProperty("--foreground", roles.foreground);
   root.style.setProperty("--surface", roles.surface);
+  root.style.setProperty("--surface-foreground", roles.surfaceForeground);
   root.style.setProperty("--border", roles.border);
   root.style.setProperty("--primary", roles.primary);
   root.style.setProperty("--primary-foreground", roles.primaryForeground);

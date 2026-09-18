@@ -22,7 +22,13 @@ export function ThemePicker() {
               isSelected ? "shadow-md" : "hover:shadow-sm"
             }`}
             style={{
-              background: roles.background,
+              // Previews the theme's card look (`surface`/`surfaceForeground`), not its
+              // now-always-fixed-light `background`/`foreground` shell — otherwise every
+              // swatch here would render identically (white bg, near-black label) and the
+              // picker could no longer show which themes render as dark-toned cards. This
+              // is what the swatch is actually meant to preview: "what will my cards/buttons
+              // look like", since the outer page shell no longer changes per theme at all.
+              background: roles.surface,
               borderColor: isSelected ? roles.primary : roles.border,
             }}
           >
@@ -32,7 +38,7 @@ export function ThemePicker() {
               ))}
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-xs font-medium" style={{ color: roles.foreground }}>
+              <span className="text-xs font-medium" style={{ color: roles.surfaceForeground }}>
                 {theme.name}
               </span>
               {isSelected && (

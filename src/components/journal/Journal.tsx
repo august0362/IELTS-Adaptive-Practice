@@ -106,9 +106,9 @@ export function Journal({ initialNotes }: { initialNotes: NoteDTO[] }) {
         </p>
       )}
 
-      <section className="flex flex-col gap-3 rounded-xl border border-border bg-surface p-4">
+      <section className="surface-glow flex flex-col gap-3 rounded-xl border border-border bg-surface p-4">
         <div className="flex items-center gap-3">
-          <label htmlFor="note-date" className="text-sm text-foreground/60">
+          <label htmlFor="note-date" className="text-sm text-surface-foreground/60">
             Ngày
           </label>
           <input
@@ -138,7 +138,7 @@ export function Journal({ initialNotes }: { initialNotes: NoteDTO[] }) {
             <button
               type="button"
               onClick={resetForm}
-              className="rounded-full border border-border px-4 py-2 text-sm font-medium hover:bg-border"
+              className="rounded-full border border-border px-4 py-2 text-sm font-medium text-surface-foreground hover:bg-border"
             >
               Hủy
             </button>
@@ -160,7 +160,7 @@ export function Journal({ initialNotes }: { initialNotes: NoteDTO[] }) {
             type="button"
             onClick={() => setActiveTag(null)}
             className={`rounded-full px-3 py-1 text-xs font-medium ${
-              activeTag === null ? "bg-primary text-primary-foreground" : "bg-border text-foreground/70"
+              activeTag === null ? "bg-primary text-primary-foreground" : "bg-border text-surface-foreground/70"
             }`}
           >
             Tất cả
@@ -171,7 +171,7 @@ export function Journal({ initialNotes }: { initialNotes: NoteDTO[] }) {
               type="button"
               onClick={() => setActiveTag(tag)}
               className={`rounded-full px-3 py-1 text-xs font-medium ${
-                activeTag === tag ? "bg-primary text-primary-foreground" : "bg-border text-foreground/70"
+                activeTag === tag ? "bg-primary text-primary-foreground" : "bg-border text-surface-foreground/70"
               }`}
             >
               #{tag}

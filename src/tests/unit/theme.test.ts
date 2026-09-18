@@ -14,11 +14,30 @@ describe("computeThemeRoles", () => {
     expect(roles.foreground.toLowerCase()).not.toBe("#171717");
   });
 
-  it("picks a dark fixed background and a near-white (subtly tinted) foreground for a palette where only 1 of 4 colors is individually light", () => {
+  // Updated for "Tách giao diện web/ứng dụng" (Milestone 5 mở rộng): background/
+  // foreground no longer branch on isDark at all — they're the fixed light "page
+  // shell" pair for every theme now, dark ones included. Only `surface` (cards)
+  // still goes dark for a dark theme. This replaces the old assertion that this
+  // same dark palette produced `background === "#0a0a0a"`, which was exactly the
+  // reported bug: "khi tôi để web giao diện dark thì rất tối và khó nhìn" (picking
+  // a dark theme blacked out the whole page, not just its cards).
+  it("keeps background/foreground fixed to the light shell pair even for a palette where only 1 of 4 colors is individually light — only `surface` (cards) goes dark", () => {
     const roles = computeThemeRoles(["#0c1440", "#1c2fbe", "#7c93f5", "#afcffa"]);
     expect(roles.isDark).toBe(true);
-    expect(roles.background).toBe("#0a0a0a");
-    expect(roles.foreground.toLowerCase()).not.toBe("#ededed");
+    expect(roles.background).toBe("#ffffff");
+    expect(roles.foreground.toLowerCase()).not.toBe("#171717"); // still tinted, still near-black lightness
+
+    // The theme's dark character now lives entirely in `surface`: it should read as a
+    // genuinely dark GRAY — lighter than the old near-black "#0a0a0a" fixed background
+    // was, per "Nền tối sáng hơn (xám đậm thay vì gần đen)" — but still clearly dark,
+    // not a mid-tone color. See `pickDarkSurface`'s own SURFACE_DARK_LIGHTNESS.
+    function lightnessOf(hex: string): number {
+      const clean = hex.replace("#", "");
+      const [r, g, b] = [0, 2, 4].map((i) => parseInt(clean.slice(i, i + 2), 16) / 255);
+      return (Math.max(r, g, b) + Math.min(r, g, b)) / 2;
+    }
+    expect(lightnessOf(roles.surface)).toBeGreaterThanOrEqual(0.18);
+    expect(lightnessOf(roles.surface)).toBeLessThanOrEqual(0.3);
   });
 
   it("uses one of the 4 input colors as primary when it's already usable (saturated, mid-lightness)", () => {
@@ -56,6 +75,7 @@ describe("computeThemeRoles", () => {
         roles.background,
         roles.foreground,
         roles.surface,
+        roles.surfaceForeground,
         roles.primary,
         roles.primaryForeground,
         roles.input,
@@ -216,6 +236,69 @@ describe("computeThemeRoles", () => {
     expect(cold.foreground.toLowerCase()).not.toBe(forest.foreground.toLowerCase());
     expect(cold.foreground.toLowerCase()).not.toBe("#171717");
     expect(forest.foreground.toLowerCase()).not.toBe("#171717");
+  });
+
+  // Regression tests for "Tách giao diện web/ứng dụng" (Milestone 5 mở rộng): the outer
+  // "khung ngoài" (nav bar + page background) must always render as a fixed light shell,
+  // regardless of theme — only inner content (`surface` cards) may carry a dark tone.
+  // Reported complaint this fixes: "khi tôi để web giao diện dark thì rất tối và khó
+  // nhìn" (picking a dark theme made the whole page, not just its cards, go dark).
+  it("fixes background to the same white shell color for every one of the 19 defined themes, including the dark ones", () => {
+    for (const theme of THEMES) {
+      const roles = computeThemeRoles(theme.colors);
+      expect(roles.background, `theme "${theme.id}"`).toBe("#ffffff");
+    }
+  });
+
+  it("never produces the old near-black background for a dark theme — 'Dark Cold' and 'Dark Winter' stay light-shelled like every other theme", () => {
+    const darkCold = computeThemeRoles(getThemeById("dark-cold").colors);
+    const darkWinter = computeThemeRoles(getThemeById("dark-winter").colors);
+    expect(darkCold.isDark).toBe(true);
+    expect(darkWinter.isDark).toBe(true);
+    expect(darkCold.background).toBe("#ffffff");
+    expect(darkWinter.background).toBe("#ffffff");
+  });
+
+  // `surfaceForeground` is the new role for text sitting *inside* a themed card —
+  // needed because `surface` (unlike background/foreground above) still varies
+  // light/dark per theme. Same WCAG AA regression pattern as the existing
+  // input/inputForeground and primary/primaryForeground contrast tests below.
+  it("guarantees WCAG AA contrast (>= 4.5:1) between surface and surfaceForeground for every defined theme", () => {
+    function relativeLuminance(hex: string): number {
+      const clean = hex.replace("#", "");
+      const [r, g, b] = [0, 2, 4].map((i) => parseInt(clean.slice(i, i + 2), 16) / 255);
+      const [rl, gl, bl] = [r, g, b].map((s) => (s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4)));
+      return 0.2126 * rl + 0.7152 * gl + 0.0722 * bl;
+    }
+    function contrastRatio(a: string, b: string): number {
+      const l1 = relativeLuminance(a);
+      const l2 = relativeLuminance(b);
+      return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
+    }
+
+    for (const theme of THEMES) {
+      const roles = computeThemeRoles(theme.colors);
+      const ratio = contrastRatio(roles.surface, roles.surfaceForeground);
+      expect(ratio, `theme "${theme.id}": surface=${roles.surface} surfaceForeground=${roles.surfaceForeground}`).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+
+  it("picks white surfaceForeground for a dark theme's dark-toned surface and black for a light theme's near-white surface", () => {
+    const darkCold = computeThemeRoles(getThemeById("dark-cold").colors);
+    const cold = computeThemeRoles(getThemeById("cold").colors);
+    expect(darkCold.surfaceForeground).toBe("#ffffff");
+    expect(cold.surfaceForeground).toBe("#111111");
+  });
+
+  // Regression for the specific risk this whole rework introduced: `border`
+  // (used as a solid fill in a few spots, e.g. `bg-border` tag pills) is always
+  // exactly equal to `surface`, so anything reasoning about "is this a themed
+  // surface fill" for contrast purposes must treat `border` the same as `surface`.
+  it("keeps border equal to surface (border is used as a themed fill in places, e.g. `bg-border` pills, not just an outline)", () => {
+    for (const theme of THEMES) {
+      const roles = computeThemeRoles(theme.colors);
+      expect(roles.border, `theme "${theme.id}"`).toBe(roles.surface);
+    }
   });
 });
 

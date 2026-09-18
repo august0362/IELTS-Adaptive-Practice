@@ -13,17 +13,17 @@ function SkillCard({ name, code, result }: { name: string; code: string; result:
     <Link
       href={`/stats/${code}`}
       aria-label={`Xem thống kê ${name}`}
-      className="flex flex-col items-center gap-1 rounded-xl border border-border bg-surface p-4 text-center transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+      className="surface-glow flex flex-col items-center gap-1 rounded-xl border border-border bg-surface p-4 text-center transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
     >
-      <span className="text-xs font-medium text-foreground/60">{name}</span>
+      <span className="text-xs font-medium text-surface-foreground/60">{name}</span>
       {result.predictedBand === null ? (
-        <span className="text-sm text-foreground/40">Chưa đủ dữ liệu</span>
+        <span className="text-sm text-surface-foreground/40">Chưa đủ dữ liệu</span>
       ) : (
         <>
-          <span className="text-2xl font-semibold text-foreground">{result.predictedBand}</span>
-          <span className="text-xs text-foreground/50">{result.sampleSize} bài thi thử</span>
+          <span className="text-2xl font-semibold text-surface-foreground">{result.predictedBand}</span>
+          <span className="text-xs text-surface-foreground/50">{result.sampleSize} bài thi thử</span>
           {result.cambridgeEwma !== null && (
-            <span className="text-[11px] text-foreground/40">
+            <span className="text-[11px] text-surface-foreground/40">
               Cambridge {result.cambridgeEwma.toFixed(1)}
               {result.accuracyEwma !== null ? ` · Luyện tập ${result.accuracyEwma.toFixed(1)}` : ""}
             </span>

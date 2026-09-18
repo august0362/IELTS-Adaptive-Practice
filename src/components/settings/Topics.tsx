@@ -52,10 +52,10 @@ export function Topics({ initialTopics }: { initialTopics: TopicDTO[] }) {
   }
 
   return (
-    <section className="flex flex-col gap-3 rounded-xl border border-border bg-surface p-4 shadow-sm">
+    <section className="surface-glow flex flex-col gap-3 rounded-xl border border-border bg-surface p-4 shadow-sm">
       <div>
-        <h2 className="text-sm font-medium text-foreground/70">Chủ đề luyện tập</h2>
-        <p className="mt-0.5 text-xs text-foreground/50">Tự thêm chủ đề để theo dõi riêng — chưa gắn vào vòng quay.</p>
+        <h2 className="text-sm font-medium text-surface-foreground/70">Chủ đề luyện tập</h2>
+        <p className="mt-0.5 text-xs text-surface-foreground/50">Tự thêm chủ đề để theo dõi riêng — chưa gắn vào vòng quay.</p>
       </div>
 
       {errorMessage && (
@@ -83,7 +83,7 @@ export function Topics({ initialTopics }: { initialTopics: TopicDTO[] }) {
       </form>
 
       {topics.length === 0 ? (
-        <p className="text-sm text-foreground/50">Chưa có chủ đề nào.</p>
+        <p className="text-sm text-surface-foreground/50">Chưa có chủ đề nào.</p>
       ) : (
         <ul className="flex flex-wrap gap-2">
           {topics.map((topic) => (

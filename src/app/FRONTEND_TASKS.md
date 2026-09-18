@@ -33,7 +33,7 @@
 - [x] `Spinner.tsx` — sau khi quay xong, hiện `AccuracyEntry` dưới mỗi kỹ năng Reading/Listening (dùng `resultIdBySkillId` mới lưu trong lúc cascade)
 - [x] `ManualPractice.tsx` — sau khi ghi nhận tự học Reading/Listening, hiện `AccuracyEntry` bằng `resultId` server trả về
 - [x] `PredictionCards.tsx` — thẻ kỹ năng hiện thêm dòng breakdown "Cambridge X.X · Luyện tập Y.Y" (ẩn phần Luyện tập nếu kỹ năng không có/chưa có dữ liệu)
-- [ ] Tách giao diện web/ứng dụng (khung ngoài luôn sáng) + sửa theme tối (nền xám đậm + glow, rà lại `src/theme/*.png`) — giao cho agent Design/UI-UX
+- [x] Tách giao diện web/ứng dụng (khung ngoài luôn sáng) + sửa theme tối (nền xám đậm + glow, rà lại `src/theme/*.png`) — do agent Design/UI-UX riêng thực hiện. `background`/`foreground` (`src/lib/theme.ts`) bỏ nhánh theo `isDark`, luôn là cặp sáng cố định cho mọi theme (nav + nền trang); `surface` (thẻ/card) vẫn đổi theo `isDark` — dùng hàm mới `pickDarkSurface()` tổng hợp màu xám đậm có sắc (không còn gần đen) cho "Dark Cold"/"Dark Winter" thay vì lấy thẳng màu tối nhất trong bảng gốc; vai trò mới `surfaceForeground` cho chữ trong thẻ; class `.surface-glow` mới (`globals.css`) thêm quầng sáng/bóng đổ cho thẻ theo theme. Đã rà ~17 file dùng `text-foreground` + `ThemePicker.tsx` (không lọt qua grep nhưng dùng `computeThemeRoles` trực tiếp) để chuyển đúng chỗ chữ nằm trong thẻ sang `surfaceForeground`; xem `PROJECT_CONTEXT.md` mục 9 để biết chi tiết đầy đủ. Đã tự kiểm `typecheck`/`lint`/`test` xanh (138/138, +5 test mới cho `surfaceForeground`), đã build production thật (DB tạm, cổng 3099) để soi CSS đã biên dịch trước khi xóa dọn — chờ session gọi review diff trước khi commit.
 
 ## Việc còn chờ / chưa làm (xem `document.txt` để biết đầy đủ bối cảnh từng việc)
 

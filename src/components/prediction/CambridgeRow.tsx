@@ -12,11 +12,11 @@ interface CambridgeRowProps {
 
 export function CambridgeRow({ result, onEdit, onDelete }: CambridgeRowProps) {
   return (
-    <li className="flex flex-col gap-2 rounded-xl border border-border bg-surface p-4 sm:flex-row sm:items-center sm:justify-between">
+    <li className="surface-glow flex flex-col gap-2 rounded-xl border border-border bg-surface p-4 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex flex-col gap-1">
-        <span className="text-sm font-medium text-foreground">{result.testName}</span>
-        <span className="text-xs text-foreground/50">{formatDate(result.testDate)}</span>
-        {result.note && <span className="text-xs italic text-foreground/50">{result.note}</span>}
+        <span className="text-sm font-medium text-surface-foreground">{result.testName}</span>
+        <span className="text-xs text-surface-foreground/50">{formatDate(result.testDate)}</span>
+        {result.note && <span className="text-xs italic text-surface-foreground/50">{result.note}</span>}
       </div>
 
       <div className="flex flex-wrap items-center gap-3 text-xs">
@@ -30,7 +30,7 @@ export function CambridgeRow({ result, onEdit, onDelete }: CambridgeRowProps) {
       </div>
 
       <div className="flex gap-2 self-end sm:self-auto">
-        <button type="button" onClick={onEdit} className="text-xs font-medium text-foreground/60 hover:text-foreground hover:underline">
+        <button type="button" onClick={onEdit} className="text-xs font-medium text-surface-foreground/60 hover:text-surface-foreground hover:underline">
           Sửa
         </button>
         <button type="button" onClick={onDelete} className="text-xs font-medium text-red-600 hover:underline">

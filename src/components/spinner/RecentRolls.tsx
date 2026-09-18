@@ -52,11 +52,16 @@ export function RecentRolls({ sessions, onDeleted }: RecentRollsProps) {
         {sessions.map((session) => (
           <li
             key={session.id}
-            className="flex flex-col gap-2 rounded-lg border border-border bg-surface/70 px-3 py-2 text-sm"
+            // Was `bg-surface/70`: fine back when `background` matched `surface`'s own
+            // light/dark tier (a translucent dark surface over a dark page background
+            // still read dark), but now that the page background is always a fixed
+            // light color (see theme.ts), a translucent dark-theme surface here washes
+            // out toward that light page instead of staying dark-toned — opaque now.
+            className="surface-glow flex flex-col gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-sm"
           >
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
-                <span className="text-foreground/50">{formatDateTime(session.rolledAt)}</span>
+                <span className="text-surface-foreground/50">{formatDateTime(session.rolledAt)}</span>
                 {session.source === "manual" && (
                   <span className="w-fit rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
                     Tự học
@@ -77,11 +82,11 @@ export function RecentRolls({ sessions, onDeleted }: RecentRollsProps) {
             <div className="flex flex-col gap-1.5">
               {session.results.map((r, i) => (
                 <div key={i}>
-                  <span className="font-medium">
+                  <span className="font-medium text-surface-foreground">
                     {r.skill.name} · {r.part.name}
                   </span>
                   {r.questionTypes.length > 0 && (
-                    <span className="block text-xs text-foreground/50">
+                    <span className="block text-xs text-surface-foreground/50">
                       Dạng bài: {r.questionTypes.map((t) => t.name).join(", ")}
                     </span>
                   )}

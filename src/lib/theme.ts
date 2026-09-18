@@ -9,31 +9,50 @@
  * Design rule (why background/foreground aren't just "the lightest/darkest
  * of the 4"): several source palettes are 4 close-lightness pastels with no
  * genuinely dark color at all (e.g. "Sorbet": ffeecc/ffddcc/ffcccc/febbcc) —
- * using such a palette's own extremes for body text would be unreadable.
- * So background/foreground stay a fixed safe light/dark neutral pair per
- * theme (decided by how many of the palette's own 4 colors are individually
- * light — see LIGHT_COMPONENT_LUMINANCE below — not by their average), and
- * the palette's
- * character shows up in `primary` (buttons, active states — the most
- * saturated usable color), `surface` (card tinting — closest to the
- * background's lightness tier, but still a distinct hue), and `input`
- * (text inputs/textareas — always the palette's own *lightest* color, so a
- * writing surface never just inherits a dark theme's near-black background
- * and reads as unreadable/"turned off").
+ * using such a palette's own extremes for body text would be unreadable. So
+ * background/foreground stay a fixed safe near-white/near-black neutral pair,
+ * and the palette's character shows up in `primary` (buttons, active states —
+ * the most saturated usable color), `surface` (card tinting — a distinct hue,
+ * see below for its own lightness), and `input` (text inputs/textareas —
+ * always the palette's own *lightest* color, so a writing surface never reads
+ * as unreadable/"turned off").
+ *
+ * **"Tách giao diện web/ứng dụng" (outer shell vs. inner content)**:
+ * background/foreground are now a *single* fixed light pair for literally
+ * every theme, dark ones included — they're the page-level "shell" (nav bar +
+ * page background, and any text sitting directly on the page rather than
+ * inside a themed card), and the shell no longer changes at all based on
+ * which theme is picked. This used to instead pick between a light pair and a
+ * near-black pair via `isDark`, which meant a "dark" theme blacked out the
+ * *entire* page, nav bar included — reported complaint: "khi tôi để web giao
+ * diện dark thì rất tối và khó nhìn" (when I set a dark theme it's very dark
+ * and hard to see). `isDark` still exists and still decides one thing: how
+ * light or dark `surface` (card backgrounds) renders for that theme — that's
+ * the only place a "dark" theme's character lives now. Because `surface` can
+ * still be dark-toned while `background`/`foreground` can't, text *inside* a
+ * themed card needs its own role — see `surfaceForeground` below, picked the
+ * same contrast-maximizing way as `primaryForeground`/`inputForeground`.
+ * `surface`'s own dark-tier value is synthesized (not picked verbatim from
+ * the palette) by `pickDarkSurface` — see its doc comment — to land on a
+ * genuinely dark GRAY rather than the near-black a raw palette color would
+ * give, per the explicit follow-up direction once the shell stopped going
+ * dark: "Nền tối sáng hơn (xám đậm thay vì gần đen) + thêm glow/sheen nhẹ
+ * trên card" (make dark surfaces lighter — dark gray, not near-black — and
+ * add a subtle glow/sheen on cards); the glow/sheen half of that lives in
+ * `.surface-glow` in `globals.css`, not here.
  *
  * `foreground` (body text) is a step further than a flat fixed pair, though:
- * it's the same fixed near-black/near-white *lightness* as before, but
- * re-hued toward the palette's own dominant hue at a very low saturation
- * (see `FOREGROUND_TINT_SATURATION`) — reported complaint: "màu chữ chỉ có
- * trắng với đen thôi, muốn đổi nó sao cho hợp với theme" (text color is only
- * ever black/white, want it to feel like it belongs to the theme). This
- * keeps text reading as "basically black/white" up close (WCAG AA against
- * `background` is asserted for every theme in theme.test.ts, not just
- * eyeballed) while subtly warming/cooling to match the theme when compared
- * side by side. `background` itself stays the literal fixed hex — tinting
- * the much larger background area risked looking like a colored page rather
- * than "basically white/black", which is what the pastel-palette design rule
- * above depends on.
+ * it's the same fixed near-black *lightness* as always, but re-hued toward
+ * the palette's own dominant hue at a very low saturation (see
+ * `FOREGROUND_TINT_SATURATION`) — reported complaint: "màu chữ chỉ có trắng
+ * với đen thôi, muốn đổi nó sao cho hợp với theme" (text color is only ever
+ * black/white, want it to feel like it belongs to the theme). This keeps text
+ * reading as "basically black" up close (WCAG AA against `background` is
+ * asserted for every theme in theme.test.ts, not just eyeballed) while
+ * subtly warming/cooling to match the theme when compared side by side.
+ * `background` itself stays the literal fixed hex — tinting the much larger
+ * background area risked looking like a colored page rather than "basically
+ * white", which is what the pastel-palette design rule above depends on.
  */
 
 export interface ThemeDefinition {
@@ -46,6 +65,7 @@ export interface ThemeRoles {
   background: string;
   foreground: string;
   surface: string;
+  surfaceForeground: string;
   border: string;
   primary: string;
   primaryForeground: string;
@@ -219,6 +239,36 @@ function pickClosestLightness(colors: string[], targetLightness: number): string
   return best;
 }
 
+const SURFACE_DARK_LIGHTNESS = 0.24;
+const SURFACE_DARK_MAX_SATURATION = 0.32;
+
+/**
+ * Synthesizes a dark theme's card surface instead of picking one of the raw 4
+ * colors verbatim. The old rule (`pickClosestLightness(colors, 0.16)`) picked
+ * whichever raw color sat closest to near-black — for both currently-dark
+ * themes ("Dark Cold", "Dark Winter") that's their own darkest raw color,
+ * itself only ~0.12-0.15 lightness (see `src/theme/DarkColdColor.png` /
+ * `DarkWinterColor.png`: a near-black band at one end of each ramp). Now that
+ * `background`/`foreground` are a fixed light "page shell" pair for every
+ * theme (see the module comment above), `surface` is the only place a dark
+ * theme still reads as dark, so it has to carry that on its own — reported
+ * complaint: "nền tối ... rất tối và khó nhìn" (dark surfaces are too dark,
+ * hard to read), with the explicit follow-up direction "xám đậm thay vì gần
+ * đen" (dark GRAY, not near-black). Anchors hue on the theme's own darkest
+ * raw color (its clearest "shadow" tone) but re-renders it at a fixed,
+ * lighter target lightness with a capped saturation — the same
+ * lighten-in-HSL-space technique `pickInputBackground` already uses in the
+ * other direction for the input role. Keeps "Dark Cold" reading navy-tinted
+ * and "Dark Winter" reading teal-tinted without either looking like a vivid
+ * saturated color card (too high a saturation cap) or a flat neutral gray
+ * with no theme character at all (saturation capped at 0, i.e. no tint).
+ */
+function pickDarkSurface(colors: string[]): string {
+  const darkest = colors.reduce((a, b) => (hexToHsl(a)[2] <= hexToHsl(b)[2] ? a : b));
+  const [hue, saturation] = hexToHsl(darkest);
+  return hslToHex(hue, Math.min(saturation, SURFACE_DARK_MAX_SATURATION), SURFACE_DARK_LIGHTNESS);
+}
+
 const LIGHT_COMPONENT_LUMINANCE = 0.4;
 
 export function computeThemeRoles(colors: [string, string, string, string]): ThemeRoles {
@@ -233,9 +283,19 @@ export function computeThemeRoles(colors: [string, string, string, string]): The
   const lightComponentCount = colors.filter((c) => relativeLuminance(c) >= LIGHT_COMPONENT_LUMINANCE).length;
   const isDark = lightComponentCount < 2;
 
-  const background = isDark ? "#0a0a0a" : "#ffffff";
-  const foreground = tintNeutral(isDark ? "#ededed" : "#171717", dominantHue(colors), FOREGROUND_TINT_SATURATION);
-  const surface = pickClosestLightness(colors, isDark ? 0.16 : 0.94);
+  // "Tách giao diện web/ứng dụng": background/foreground are the page-level
+  // SHELL pair (nav bar + page background, and any text sitting directly on
+  // the page rather than inside a themed card) — always the fixed light pair
+  // now, for every theme including dark ones. This used to branch on `isDark`
+  // too, which is what made picking a dark theme black out the whole page
+  // (nav bar included), not just its cards — reported: "khi tôi để web giao
+  // diện dark thì rất tối và khó nhìn". A dark theme's actual dark character
+  // now lives entirely in `surface` (below), which still varies with
+  // `isDark` — that's the "khung ngoài luôn sáng, chỉ nội dung bên trong đổi
+  // theo theme" split the user asked for.
+  const background = "#ffffff";
+  const foreground = tintNeutral("#171717", dominantHue(colors), FOREGROUND_TINT_SATURATION);
+  const surface = isDark ? pickDarkSurface(colors) : pickClosestLightness(colors, 0.94);
   const border = surface;
   const primary = pickPrimary(colors);
   // Pick whichever fixed text color yields the higher contrast against `primary`,
@@ -251,7 +311,28 @@ export function computeThemeRoles(colors: [string, string, string, string]): The
   const input = pickInputBackground(colors);
   const inputForeground = contrastRatio(input, "#111111") >= contrastRatio(input, "#ffffff") ? "#111111" : "#ffffff";
 
-  return { background, foreground, surface, border, primary, primaryForeground, input, inputForeground, isDark };
+  // Text that sits *inside* a themed surface/card. Needed because — unlike
+  // `background`/`foreground` above, which are now always the fixed light
+  // shell pair — `surface` still varies light/dark per theme (that's the
+  // point: dark-theme character lives there now), so a card's own text can no
+  // longer just reuse the fixed `foreground`. Picked the same
+  // contrast-maximizing way as `primaryForeground`/`inputForeground`: whichever
+  // of #111111/#ffffff wins against `surface`.
+  const surfaceForeground =
+    contrastRatio(surface, "#111111") >= contrastRatio(surface, "#ffffff") ? "#111111" : "#ffffff";
+
+  return {
+    background,
+    foreground,
+    surface,
+    surfaceForeground,
+    border,
+    primary,
+    primaryForeground,
+    input,
+    inputForeground,
+    isDark,
+  };
 }
 
 export const DEFAULT_THEME_ID = "default";

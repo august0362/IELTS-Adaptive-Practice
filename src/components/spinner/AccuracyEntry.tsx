@@ -5,6 +5,18 @@ import { useState } from "react";
 interface AccuracyEntryProps {
   resultId: string;
   onSaved?: () => void;
+  /**
+   * This form renders in two different color contexts: directly on the page
+   * (`Spinner.tsx`, under a skill's part-picker section — no `bg-surface`
+   * ancestor) and nested *inside* a themed card (`ManualPractice.tsx`, whose
+   * whole `<section>` is `bg-surface`). Those need different text-color
+   * roles — the fixed page `foreground` reads fine on the page but can lose
+   * contrast against a dark-toned `surface` card, and the reverse
+   * (`surfaceForeground`) would be invisible directly on the page — so the
+   * caller declares which one it is instead of this component guessing.
+   * Defaults to "page" since that's the more common of the two call sites.
+   */
+  variant?: "page" | "surface";
 }
 
 /**
@@ -13,7 +25,9 @@ interface AccuracyEntryProps {
  * accuracyEwma component of Formula 3 v2 (5.4). Skipping it is fine; there's
  * no required interaction here besides typing numbers and pressing Lưu.
  */
-export function AccuracyEntry({ resultId, onSaved }: AccuracyEntryProps) {
+export function AccuracyEntry({ resultId, onSaved, variant = "page" }: AccuracyEntryProps) {
+  const mutedText = variant === "surface" ? "text-surface-foreground/50" : "text-foreground/50";
+  const labelText = variant === "surface" ? "text-surface-foreground/60" : "text-foreground/60";
   const [answered, setAnswered] = useState("");
   const [correct, setCorrect] = useState("");
   const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
@@ -48,8 +62,8 @@ export function AccuracyEntry({ resultId, onSaved }: AccuracyEntryProps) {
 
   return (
     <form onSubmit={handleSave} className="flex flex-wrap items-end gap-2 text-xs">
-      <span className="w-full text-foreground/50">Làm xong rồi? Ghi lại số câu đúng (tùy chọn):</span>
-      <label className="flex flex-col gap-1 text-foreground/60">
+      <span className={`w-full ${mutedText}`}>Làm xong rồi? Ghi lại số câu đúng (tùy chọn):</span>
+      <label className={`flex flex-col gap-1 ${labelText}`}>
         Số câu đã làm
         <input
           type="number"
@@ -59,7 +73,7 @@ export function AccuracyEntry({ resultId, onSaved }: AccuracyEntryProps) {
           className="input-paper w-20 px-2 py-1 text-sm"
         />
       </label>
-      <label className="flex flex-col gap-1 text-foreground/60">
+      <label className={`flex flex-col gap-1 ${labelText}`}>
         Số câu đúng
         <input
           type="number"

@@ -371,3 +371,29 @@ DONE
   - Verified: 99/99 tests, typecheck, lint all green; fetched the freshly
     compiled CSS for both `/` and `/journal` and confirmed zero
     `prefers-color-scheme` occurrences and zero `.dark\:` rules remain.
+
+[2026-09-18] Post-launch: user still saw a dark page in Cốc Cốc after the fix above.
+  - Used a throwaway Playwright script (fresh browser context, no cache, no
+    forced-dark browser features) to directly check the app's own computed
+    background with the Forest theme forced via localStorage: confirmed
+    `--background: #ffffff` and `getComputedStyle(body).backgroundColor` =
+    white. This proves the app-side logic from the previous entry was already
+    correct — the remaining black background the user saw is not an app bug.
+  - Most likely cause: Cốc Cốc (the browser in the user's screenshot) has a
+    visible toolbar icon for a built-in "force dark mode for web content"
+    feature — separate from the OS/browser prefers-color-scheme *preference*
+    this app already stopped following. That kind of feature repaints pages
+    regardless of the page's own CSS, which no amount of app-side theme code
+    can fully prevent.
+  - Added `color-scheme` as a best-effort mitigation: `layout.tsx` exports
+    `viewport = { colorScheme: "light" }` and ThemeProvider's applyTheme()
+    sets `documentElement.style.colorScheme` to match the active theme's
+    isDark. Verified via Playwright that both the meta tag and the computed
+    style apply correctly. This is the standards-based signal some (not all)
+    forced-dark browser features check before deciding to repaint — not
+    guaranteed for every browser, including possibly Cốc Cốc's. If the user
+    still sees a dark page after this, the real fix is disabling that
+    browser's dark-mode-for-web-content toggle for this site, not more app
+    code — flagged clearly to the user rather than implying it's fixable
+    from the page alone.
+  - 99/99 tests, typecheck, lint all green.

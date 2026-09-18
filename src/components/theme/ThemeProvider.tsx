@@ -27,6 +27,11 @@ function applyTheme(themeId: string) {
   root.style.setProperty("--primary-foreground", roles.primaryForeground);
   root.style.setProperty("--input", roles.input);
   root.style.setProperty("--input-foreground", roles.inputForeground);
+  // Tells the browser this page manages its own light/dark appearance —
+  // matches native form-control chrome to the actual theme and is the
+  // signal some browsers' "force dark mode" features check before deciding
+  // whether to repaint the page (see the `viewport` export in layout.tsx).
+  root.style.setProperty("color-scheme", roles.isDark ? "dark" : "light");
 }
 
 interface ThemeContextValue {

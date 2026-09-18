@@ -5,11 +5,20 @@ test("delete-roll: rolling adds a history entry, deleting it removes it again", 
 
   await page.goto("/");
 
+  // Snapshot every skill/part/question-type counter before rolling, so the
+  // end of this test can assert the delete didn't just hide the row — it must
+  // put every counter it touched back exactly where it was (PROJECT_CONTEXT.md
+  // section 5.9), not merely remove the history entry from view.
+  const before = await page.request.get("/api/skills").then((r) => r.json());
+
   await page.getByRole("button", { name: "Quay", exact: true }).click();
   // Generous timeout: worst case, both results land on a part with 2
   // question-type draws each (e.g. Reading + Listening Block A), adding up to
   // 4 extra cascade levels on top of the 2 skill + 2 part draws.
   await expect(page.getByRole("button", { name: "Quay lại" })).toBeVisible({ timeout: 30_000 });
+
+  const afterRoll = await page.request.get("/api/skills").then((r) => r.json());
+  expect(afterRoll).not.toEqual(before); // sanity check the roll actually changed something
 
   // "Lượt quay gần đây" refreshes after the roll — its first <li> is this roll
   // (the section is the only <ul> on this page once history is non-empty).
@@ -21,4 +30,7 @@ test("delete-roll: rolling adds a history entry, deleting it removes it again", 
   await newestEntry.getByRole("button", { name: /Xóa lượt quay/ }).click();
 
   await expect(page.getByText(entryText!, { exact: true })).not.toBeVisible();
+
+  const afterDelete = await page.request.get("/api/skills").then((r) => r.json());
+  expect(afterDelete).toEqual(before); // every counter/lastAppearedAt reverted exactly
 });

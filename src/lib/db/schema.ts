@@ -120,7 +120,7 @@ export const rollResultQuestionTypesRelations = relations(rollResultQuestionType
 }));
 
 // User-defined practice topics ("+" button in Settings). Deliberately minimal —
-// just a name for now; not yet wired into the roll (see PROJECT_CONTEXT.md 5.9).
+// just a name for now; not yet wired into the roll (see PROJECT_CONTEXT.md 5.11).
 export const topics = sqliteTable("topics", {
   id: id(),
   name: text("name").notNull(),

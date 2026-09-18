@@ -90,6 +90,12 @@ export const rollResults = sqliteTable("roll_results", {
   skillPartId: text("skill_part_id")
     .notNull()
     .references(() => skillParts.id),
+  // Optional practice-accuracy entry (Reading/Listening only — see
+  // PROJECT_CONTEXT.md section 5.4 v2): filled in later via
+  // PATCH /api/results/:id/accuracy, after the user finishes that practice
+  // session. Both null until then; never null independently of each other.
+  questionsAnswered: integer("questions_answered"),
+  questionsCorrect: integer("questions_correct"),
 });
 
 export const rollResultsRelations = relations(rollResults, ({ one, many }) => ({

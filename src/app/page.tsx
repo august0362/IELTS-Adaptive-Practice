@@ -36,6 +36,7 @@ export default async function Home() {
     rolledAt: session.rolledAt.toISOString(),
     source: session.source,
     results: session.results.map((r) => ({
+      id: r.id,
       skill: { id: r.skill.id, code: r.skill.code, name: r.skill.name },
       part: { id: r.part.id, code: r.part.code, name: r.part.name },
       questionTypes: r.questionTypes.map((rqt) => ({
@@ -43,6 +44,8 @@ export default async function Home() {
         code: rqt.questionType.code,
         name: rqt.questionType.name,
       })),
+      questionsAnswered: r.questionsAnswered,
+      questionsCorrect: r.questionsCorrect,
     })),
   }));
 

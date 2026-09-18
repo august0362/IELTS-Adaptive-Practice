@@ -77,9 +77,16 @@ const CONFIG_DEFAULTS: { key: string; value: string }[] = [
   { key: "decay_exponent", value: "1.0" },
   { key: "weekly_threshold_days", value: "7" },
   { key: "frequency_adjustment_factor", value: "0.05" },
-  { key: "frequency_adjustment_cap", value: "0.5" },
   { key: "overall_prediction_rounding_mode", value: "per_skill_rounded" }, // or "raw_average" — user-toggleable
   { key: "count_soft_reset_threshold", value: "50" },
+  // Formula 3 v2 (PROJECT_CONTEXT.md 5.4): EWMA smoothing factor for the
+  // Cambridge-score and practice-accuracy components — higher = more weight
+  // on the newest data point, lower = slower to move away from history.
+  // 0.5 means each new result is weighted equal to the *entire* prior
+  // history combined — deliberately reactive, matching "quá khứ mờ dần,
+  // hiện tại chủ yếu" (a single recent test can swing the prediction).
+  { key: "cambridge_ewma_alpha", value: "0.5" },
+  { key: "accuracy_ewma_alpha", value: "0.5" },
 ];
 
 /**

@@ -1,4 +1,4 @@
-import { desc, eq, and, gte } from "drizzle-orm";
+import { desc, eq, and, gte, isNotNull } from "drizzle-orm";
 import { db } from "./client";
 import {
   dailyNotes,
@@ -15,7 +15,9 @@ import { loadEngineConfig } from "./configHelpers";
 import { predictAllSkillBands, type SkillPredictionInput } from "@/lib/engine/bandPrediction";
 
 const CAMBRIDGE_SAMPLE_SIZE = 30;
+const ACCURACY_SAMPLE_SIZE = 30;
 const PRACTICE_WINDOW_DAYS = 30;
+const ACCURACY_SKILL_CODES = new Set(["READING", "LISTENING"]);
 
 export function getAllTopics() {
   return db.select().from(topics).orderBy(desc(topics.createdAt));
@@ -57,16 +59,17 @@ type CambridgeRow = typeof cambridgeTestResults.$inferSelect;
 export async function getPredictionData() {
   const engineConfig = loadEngineConfig(db);
 
-  const recentTests = await db
-    .select()
-    .from(cambridgeTestResults)
-    .orderBy(desc(cambridgeTestResults.testDate))
-    .limit(CAMBRIDGE_SAMPLE_SIZE);
+  // Chronological (oldest first) — EWMA folds forward from the oldest point,
+  // so the DB's newest-first order has to be reversed before feeding it in.
+  const recentTestsChronological = (
+    await db.select().from(cambridgeTestResults).orderBy(desc(cambridgeTestResults.testDate)).limit(CAMBRIDGE_SAMPLE_SIZE)
+  ).reverse();
 
   const windowStart = new Date(Date.now() - PRACTICE_WINDOW_DAYS * 24 * 60 * 60 * 1000);
   const allSkills = await db.select().from(skills);
 
   const practiceCounts = new Map<string, number>();
+  const accuracyPercentagesBySkill = new Map<string, number[]>();
   for (const skill of allSkills) {
     const rows = await db
       .select({ id: rollResults.id })
@@ -74,10 +77,32 @@ export async function getPredictionData() {
       .innerJoin(rollSessions, eq(rollResults.rollSessionId, rollSessions.id))
       .where(and(eq(rollResults.skillId, skill.id), gte(rollSessions.rolledAt, windowStart)));
     practiceCounts.set(skill.code, rows.length);
+
+    if (ACCURACY_SKILL_CODES.has(skill.code)) {
+      const accuracyRows = await db
+        .select({ questionsAnswered: rollResults.questionsAnswered, questionsCorrect: rollResults.questionsCorrect })
+        .from(rollResults)
+        .innerJoin(rollSessions, eq(rollResults.rollSessionId, rollSessions.id))
+        .where(
+          and(
+            eq(rollResults.skillId, skill.id),
+            isNotNull(rollResults.questionsAnswered),
+            isNotNull(rollResults.questionsCorrect)
+          )
+        )
+        .orderBy(desc(rollSessions.rolledAt))
+        .limit(ACCURACY_SAMPLE_SIZE);
+      accuracyPercentagesBySkill.set(
+        skill.code,
+        accuracyRows.reverse().map((r) => (r.questionsCorrect! / r.questionsAnswered!) * 100)
+      );
+    }
   }
 
   const skillInput = (code: string, bandKey: keyof CambridgeRow): SkillPredictionInput => ({
-    recentCambridgeBands: recentTests.map((t) => t[bandKey] as number),
+    cambridgeBandsChronological: recentTestsChronological.map((t) => t[bandKey] as number),
+    hasAccuracyComponent: ACCURACY_SKILL_CODES.has(code),
+    accuracyPercentagesChronological: accuracyPercentagesBySkill.get(code) ?? [],
     practiceCount30d: practiceCounts.get(code) ?? 0,
   });
 
@@ -89,8 +114,9 @@ export async function getPredictionData() {
       speaking: skillInput("SPEAKING", "speakingBand"),
     },
     {
+      cambridgeEwmaAlpha: engineConfig.cambridgeEwmaAlpha,
+      accuracyEwmaAlpha: engineConfig.accuracyEwmaAlpha,
       frequencyAdjustmentFactor: engineConfig.frequencyAdjustmentFactor,
-      frequencyAdjustmentCap: engineConfig.frequencyAdjustmentCap,
       overallRoundingMode: engineConfig.overallRoundingMode,
     }
   );
@@ -135,6 +161,8 @@ export async function getSkillStats(skillCode: string) {
       source: rollSessions.source,
       partCode: skillParts.code,
       partName: skillParts.name,
+      questionsAnswered: rollResults.questionsAnswered,
+      questionsCorrect: rollResults.questionsCorrect,
     })
     .from(rollResults)
     .innerJoin(rollSessions, eq(rollResults.rollSessionId, rollSessions.id))
@@ -146,6 +174,8 @@ export async function getSkillStats(skillCode: string) {
     rolledAt: row.rolledAt,
     source: row.source,
     part: { code: row.partCode, name: row.partName },
+    questionsAnswered: row.questionsAnswered,
+    questionsCorrect: row.questionsCorrect,
   }));
 
   const types = await db.select().from(questionTypes).where(eq(questionTypes.skillId, skill.id));

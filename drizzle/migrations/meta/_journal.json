@@ -15,6 +15,13 @@
       "when": 1789738249566,
       "tag": "0001_clean_aaron_stack",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1789749237476,
+      "tag": "0002_colorful_dexter_bennett",
+      "breakpoints": true
     }
   ]
 }

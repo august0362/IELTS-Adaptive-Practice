@@ -61,6 +61,7 @@ drizzle.config.ts              # config của drizzle-kit (dialect: sqlite, đư
       /history/route.ts        # GET: lịch sử quay (cả roll lẫn manual), có phân trang
       /history/[id]/route.ts   # DELETE: xóa 1 lượt quay/tự học, hoàn tác bộ đếm (mục 5.9)
       /practice/route.ts       # POST: cộng luyện thủ công, không qua vòng quay (mục 5.8)
+      /results/[id]/accuracy/route.ts  # PATCH: ghi số câu đúng cho 1 kết quả Reading/Listening (mục 5.12)
       /stats/[skillCode]/route.ts   # GET: lịch sử luyện + thống kê dạng bài theo kỹ năng (mục 5.10)
       /notes/route.ts          # GET/POST ghi chú hằng ngày
       /notes/[id]/route.ts     # PATCH/DELETE 1 ghi chú
@@ -152,9 +153,12 @@ questionTypes        (id, skillId -> skills.id, code duy nhất, name, baseRatio
 rollSessions         (id, rolledAt mặc định là thời điểm hiện tại,
                        source mặc định "roll" ["roll" = qua Vòng quay | "manual" = tự ghi luyện tập, mục 5.8])
 rollResults          (id, rollSessionId -> rollSessions.id, skillId -> skills.id,
-                       skillPartId -> skillParts.id)
+                       skillPartId -> skillParts.id,
+                       questionsAnswered có thể null, questionsCorrect có thể null)
                        // Đúng 2 dòng cho mỗi rollSession có source="roll" (1 dòng/kỹ năng được chọn);
                        // đúng 1 dòng cho mỗi rollSession có source="manual".
+                       // questionsAnswered/questionsCorrect: chỉ điền sau, qua PATCH /api/results/:id/accuracy,
+                       // chỉ áp dụng cho kết quả Reading/Listening (Formula 3 v2, mục 5.4).
 rollResultQuestionTypes (id, rollResultId -> rollResults.id, questionTypeId -> questionTypes.id)
                        // 0..N dòng cho mỗi rollResult — N = questionTypeRollCount của part đó lúc quay
                        // (0 hoặc 1 với 1 lượt "manual", vì tự ghi chỉ chọn tối đa 1 dạng bài).
@@ -194,10 +198,13 @@ Mọi khóa chính đều là `text` (sinh bằng `crypto.randomUUID()`), mọi 
 |---|---|---|
 | `decay_exponent` | `1.0` | `k` trong Công thức 1 |
 | `weekly_threshold_days` | `7` | ngưỡng để kích hoạt quy tắc bắt buộc của Công thức 2 |
-| `frequency_adjustment_factor` | `0.05` | độ dốc điều chỉnh theo tần suất trong Công thức 3 |
-| `frequency_adjustment_cap` | `0.5` | mức điều chỉnh ± tối đa trong Công thức 3 |
+| `frequency_adjustment_factor` | `0.05` | độ dốc điều chỉnh theo tần suất trong Công thức 3 (mức trần ± giờ tính từ tỉ lệ trọng số tần suất × 9, không còn là 1 hằng số cố định — xem mục 5.4) |
 | `overall_prediction_rounding_mode` | `per_skill_rounded` | cách tính Công thức 3: `per_skill_rounded` hoặc `raw_average` — xem mục 5.4 |
 | `count_soft_reset_threshold` | `50` | ngưỡng kích hoạt cơ chế an toàn của Công thức 1 |
+| `cambridge_ewma_alpha` | `0.5` | hệ số làm mờ EWMA cho điểm Cambridge trong Công thức 3 v2 — xem mục 5.4 |
+| `accuracy_ewma_alpha` | `0.5` | hệ số làm mờ EWMA cho % câu đúng khi luyện tập trong Công thức 3 v2 — xem mục 5.4 |
+
+(`frequency_adjustment_cap` của v1 đã bị loại bỏ — Công thức 3 v2 tự tính mức trần từ trọng số tần suất theo từng kỹ năng thay vì 1 hằng số cố định. Nếu DB cũ còn sót dòng key này thì vô hại, chỉ là không còn được đọc.)
 
 ---
 
@@ -250,20 +257,43 @@ overdue_i = (hôm nay - Skill.lastAppearedAt) >= Config.weekly_threshold_days ng
 - Suất còn lại (cần 0, 1, hoặc 2) được lấp bằng cách quay bình thường theo Công thức 1 trong số các kỹ năng không bị ép chọn, không lặp lại.
 - Ràng buộc này **chỉ** áp dụng cho pool 4 kỹ năng, không áp dụng cho part/block (part chưa có đảm bảo tần suất tối thiểu ở bản v1 — xem `document.txt`).
 
-### 5.4 Công thức 3 — Dự đoán Band điểm (v1)
+### 5.4 Công thức 3 — Dự đoán Band điểm (v2 — Milestone 5 mở rộng)
+
+> **v1 (mean phẳng 30 bài + nudge tần suất nhỏ) đã bị thay bằng v2 dưới đây** — lý do: điểm thi thật có thể dao động mạnh (hôm nay 2.5, tuần sau 4.5), lấy trung bình phẳng làm "mờ" thông tin mới nhất quá nhiều. v2 dùng EWMA (trung bình trọng số giảm dần) để quá khứ mờ dần, hiện tại chiếm ưu thế, và thêm thành phần "% câu đúng khi luyện tập" cho Reading/Listening.
 
 Tính riêng cho từng kỹ năng:
 
 ```
-cambridgeAvg_skill     = trung bình điểm <kỹ năng> của 30 kết quả thi thử Cambridge gần nhất (ít hơn nếu chưa đủ 30)
-practiceCount30d_skill = số lần luyện kỹ năng này trong 30 ngày gần đây
+cambridgeEwma_skill    = EWMA(lịch sử điểm <kỹ năng> của tối đa 30 kết quả thi thử Cambridge gần nhất, theo thứ tự thời gian, alpha = Config.cambridge_ewma_alpha)
+accuracyEwma_skill     = (chỉ Reading/Listening) EWMA(lịch sử % câu đúng của tối đa 30 lượt luyện gần nhất có ghi số câu đúng,
+                          theo thứ tự thời gian, alpha = Config.accuracy_ewma_alpha) — quy đổi sang thang 0-9 (× 9 / 100)
+practiceCount30d_skill = số lần luyện kỹ năng này (roll hoặc manual) trong 30 ngày gần đây
 avgPracticeCount30d    = trung bình practiceCount30d của cả 4 kỹ năng
-frequencyDelta_skill   = giới hạn trong [-cap, +cap] của (practiceCount30d_skill - avgPracticeCount30d) * factor
-rawPredictedBand_skill = giới hạn trong [0, 9] của (cambridgeAvg_skill + frequencyDelta_skill)
+frequencyDelta_skill   = giới hạn trong [-frequencyCap, +frequencyCap] của (practiceCount30d_skill - avgPracticeCount30d) * factor
+
+// Reading & Listening (có accuracyEwma):
+frequencyCap           = 0.05 × 9 = 0.45
+weightedBase_skill     = 0.65 × cambridgeEwma_skill + 0.30 × (accuracyEwma_skill, hoặc cambridgeEwma_skill nếu chưa có dữ liệu % đúng)
+
+// Writing & Speaking (không có accuracyEwma — không có tín hiệu đúng/sai khách quan):
+frequencyCap           = 0.35 × 9 = 3.15
+weightedBase_skill     = 0.65 × cambridgeEwma_skill
+
+rawPredictedBand_skill = giới hạn trong [0, 9] của (weightedBase_skill + frequencyDelta_skill)
 predictedBand_skill    = rawPredictedBand_skill được làm tròn tới 0.5 gần nhất, để hiển thị
 ```
 
-Trong đó `factor = Config.frequency_adjustment_factor` (mặc định `0.05`) và `cap = Config.frequency_adjustment_cap` (mặc định `0.5`).
+**EWMA (Exponentially-Weighted Moving Average)** — `src/lib/engine/ewma.ts`:
+```
+EWMA₁ = giá trị đầu tiên (cũ nhất)
+EWMAₜ = alpha × giá trị mới + (1 - alpha) × EWMAₜ₋₁
+kết quả = EWMA của điểm mới nhất
+```
+`alpha` mặc định `0.5` cho cả `cambridge_ewma_alpha` và `accuracy_ewma_alpha` — nghĩa là mỗi điểm dữ liệu mới có trọng số ngang bằng TOÀN BỘ lịch sử trước đó cộng lại, phản ứng khá nhanh với thay đổi mới, đúng tinh thần "quá khứ mờ dần, hiện tại chủ yếu" mà không bao giờ loại bỏ hoàn toàn dữ liệu cũ (khác với "chỉ lấy N bài gần nhất rồi bỏ hẳn phần còn lại").
+
+**Vì sao dùng EWMA, không dùng model học máy (GRU/LSTM)**: đã cân nhắc và loại bỏ theo yêu cầu — dữ liệu thực tế của app (1 user, mỗi kỹ năng có thể chỉ vài chục điểm thi) quá nhỏ để huấn luyện 1 mạng nơ-ron hồi quy mà không overfit, và app không có hạ tầng ML (Python/GPU/pipeline huấn luyện). EWMA đạt đúng yêu cầu "quá khứ mờ dần, hiện tại chủ yếu" bằng 1 công thức đóng, không cần huấn luyện, tính tức thì, giải thích được rõ ràng — đúng cỡ với quy mô dữ liệu thật của app.
+
+**Nếu chưa có dữ liệu % đúng cho Reading/Listening**: `accuracyEwma_skill` trả về `null` (UI hiện "chưa có dữ liệu"), nhưng bên trong công thức tự động dùng `cambridgeEwma_skill` thay thế cho phần 30% đó — về mặt toán học tương đương `weightedBase = 0.95 × cambridgeEwma` (dồn trọng số về Cambridge cho tới khi có dữ liệu thật), không mất trọng số cũng không bịa số.
 
 Nếu 1 kỹ năng **chưa có** kết quả thi thử Cambridge nào, cả `predictedBand_skill` và `rawPredictedBand_skill` đều là `null`, và UI hiện "chưa đủ dữ liệu" thay vì bịa ra 1 con số.
 
@@ -346,27 +376,32 @@ Chưa có UI chỉnh tỉ lệ dạng bài ở milestone này — giống các h
 
 `topics` (id, name, createdAt) — CRUD cơ bản qua `GET/POST /api/topics` và `DELETE /api/topics/:id`. Cố tình tối giản: chỉ có tên, **chưa** gắn vào vòng quay (không random chủ đề, không liên kết với skill/roll). Sẽ mở rộng thêm trường và (có thể) tích hợp vào vòng quay ở milestone sau, theo yêu cầu cụ thể hơn từ user.
 
+### 5.12 Ghi số câu đúng khi luyện Reading/Listening — Milestone 5 mở rộng
+
+`PATCH /api/results/:id/accuracy` — gắn `questionsAnswered`/`questionsCorrect` vào 1 `rollResult` đã tạo (từ 1 lượt quay hoặc tự học), điền **sau khi** luyện xong, không phải lúc quay. Chỉ áp dụng cho kết quả Reading/Listening (validate qua `skill.code`, trả 400 nếu không phải); `questionsAnswered > 0`, `0 <= questionsCorrect <= questionsAnswered`. Dữ liệu này nuôi `accuracyEwma_skill` trong Công thức 3 v2 (mục 5.4).
+
 ---
 
 ## 6. Hợp đồng API
 
 | Method | Đường dẫn | Body / Query | Response |
 |---|---|---|---|
-| POST | `/api/roll` | — | `{ sessionId, results: [{ skill, part, questionTypes: [{id,code,name}] }, ...] }` |
+| POST | `/api/roll` | — | `{ sessionId, results: [{ id, skill, part, questionTypes: [{id,code,name}], questionsAnswered: null, questionsCorrect: null }, ...] }` |
 | GET | `/api/skills` | — | `[{ id, code, name, occurrenceCount, lastAppearedAt, parts: [{ id, code, name, baseRatio, occurrenceCount, lastAppearedAt, questionTypeRollCount }], questionTypes: [{ id, code, name, baseRatio, occurrenceCount, lastAppearedAt }] }]` |
 | PATCH | `/api/skills/parts/:id/ratio` | `{ baseRatio: number }` (0–1; part còn lại tự chỉnh thành `1 - baseRatio`) | `SkillPart[]` — cả 2 part của kỹ năng (part vừa sửa và part còn lại), để UI cập nhật cả 2 thanh trượt từ 1 response, khỏi phải gọi lần 2 |
-| GET | `/api/history` | `?limit=&offset=` | `{ total, items: [{ id, rolledAt, source, results: [{skill, part, questionTypes}, ...] }] }` |
+| GET | `/api/history` | `?limit=&offset=` | `{ total, items: [{ id, rolledAt, source, results: [{id, skill, part, questionTypes, questionsAnswered, questionsCorrect}, ...] }] }` |
 | DELETE | `/api/history/:id` | — | `{ ok: true }` — xóa lượt quay/lượt tự học và hoàn tác bộ đếm (mục 5.9); 404 nếu không tìm thấy |
-| POST | `/api/practice` | `{ skillCode, partCode, questionTypeCode? }` | `{ sessionId, source: "manual", skill, part, questionType }` — cộng luyện thủ công (mục 5.8) |
-| GET | `/api/stats/:skillCode` | — | `{ skill, practiceLog: [...], questionTypeStats: [...] \| null }` (mục 5.10) |
+| POST | `/api/practice` | `{ skillCode, partCode, questionTypeCode? }` | `{ sessionId, resultId, source: "manual", skill, part, questionType }` — cộng luyện thủ công (mục 5.8) |
+| PATCH | `/api/results/:id/accuracy` | `{ questionsAnswered, questionsCorrect }` | `{ id, questionsAnswered, questionsCorrect }` — ghi số câu đúng (mục 5.12), chỉ Reading/Listening |
+| GET | `/api/stats/:skillCode` | — | `{ skill, practiceLog: [{rolledAt, source, part, questionsAnswered, questionsCorrect}, ...], questionTypeStats: [...] \| null }` (mục 5.10) |
 | GET | `/api/notes` | `?date=` (tùy chọn) | `[{ id, noteDate, tags, content }]` |
 | POST | `/api/notes` | `{ noteDate, tags, content }` | ghi chú vừa tạo |
 | PATCH/DELETE | `/api/notes/:id` | `{ tags?, content? }` | ghi chú đã sửa/xóa |
 | GET | `/api/cambridge` | `?limit=5` (mặc định, gần đây) hoặc `?all=true` | `[{ id, testDate, testName, readingBand, listeningBand, writingBand, speakingBand, overallBand, note }]` |
 | POST | `/api/cambridge` | `{ testDate, testName, readingBand, listeningBand, writingBand, speakingBand, note? }` | dòng vừa tạo (`overallBand` tính ở server) |
 | PATCH/DELETE | `/api/cambridge/:id` | các trường cần sửa | dòng đã sửa/xóa |
-| GET | `/api/prediction` | — | `{ perSkill: { reading, listening, writing, speaking }, overall, sampleSizePerSkill, practiceCount30dPerSkill, hasEnoughData }` (`practiceCount30dPerSkill` thêm ở Milestone 2 Bước 5 để phục vụ biểu đồ tần suất — dùng lại chính số liệu nội bộ đã có cho phần điều chỉnh tần suất của Công thức 3) |
-| GET/PATCH | `/api/config` | body PATCH: `{ key, value }` | bảng config hiện tại |
+| GET | `/api/prediction` | — | `{ perSkill: { reading, listening, writing, speaking }, overall, sampleSizePerSkill, practiceCount30dPerSkill, hasEnoughData }` — mỗi phần tử `perSkill` giờ có `{ predictedBand, rawPredictedBand, cambridgeEwma, accuracyEwma, frequencyDelta, sampleSize }` theo Công thức 3 v2 (mục 5.4; thay cho `cambridgeAvg` của v1) |
+| GET/PATCH | `/api/config` | body PATCH: `{ key, value }` | bảng config hiện tại (có `cambridge_ewma_alpha`, `accuracy_ewma_alpha` mới — mục 5.4) |
 | GET/POST | `/api/topics` | POST body: `{ name }` | danh sách/tạo chủ đề (mục 5.11) |
 | DELETE | `/api/topics/:id` | — | `{ ok: true }` |
 

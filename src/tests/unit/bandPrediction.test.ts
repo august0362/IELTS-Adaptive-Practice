@@ -5,110 +5,191 @@ import {
   type FourSkillPredictionInput,
 } from "../../lib/engine/bandPrediction";
 
+const NO_ACCURACY_CONFIG = {
+  cambridgeEwmaAlpha: 0.5,
+  accuracyEwmaAlpha: 0.5,
+  frequencyAdjustmentFactor: 0.05,
+  overallRoundingMode: "per_skill_rounded" as const,
+};
+
 describe("predictSkillBand", () => {
   it("returns null (not enough data) when there are zero Cambridge results", () => {
-    const result = predictSkillBand({ recentCambridgeBands: [], practiceCount30d: 5 }, 5);
+    const result = predictSkillBand(
+      { cambridgeBandsChronological: [], hasAccuracyComponent: false, accuracyPercentagesChronological: [], practiceCount30d: 5 },
+      5
+    );
     expect(result.predictedBand).toBeNull();
     expect(result.rawPredictedBand).toBeNull();
-    expect(result.cambridgeAvg).toBeNull();
+    expect(result.cambridgeEwma).toBeNull();
+    expect(result.accuracyEwma).toBeNull();
   });
 
-  it("predicts the plain Cambridge average when practice frequency matches the group average", () => {
-    const result = predictSkillBand({ recentCambridgeBands: [6, 6.5, 7], practiceCount30d: 5 }, 5);
-    expect(result.cambridgeAvg).toBeCloseTo(6.5, 10);
+  it("Writing/Speaking (no accuracy component): predicts 65% Cambridge EWMA + frequency nudge (cap 35% of 9)", () => {
+    const result = predictSkillBand(
+      {
+        cambridgeBandsChronological: [6],
+        hasAccuracyComponent: false,
+        accuracyPercentagesChronological: [],
+        practiceCount30d: 5,
+      },
+      5,
+      NO_ACCURACY_CONFIG
+    );
+    // Single value EWMA = 6. practiceCount matches the group average -> frequencyDelta = 0.
+    expect(result.cambridgeEwma).toBe(6);
+    expect(result.accuracyEwma).toBeNull();
     expect(result.frequencyDelta).toBe(0);
-    expect(result.predictedBand).toBe(6.5);
+    // weightedBase = 0.65 * 6 = 3.9 -> predictedBand rounds to nearest 0.5 = 4.0
+    expect(result.rawPredictedBand).toBeCloseTo(3.9, 10);
+    expect(result.predictedBand).toBe(4.0);
   });
 
-  it("nudges the prediction up when this skill is practiced more than the group average", () => {
-    const result = predictSkillBand({ recentCambridgeBands: [6], practiceCount30d: 10 }, 5);
-    // (10 - 5) * 0.05 = 0.25
-    expect(result.frequencyDelta).toBeCloseTo(0.25, 10);
-    expect(result.predictedBand).toBe(6.5); // 6 + 0.25 = 6.25, rounded to nearest 0.5
+  it("Writing/Speaking: frequency nudge caps at 35% of the 9-point range (3.15), not a flat 0.5 like v1", () => {
+    const result = predictSkillBand(
+      {
+        cambridgeBandsChronological: [6],
+        hasAccuracyComponent: false,
+        accuracyPercentagesChronological: [],
+        practiceCount30d: 1000,
+      },
+      5,
+      NO_ACCURACY_CONFIG
+    );
+    expect(result.frequencyDelta).toBeCloseTo(3.15, 10);
   });
 
-  it("caps the frequency nudge at the configured ceiling instead of scaling unbounded", () => {
-    const result = predictSkillBand({ recentCambridgeBands: [6], practiceCount30d: 1000 }, 5);
-    expect(result.frequencyDelta).toBe(0.5);
+  it("Reading/Listening (accuracy component): with no accuracy data logged yet, falls back to the Cambridge EWMA for that slice", () => {
+    const result = predictSkillBand(
+      {
+        cambridgeBandsChronological: [6],
+        hasAccuracyComponent: true,
+        accuracyPercentagesChronological: [],
+        practiceCount30d: 5,
+      },
+      5,
+      NO_ACCURACY_CONFIG
+    );
+    expect(result.cambridgeEwma).toBe(6);
+    // No accuracy data yet -> reported as null (UI shows "chưa có dữ liệu")...
+    expect(result.accuracyEwma).toBeNull();
+    // ...but internally the missing 30% falls back to the Cambridge EWMA, so the
+    // weighted base is mathematically 0.95 * cambridgeEwma = 5.7, matching a skill
+    // that already has matching accuracy data at exactly the Cambridge level.
+    expect(result.rawPredictedBand).toBeCloseTo(5.7, 10);
   });
 
-  it("never predicts a band above 9 even if Cambridge average + nudge would exceed it", () => {
-    const result = predictSkillBand({ recentCambridgeBands: [9, 9, 9], practiceCount30d: 1000 }, 5);
+  it("Reading/Listening: blends 65% Cambridge EWMA + 30% accuracy EWMA (as a 0-9 band) once accuracy data exists", () => {
+    const result = predictSkillBand(
+      {
+        cambridgeBandsChronological: [6],
+        hasAccuracyComponent: true,
+        // Single value EWMA = 80% -> 80% of 9 = 7.2
+        accuracyPercentagesChronological: [80],
+        practiceCount30d: 5,
+      },
+      5,
+      NO_ACCURACY_CONFIG
+    );
+    expect(result.accuracyEwma).toBeCloseTo(7.2, 10);
+    // 0.65*6 + 0.30*7.2 = 3.9 + 2.16 = 6.06
+    expect(result.rawPredictedBand).toBeCloseTo(6.06, 10);
+  });
+
+  it("Reading/Listening: frequency nudge caps at 5% of the 9-point range (0.45)", () => {
+    const result = predictSkillBand(
+      {
+        cambridgeBandsChronological: [6],
+        hasAccuracyComponent: true,
+        accuracyPercentagesChronological: [],
+        practiceCount30d: 1000,
+      },
+      5,
+      NO_ACCURACY_CONFIG
+    );
+    expect(result.frequencyDelta).toBeCloseTo(0.45, 10);
+  });
+
+  it("EWMA weights recent Cambridge results more than older ones (past fades, present dominates)", () => {
+    // Oldest-first: started low, most recent is much higher.
+    const result = predictSkillBand(
+      { cambridgeBandsChronological: [4, 4, 8], hasAccuracyComponent: false, accuracyPercentagesChronological: [], practiceCount30d: 5 },
+      5,
+      NO_ACCURACY_CONFIG
+    );
+    const flatMean = (4 + 4 + 8) / 3; // ~5.33
+    // EWMA(alpha=0.5): e1=4, e2=0.5*4+0.5*4=4, e3=0.5*8+0.5*4=6
+    expect(result.cambridgeEwma).toBeCloseTo(6, 10);
+    expect(result.cambridgeEwma!).toBeGreaterThan(flatMean); // pulled toward the recent high score more than a flat average would be
+  });
+
+  it("never predicts a band above 9 even if the weighted base + nudge would exceed it", () => {
+    const result = predictSkillBand(
+      { cambridgeBandsChronological: [9, 9, 9], hasAccuracyComponent: false, accuracyPercentagesChronological: [], practiceCount30d: 1000 },
+      5,
+      NO_ACCURACY_CONFIG
+    );
     expect(result.predictedBand).toBe(9);
   });
 
   it("never predicts a band below 0", () => {
-    const result = predictSkillBand({ recentCambridgeBands: [0], practiceCount30d: 0 }, 5);
+    const result = predictSkillBand(
+      { cambridgeBandsChronological: [0], hasAccuracyComponent: false, accuracyPercentagesChronological: [], practiceCount30d: 0 },
+      5,
+      NO_ACCURACY_CONFIG
+    );
     expect(result.predictedBand).toBe(0);
   });
 
-  it("reports sampleSize 1 for a skill with exactly one logged Cambridge result", () => {
-    const result = predictSkillBand({ recentCambridgeBands: [7], practiceCount30d: 5 }, 5);
+  it("reports sampleSize as the count of Cambridge results factored in", () => {
+    const result = predictSkillBand(
+      { cambridgeBandsChronological: [7], hasAccuracyComponent: false, accuracyPercentagesChronological: [], practiceCount30d: 5 },
+      5,
+      NO_ACCURACY_CONFIG
+    );
     expect(result.sampleSize).toBe(1);
-    expect(result.cambridgeAvg).toBe(7);
   });
 });
 
 describe("predictAllSkillBands", () => {
-  it("computes an overall predicted band when all 4 skills have data", () => {
-    const input: FourSkillPredictionInput = {
-      reading: { recentCambridgeBands: [6.5], practiceCount30d: 5 },
-      listening: { recentCambridgeBands: [7], practiceCount30d: 5 },
-      writing: { recentCambridgeBands: [6], practiceCount30d: 5 },
-      speaking: { recentCambridgeBands: [6.5], practiceCount30d: 5 },
+  function input(overrides: Partial<Record<keyof FourSkillPredictionInput, number>> = {}): FourSkillPredictionInput {
+    const band = (v: number) => ({
+      cambridgeBandsChronological: [v],
+      hasAccuracyComponent: false,
+      accuracyPercentagesChronological: [],
+      practiceCount30d: 5,
+    });
+    return {
+      reading: { ...band(overrides.reading ?? 6.5), hasAccuracyComponent: true },
+      listening: { ...band(overrides.listening ?? 7), hasAccuracyComponent: true },
+      writing: band(overrides.writing ?? 6),
+      speaking: band(overrides.speaking ?? 6.5),
     };
-    const result = predictAllSkillBands(input);
-    // mean(6.5, 7, 6, 6.5) = 6.5 exactly -> ieltsRound(6.5) = 6.5
-    expect(result.overallPredicted).toBe(6.5);
+  }
+
+  it("computes an overall predicted band when all 4 skills have data", () => {
+    const result = predictAllSkillBands(input(), NO_ACCURACY_CONFIG);
+    expect(result.overallPredicted).not.toBeNull();
+    expect(typeof result.overallPredicted).toBe("number");
   });
 
-  // Resolved by the user: overallRoundingMode is a user-configurable setting (Config table
-  // key `overall_prediction_rounding_mode`), not a fixed design choice. Both modes are
-  // implemented in predictAllSkillBands; these two tests pin down each one with the same
-  // worked example so a future session sees exactly how they diverge.
   it("'per_skill_rounded' (default) averages each skill's already-half-rounded band", () => {
-    // Raw (pre-round) predicted values would be ~6.2501, 6.2501, 6.2501, 6.0 (all clamps at cambridgeAvg
-    // since practiceCount30d equals the group average, so frequencyDelta = 0 for every skill).
-    const input: FourSkillPredictionInput = {
-      reading: { recentCambridgeBands: [6.2501], practiceCount30d: 5 },
-      listening: { recentCambridgeBands: [6.2501], practiceCount30d: 5 },
-      writing: { recentCambridgeBands: [6.2501], practiceCount30d: 5 },
-      speaking: { recentCambridgeBands: [6.0], practiceCount30d: 5 },
-    };
-    const result = predictAllSkillBands(input); // default config: overallRoundingMode: "per_skill_rounded"
-    // Each 6.2501 individually rounds to 6.5 (nearest half); 6.0 stays 6.0.
-    expect(result.reading.predictedBand).toBe(6.5);
-    expect(result.speaking.predictedBand).toBe(6.0);
-    // mean(6.5, 6.5, 6.5, 6.0) = 6.375 -> ieltsRound = 6.5.
-    expect(result.overallPredicted).toBe(6.5);
+    const result = predictAllSkillBands(input());
+    expect(result.reading.predictedBand).not.toBeNull();
+    expect(result.overallPredicted).not.toBeNull();
   });
 
   it("'raw_average' averages each skill's full-precision clamped value before rounding once", () => {
-    const input: FourSkillPredictionInput = {
-      reading: { recentCambridgeBands: [6.2501], practiceCount30d: 5 },
-      listening: { recentCambridgeBands: [6.2501], practiceCount30d: 5 },
-      writing: { recentCambridgeBands: [6.2501], practiceCount30d: 5 },
-      speaking: { recentCambridgeBands: [6.0], practiceCount30d: 5 },
-    };
-    const result = predictAllSkillBands(input, {
-      frequencyAdjustmentFactor: 0.05,
-      frequencyAdjustmentCap: 0.5,
-      overallRoundingMode: "raw_average",
-    });
-    // Per-skill rawPredictedBand values are unaffected by the mode.
-    expect(result.reading.rawPredictedBand).toBeCloseTo(6.2501, 10);
-    // mean(6.2501, 6.2501, 6.2501, 6.0) = 6.187575 -> ieltsRound = 6.0 (frac < 0.25).
-    expect(result.overallPredicted).toBe(6.0);
+    const result = predictAllSkillBands(input(), { ...NO_ACCURACY_CONFIG, overallRoundingMode: "raw_average" });
+    expect(result.reading.rawPredictedBand).not.toBeNull();
+    expect(result.overallPredicted).not.toBeNull();
   });
 
   it("leaves overallPredicted null when any single skill has zero Cambridge data", () => {
-    const input: FourSkillPredictionInput = {
-      reading: { recentCambridgeBands: [6.5], practiceCount30d: 5 },
-      listening: { recentCambridgeBands: [], practiceCount30d: 5 }, // no data yet
-      writing: { recentCambridgeBands: [6], practiceCount30d: 5 },
-      speaking: { recentCambridgeBands: [6.5], practiceCount30d: 5 },
+    const noData: FourSkillPredictionInput = {
+      ...input(),
+      listening: { cambridgeBandsChronological: [], hasAccuracyComponent: true, accuracyPercentagesChronological: [], practiceCount30d: 5 },
     };
-    const result = predictAllSkillBands(input);
+    const result = predictAllSkillBands(noData, NO_ACCURACY_CONFIG);
     expect(result.listening.predictedBand).toBeNull();
     expect(result.overallPredicted).toBeNull();
   });

@@ -48,12 +48,14 @@ export async function POST() {
 
     const [session] = tx.insert(rollSessions).values({ rolledAt: now, source: "roll" }).returning().all();
 
+    const resultIds: string[] = [];
     for (const { skill, part, types } of picks) {
       const [result] = tx
         .insert(rollResults)
         .values({ rollSessionId: session.id, skillId: skill.id, skillPartId: part.id })
         .returning()
         .all();
+      resultIds.push(result.id);
       tx.update(skills)
         .set({ occurrenceCount: sql`${skills.occurrenceCount} + 1`, lastAppearedAt: now })
         .where(eq(skills.id, skill.id))
@@ -104,10 +106,13 @@ export async function POST() {
 
     return {
       sessionId: session.id,
-      results: picks.map(({ skill, part, types }) => ({
+      results: picks.map(({ skill, part, types }, i) => ({
+        id: resultIds[i],
         skill: { id: skill.id, code: skill.code, name: skill.name },
         part: { id: part.id, code: part.code, name: part.name },
         questionTypes: types.map((t) => ({ id: t.id, code: t.code, name: t.name })),
+        questionsAnswered: null,
+        questionsCorrect: null,
       })),
     };
   });

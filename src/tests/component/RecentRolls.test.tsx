@@ -12,9 +12,12 @@ function makeSession(overrides: Partial<HistorySession> = {}): HistorySession {
     source: "roll",
     results: [
       {
+        id: "r1",
         skill: { id: "READING", code: "READING", name: "Reading" },
         part: { id: "READING_A", code: "READING_A", name: "Block A" },
         questionTypes: [{ id: "t1", code: "T1", name: "Matching Headings" }],
+        questionsAnswered: null,
+        questionsCorrect: null,
       },
     ],
     ...overrides,

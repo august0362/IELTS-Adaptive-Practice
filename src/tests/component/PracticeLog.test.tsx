@@ -11,8 +11,20 @@ describe("PracticeLog", () => {
 
   it("renders each entry's part name and a 'Tự học' badge only for manual entries", () => {
     const entries: SkillStatsResponse["practiceLog"] = [
-      { rolledAt: "2026-01-02T00:00:00.000Z", source: "manual", part: { code: "READING_A", name: "Block A" } },
-      { rolledAt: "2026-01-01T00:00:00.000Z", source: "roll", part: { code: "READING_B", name: "Block B" } },
+      {
+        rolledAt: "2026-01-02T00:00:00.000Z",
+        source: "manual",
+        part: { code: "READING_A", name: "Block A" },
+        questionsAnswered: null,
+        questionsCorrect: null,
+      },
+      {
+        rolledAt: "2026-01-01T00:00:00.000Z",
+        source: "roll",
+        part: { code: "READING_B", name: "Block B" },
+        questionsAnswered: 20,
+        questionsCorrect: 18,
+      },
     ];
     render(<PracticeLog entries={entries} />);
 

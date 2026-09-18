@@ -15,7 +15,8 @@ function makeSkillResult(overrides: Partial<SkillPredictionResultDTO> = {}): Ski
   return {
     predictedBand: null,
     rawPredictedBand: null,
-    cambridgeAvg: null,
+    cambridgeEwma: null,
+    accuracyEwma: null,
     frequencyDelta: 0,
     sampleSize: 0,
     ...overrides,

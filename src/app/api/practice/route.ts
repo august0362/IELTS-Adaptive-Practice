@@ -104,6 +104,7 @@ export async function POST(request: Request) {
 
     return {
       sessionId: session.id,
+      resultId: result.id,
       source: "manual" as const,
       skill: { id: skill.id, code: skill.code, name: skill.name },
       part: { id: part.id, code: part.code, name: part.name },

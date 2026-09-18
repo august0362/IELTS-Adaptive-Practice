@@ -5,18 +5,20 @@ export interface EngineConfig {
   decayExponent: number;
   weeklyThresholdDays: number;
   frequencyAdjustmentFactor: number;
-  frequencyAdjustmentCap: number;
   overallRoundingMode: OverallRoundingMode;
   countSoftResetThreshold: number;
+  cambridgeEwmaAlpha: number;
+  accuracyEwmaAlpha: number;
 }
 
 export const ENGINE_CONFIG_DEFAULTS: EngineConfig = {
   decayExponent: 1.0,
   weeklyThresholdDays: 7,
   frequencyAdjustmentFactor: 0.05,
-  frequencyAdjustmentCap: 0.5,
   overallRoundingMode: "per_skill_rounded",
   countSoftResetThreshold: 50,
+  cambridgeEwmaAlpha: 0.5,
+  accuracyEwmaAlpha: 0.5,
 };
 
 /**
@@ -39,10 +41,11 @@ export function loadEngineConfig(database: { select: typeof import("./client").d
     decayExponent: num("decay_exponent", ENGINE_CONFIG_DEFAULTS.decayExponent),
     weeklyThresholdDays: num("weekly_threshold_days", ENGINE_CONFIG_DEFAULTS.weeklyThresholdDays),
     frequencyAdjustmentFactor: num("frequency_adjustment_factor", ENGINE_CONFIG_DEFAULTS.frequencyAdjustmentFactor),
-    frequencyAdjustmentCap: num("frequency_adjustment_cap", ENGINE_CONFIG_DEFAULTS.frequencyAdjustmentCap),
     overallRoundingMode:
       (map.get("overall_prediction_rounding_mode") as OverallRoundingMode | undefined) ??
       ENGINE_CONFIG_DEFAULTS.overallRoundingMode,
     countSoftResetThreshold: num("count_soft_reset_threshold", ENGINE_CONFIG_DEFAULTS.countSoftResetThreshold),
+    cambridgeEwmaAlpha: num("cambridge_ewma_alpha", ENGINE_CONFIG_DEFAULTS.cambridgeEwmaAlpha),
+    accuracyEwmaAlpha: num("accuracy_ewma_alpha", ENGINE_CONFIG_DEFAULTS.accuracyEwmaAlpha),
   };
 }

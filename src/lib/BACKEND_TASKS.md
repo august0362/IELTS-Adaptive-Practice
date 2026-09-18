@@ -38,9 +38,21 @@
 - [x] `GET /api/skills`, `GET /api/history` — mở rộng response (`questionTypes`, `source`)
 - [x] Cập nhật `PROJECT_CONTEXT.md` mục 3/4/5 (thêm 5.7–5.11)/6 cùng bước
 
+### Milestone 5 mở rộng — Công thức Band v2 (EWMA + % đúng luyện tập), sửa lỗi random tuần
+
+- [x] Schema: cột `questionsAnswered`/`questionsCorrect` (nullable) trên `rollResults` — migration `0002_colorful_dexter_bennett.sql`
+- [x] Config mới: `cambridge_ewma_alpha`, `accuracy_ewma_alpha` (mặc định 0.5); bỏ `frequency_adjustment_cap` (không còn dùng — mức trần giờ tính từ trọng số tần suất theo từng kỹ năng)
+- [x] Engine mới: `engine/ewma.ts` — hàm thuần túy tính EWMA
+- [x] Viết lại `engine/bandPrediction.ts` theo Công thức 3 v2: 65% Cambridge EWMA + 30% % đúng luyện tập EWMA + 5% tần suất (Reading/Listening); 65% Cambridge EWMA + 35% tần suất (Writing/Speaking) — xem `PROJECT_CONTEXT.md` mục 5.4
+- [x] `queries.ts`'s `getPredictionData()` — build input theo thứ tự thời gian (cũ→mới) cho EWMA, thêm truy vấn % đúng luyện tập Reading/Listening
+- [x] `PATCH /api/results/:id/accuracy` (route mới) — ghi số câu đúng cho 1 kết quả Reading/Listening, validate chỉ Reading/Listening + `questionsCorrect <= questionsAnswered`
+- [x] `POST /api/roll`, `POST /api/practice`, `GET /api/history` — response giờ có `id` mỗi result (để PATCH accuracy) + `questionsAnswered`/`questionsCorrect`
+- [x] Verify qua script gọi thẳng DB layer (không đụng dev.db thật của user — dùng DB tạm riêng), xác nhận EWMA kéo về điểm gần đây đúng như thiết kế
+- [x] Sửa lỗi thật (không phải phần công thức Band, phát hiện khi user đang dùng app): `weeklyConstraint.ts`'s tie-break luôn chọn Reading rồi Listening do NaN comparator — xem commit riêng "Fix weekly-overdue tie-break..."
+- [x] Cập nhật `PROJECT_CONTEXT.md` mục 3/4/5.4/5.12/6 cùng bước
+
 ## Việc còn chờ / chưa làm (xem `document.txt` để biết đầy đủ bối cảnh từng việc)
 
-- [ ] Dự đoán Band v2 — hồi quy tuyến tính (OLS) riêng cho từng kỹ năng, thay cho cách tính trung bình 30 bài gần nhất hiện tại
 - [ ] Cơ chế đảm bảo tần suất tối thiểu hàng tuần ở cấp Part/Block (hiện chỉ áp dụng ở cấp kỹ năng)
 - [ ] Tinh chỉnh `count_soft_reset_threshold` khi đã có dữ liệu dùng thực tế
 - [ ] Đăng nhập / nhiều người dùng (chưa có kế hoạch làm — app chỉ chạy local)

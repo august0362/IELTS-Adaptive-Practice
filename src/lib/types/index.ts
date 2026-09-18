@@ -37,10 +37,14 @@ export interface QuestionTypeRef {
 }
 
 export interface RollResultItem {
+  /** rollResults.id — target for PATCH /api/results/:id/accuracy when this is Reading/Listening. */
+  id: string;
   skill: { id: string; code: string; name: string };
   part: { id: string; code: string; name: string };
   /** 0..2 entries — see SkillPartDTO.questionTypeRollCount. Empty for Speaking / Writing Task 2. */
   questionTypes: QuestionTypeRef[];
+  questionsAnswered: number | null;
+  questionsCorrect: number | null;
 }
 
 export interface RollResponse {
@@ -71,10 +75,23 @@ export interface PracticeRequest {
 
 export interface PracticeResponse {
   sessionId: string;
+  /** rollResults.id — target for PATCH /api/results/:id/accuracy when this is Reading/Listening. */
+  resultId: string;
   source: "manual";
   skill: { id: string; code: string; name: string };
   part: { id: string; code: string; name: string };
   questionType: QuestionTypeRef | null;
+}
+
+export interface AccuracyRequest {
+  questionsAnswered: number;
+  questionsCorrect: number;
+}
+
+export interface AccuracyResponse {
+  id: string;
+  questionsAnswered: number;
+  questionsCorrect: number;
 }
 
 export interface TopicDTO {
@@ -92,7 +109,13 @@ export interface QuestionTypeStat {
 
 export interface SkillStatsResponse {
   skill: { id: string; code: string; name: string };
-  practiceLog: { rolledAt: string; source: RollSource; part: { code: string; name: string } }[];
+  practiceLog: {
+    rolledAt: string;
+    source: RollSource;
+    part: { code: string; name: string };
+    questionsAnswered: number | null;
+    questionsCorrect: number | null;
+  }[];
   /** null when the skill has no question types (Speaking). */
   questionTypeStats: QuestionTypeStat[] | null;
 }
@@ -122,7 +145,9 @@ export interface CambridgeTestDTO {
 export interface SkillPredictionResultDTO {
   predictedBand: number | null;
   rawPredictedBand: number | null;
-  cambridgeAvg: number | null;
+  cambridgeEwma: number | null;
+  /** null when this skill has no accuracy component (Writing/Speaking), or none logged yet. */
+  accuracyEwma: number | null;
   frequencyDelta: number;
   sampleSize: number;
 }
@@ -151,7 +176,8 @@ export interface EngineConfigDTO {
   decay_exponent: string;
   weekly_threshold_days: string;
   frequency_adjustment_factor: string;
-  frequency_adjustment_cap: string;
   overall_prediction_rounding_mode: string;
   count_soft_reset_threshold: string;
+  cambridge_ewma_alpha: string;
+  accuracy_ewma_alpha: string;
 }

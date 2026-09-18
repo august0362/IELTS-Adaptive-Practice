@@ -26,13 +26,16 @@ PENDING
    50/50 prior for now. The schema already supports this (SkillPart.baseRatio exists
    for every part) — this is a UI-only addition, no schema/migration needed.
 
-4. Band Prediction v2 — OLS Linear Regression per skill
-   Why deferred: v1 uses a flat mean of the last 30 Cambridge test results per skill.
-   Once enough historical CambridgeTestResult rows exist per skill, replace
-   `cambridgeAvg_skill` in bandPrediction.ts with an independent ordinary-least-squares
+4. Band Prediction v3 — OLS Linear Regression per skill
+   Why deferred: v1's flat mean of the last 30 Cambridge test results per skill has
+   already been replaced (Milestone 5 mở rộng, done) by v2 — an EWMA
+   (src/lib/engine/ewma.ts) plus a practice-accuracy component for Reading/Listening,
+   see PROJECT_CONTEXT.md section 5.4. This item is the next step beyond that: once
+   enough historical CambridgeTestResult rows exist per skill, replace (or blend)
+   `cambridgeEwma_skill` in bandPrediction.ts with an independent ordinary-least-squares
    regression (band ~ testDate or band ~ testIndex) per skill, and use the projected
-   trend value instead of (or blended with) the flat mean. The frequency-nudge layer
-   on top stays unchanged. See PROJECT_CONTEXT.md section 5.6.
+   trend value instead of (or blended with) the EWMA. The frequency/accuracy-nudge
+   layers on top stay unchanged. See PROJECT_CONTEXT.md section 5.6.
    Trigger to build: enough data — suggest revisiting once a skill has 15-20+ logged
    Cambridge results, since a regression on very few points is unreliable.
 
@@ -626,3 +629,109 @@ DONE
     assertions rewritten in place for the new background contract),
     typecheck and lint all green. Diff left uncommitted for the calling
     session to review.
+
+[2026-09-19] "Milestone 5 mở rộng", all 4 hats + Supervisor review. DONE.
+  User-requested on top of the just-closed Milestone 5: (1) replace Formula
+  3's flat 30-test mean with a recency-weighted average so a single recent
+  real test genuinely moves the prediction ("hôm nay 2.5, tuần sau 4.5"
+  shouldn't average to neither), plus a practice-accuracy signal for
+  Reading/Listening; (2) fix dark themes being "very dark and hard to see"
+  by separating the app's outer chrome from its themed content. Scoped over
+  several rounds of clarifying questions before any code was written
+  (confirmed exact weight table 65/30/5 vs 65/35, confirmed EWMA over the
+  user's own suggestion of a GRU/LSTM — explained why a neural sequence
+  model doesn't fit a single-user app with a few dozen data points per
+  skill, no ML infra, and no training signal at that scale — confirmed the
+  "khung ngoài luôn sáng" framing for the theme ask) — only the resulting
+  decisions are recorded here, see the conversation for the full Q&A.
+  - Backend: new engine/ewma.ts (computeEwma, alpha=0.5 default — each new
+    point weighted equal to the entire prior history combined, deliberately
+    reactive). Rewrote bandPrediction.ts: Reading/Listening = 65% Cambridge
+    EWMA + 30% accuracy EWMA (0-9 scale) + a frequency nudge capped at 5% of
+    9; Writing/Speaking (no objective accuracy signal) = 65% Cambridge EWMA
+    + a frequency nudge capped at 35% of 9. Missing accuracy data falls back
+    to the Cambridge EWMA for that slice (mathematically 0.95x cambridgeEwma)
+    rather than losing the weight or fabricating a number. New schema:
+    nullable questionsAnswered/questionsCorrect on rollResults, new PATCH
+    /api/results/:id/accuracy (Reading/Listening only, real ownership check
+    via the result's own skillId, not client-claimed). New Config keys
+    cambridge_ewma_alpha/accuracy_ewma_alpha; frequency_adjustment_cap
+    removed (cap is now derived per-skill from the frequency weight x 9).
+    Verified against a disposable DB via a throwaway script, never touched
+    the user's live dev.db.
+  - REAL BUG FOUND AND FIXED, unrelated to the two requested changes — user
+    reported live, while actually using the app: "sao luôn chọn reading với
+    listening đi kèm luôn vậy... tôi bấm từ nãy luôn thấy reading là đầu
+    tiên, sau đó là listening". Root cause in weeklyConstraint.ts (Formula
+    2, dates back to Milestone 1): when 2+ skills tie exactly on
+    overdue-ness (most commonly all 4 on a fresh app, all null ->
+    Infinity), the sort comparator computed `Infinity - Infinity` = NaN,
+    and a NaN comparator return makes a stable sort leave tied items in
+    their original DB/seed order — so the same 2 skills (Reading, Listening
+    — first 2 in seed order) won every tie, never randomly. The existing
+    "all 4 null" unit test only asserted "doesn't throw, right counts" and
+    never checked WHICH 2 won, so this went uncaught since Milestone 1.
+    Fixed via a Fisher-Yates shuffle (injectable RNG) before the sort, plus
+    a real `0` return for a tie instead of `NaN`. Investigated and fixed
+    without touching the user's own live running dev server/dev.db —
+    confirmed via Get-NetTCPConnection it was already running before doing
+    anything.
+  - Frontend: new AccuracyEntry.tsx (optional quick "số câu đã làm/số câu
+    đúng" entry), shown under each Reading/Listening result after a roll
+    (Spinner.tsx) or a manual-practice log (ManualPractice.tsx).
+    PredictionCards.tsx gained a small "Cambridge X.X · Luyện tập Y.Y"
+    breakdown line per skill.
+  - Design (delegated to a real spawned Design/UI-UX agent, per the
+    Frontend-only exception CLAUDE.md already documents): background/
+    foreground in computeThemeRoles() no longer branch on isDark at all —
+    always the fixed light "page shell" pair (nav bar + page background),
+    for every theme including the 2 dark ones. surface/border still vary
+    with isDark, so a dark theme's character now lives entirely in cards,
+    not the page shell. New pickDarkSurface() synthesizes a genuine dark
+    GRAY (fixed lightness 0.24, capped saturation) instead of picking the
+    palette's own near-black raw color verbatim, per the explicit follow-up
+    "xám đậm thay vì gần đen". New surfaceForeground role for text inside
+    themed cards; swept ~18 files off text-foreground where the text
+    actually sits inside a bg-surface container (caught 2 subtle cases by
+    reading full components, not just grepping: RecentRolls/PracticeLog's
+    translucent bg-surface/70 would wash toward the now-light background,
+    and AccuracyEntry renders in two different color contexts, needing a
+    variant prop). New .surface-glow CSS utility (same layered-shadow
+    family as the existing .input-paper) for the requested "phản quang"
+    depth effect on cards. Reviewed src/theme/*.png source palettes; kept
+    both dark themes' raw hexes unchanged (only how surface derives from
+    them changed). Verified end-to-end via a production build on a
+    disposable DB/port — never touched the user's live dev server.
+  - QA: new ewma.test.ts, rewrote bandPrediction.test.ts for the v2 shape,
+    new AccuracyEntry.test.tsx, extended Spinner/ManualPractice component
+    tests, new accuracy-entry.spec.ts e2e. Found and fixed a real e2e
+    fragility while adding it: cambridge-prediction.spec.ts hard-coded the
+    exact predicted overall band ("6.5") computed under the OLD v1 formula
+    — wrong under v2 regardless, and additionally brittle because every e2e
+    spec shares one persistent DB (setupDb.ts seeds once before the build,
+    not per-spec), so the new accuracy-entry.spec.ts running first
+    (alphabetical order) shifted Reading's practice frequency before
+    cambridge-prediction.spec.ts ran. Replaced the hard-coded value with a
+    "some valid band number is showing" check; documented the shared-e2e-DB
+    footgun in PROJECT_CONTEXT.md section 7 for future specs.
+  - Supervisor gated review (diff 05c05d5..HEAD, 6 commits): hand-traced
+    the EWMA recurrence and weighted-blend logic against section 5.4,
+    confirmed getPredictionData()'s two `.reverse()` calls (Cambridge bands
+    and accuracy percentages) both correctly feed chronological order into
+    computeEwma, confirmed the accuracy-PATCH ownership check is real (skill
+    derived server-side from the result row, not client input). Deliberately
+    reverted the weekly tie-break fix locally, reran the test suite, got
+    exactly the 2 expected failures, then restored it — a genuine
+    break-then-revert verification of the regression tests, not just
+    reading them. Hand-computed pickDarkSurface()'s output for both real
+    dark themes and matched it byte-for-byte against the docs. Spot-checked
+    11+ of the text-foreground-sweep files against a fresh grep — no false
+    positives, no missed file. Found one real issue: PROJECT_CONTEXT.md
+    5.6 and this file's own PENDING #4 still called the deferred
+    OLS-regression idea "v2" and referenced a variable
+    (`cambridgeAvg_skill`) that this milestone's EWMA work had already
+    renamed — collided with the new, already-shipped "v2" (EWMA). Renamed
+    the deferred idea to "v3" and fixed the variable references in both
+    docs (see PENDING #4 below, now retitled).
+  - Final state: 143/143 unit+component tests, 7/7 e2e specs, typecheck and
+    lint all green. No open bugs.

@@ -323,9 +323,9 @@ function ieltsRound(mean: number): number {
 
 Dùng cho cả `CambridgeTestResult.overallBand` (tính từ 4 điểm kỹ năng vừa nhập, ngay lúc ghi) và cho `overallPredicted` trong Công thức 3.
 
-### 5.6 Chưa làm: Dự đoán Band v2 (Hồi quy tuyến tính OLS)
+### 5.6 Chưa làm: Dự đoán Band v3 (Hồi quy tuyến tính OLS)
 
-Khi đã có đủ lịch sử `CambridgeTestResult` cho từng kỹ năng, sẽ thay cách tính trung bình phẳng 30 bài gần nhất bằng **hồi quy tuyến tính bình phương tối thiểu (OLS) riêng cho từng kỹ năng** (`band ~ testDate` hoặc `band ~ testIndex`), và dùng giá trị dự đoán từ hồi quy đó thay cho (hoặc kết hợp với) trung bình lịch sử. Đây sẽ là 1 bản thay thế trực tiếp cho `cambridgeAvg_skill` trong Công thức 3 — phần điều chỉnh theo tần suất giữ nguyên không đổi. Đã ghi vào `document.txt`; chưa làm cho tới Milestone 4 trở lên.
+Mục 5.4 đã thay trung bình phẳng bằng EWMA — đó là "v2" (Milestone 5 mở rộng, đã xong). Bước tiếp theo (chưa làm): khi đã có đủ lịch sử `CambridgeTestResult` cho từng kỹ năng, sẽ thay (hoặc kết hợp) `cambridgeEwma_skill` bằng **hồi quy tuyến tính bình phương tối thiểu (OLS) riêng cho từng kỹ năng** (`band ~ testDate` hoặc `band ~ testIndex`), dùng giá trị dự đoán từ hồi quy đó thay cho (hoặc kết hợp với) EWMA. Đây sẽ là 1 bản thay thế trực tiếp cho `cambridgeEwma_skill` trong Công thức 3 — phần điều chỉnh theo tần suất/% đúng giữ nguyên không đổi. Đã ghi vào `document.txt`; chưa làm cho tới khi có đủ dữ liệu (xem điều kiện kích hoạt trong `document.txt`).
 
 ### 5.7 Dạng bài (question types) — Milestone 5
 

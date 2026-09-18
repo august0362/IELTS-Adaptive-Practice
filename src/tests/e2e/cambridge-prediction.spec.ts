@@ -19,9 +19,16 @@ test("adding a Cambridge result makes it appear and updates the prediction dashb
   await expect(page.getByText("Chưa đủ dữ liệu")).toHaveCount(0);
   await expect(page.getByText("Cần đủ dữ liệu cả 4 kỹ năng")).not.toBeVisible();
 
-  // mean(6.5, 7, 6, 6.5) = 6.5 -> ieltsRound(6.5) = 6.5 (frac 0.5 rounds to +0.5, not +1).
-  // Assert the actual displayed value, not just "some non-placeholder value" —
-  // scoped to the "Overall dự đoán" card since per-skill cards can also show 6.5.
+  // Not pinning an exact overall value here on purpose: Formula 3 v2 (EWMA +
+  // an accuracy component + a frequency nudge, PROJECT_CONTEXT.md 5.4) blends
+  // in each skill's practice-frequency/accuracy history, and the e2e suite's
+  // specs share one persistent DB (src/tests/e2e/setupDb.ts seeds it once,
+  // not per-spec) and run in a fixed order — another spec (e.g.
+  // accuracy-entry.spec.ts) may have already logged Reading practice by the
+  // time this one runs, which shifts the frequency nudge. The unit tests in
+  // bandPrediction.test.ts already pin the exact arithmetic; this e2e spec's
+  // job is just confirming the flow (submit -> dashboard updates with a real
+  // number), so assert a plausible band value showed up, not a specific one.
   const overallCard = page.getByText("Overall dự đoán").locator("..");
-  await expect(overallCard.getByText("6.5", { exact: true })).toBeVisible();
+  await expect(overallCard.getByText(/^\d(\.\d)?$/)).toBeVisible();
 });

@@ -24,6 +24,17 @@
 - [x] Sửa lỗi tự phát hiện qua e2e: cascade dạng bài lồng animation tốc độ như skill/part khiến 1 lượt quay "xui" (nhiều lần random dạng bài liên tiếp) có thể mất tới ~35s, làm `roll.spec.ts`/`delete-roll.spec.ts` timeout không ổn định — giảm tốc animation riêng cho dạng bài (`minSteps`/`baseDelayMs` nhỏ hơn skill/part), chạy lại `npx playwright test --repeat-each=3` xác nhận hết flaky
 - [x] `npm run test:e2e` chạy đầy đủ 6 spec, xanh hết trước khi chốt milestone
 
+### Milestone 5 mở rộng (QA) — Band v2 (EWMA + % đúng luyện tập), nhập số câu đúng
+
+- [x] Unit: `ewma.test.ts` (mới) — mảng rỗng, 1 phần tử, alpha gần 0/gần 1, chuỗi hằng số
+- [x] Unit: viết lại `bandPrediction.test.ts` cho công thức v2 — nhánh có/không `accuracyEwma`, fallback khi chưa có dữ liệu % đúng, mức trần tần suất đúng theo trọng số (0.45 cho R/L, 3.15 cho W/S), EWMA kéo về điểm gần đây hơn trung bình phẳng
+- [x] Component mới: `AccuracyEntry.test.tsx` — gửi đúng `PATCH /api/results/:id/accuracy`, nút Lưu disable tới khi đủ 2 ô, báo lỗi khi API thất bại
+- [x] Component: `ManualPractice.test.tsx` — thêm test `AccuracyEntry` hiện đúng cho Reading, không hiện cho Speaking
+- [x] Component: `Spinner.test.tsx` — thêm test `AccuracyEntry` hiện đúng 1 lần dưới kết quả Reading, không hiện dưới Writing
+- [x] E2E mới: `accuracy-entry.spec.ts` — tự học Reading → nhập số câu đúng → lưu thành công
+- [x] Sửa lỗi tự phát hiện qua e2e: `cambridge-prediction.spec.ts` hard-code giá trị Band tổng dự đoán chính xác theo công thức v1 (`"6.5"`) — vừa sai theo công thức v2 (EWMA/accuracy/tần suất khác v1), vừa giòn vì các spec e2e dùng chung 1 DB (`setupDb.ts` chỉ seed 1 lần, không phải mỗi spec) nên spec `accuracy-entry.spec.ts` chạy trước đã làm lệch tần suất Reading. Sửa thành kiểm tra "có hiện 1 số Band hợp lệ" thay vì giá trị cụ thể — phần số học chính xác đã có unit test riêng ở `bandPrediction.test.ts`
+- [x] `npm run test:e2e` chạy đầy đủ 7 spec, xanh hết
+
 ## Việc còn chờ / chưa làm
 
 - [ ] `TESTING_GUIDE.md` (Milestone 4 Bước 2 — cách chạy/mở rộng bộ test, quy ước viết test)

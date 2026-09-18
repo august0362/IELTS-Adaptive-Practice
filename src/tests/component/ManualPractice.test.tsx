@@ -54,6 +54,7 @@ describe("ManualPractice", () => {
       {
         json: {
           sessionId: "s1",
+          resultId: "r1",
           source: "manual",
           skill: { id: "READING", code: "READING", name: "Reading" },
           part: { id: "READING_A", code: "READING_A", name: "Block A" },
@@ -75,6 +76,31 @@ describe("ManualPractice", () => {
     );
     expect(await screen.findByText(/Đã ghi nhận: Reading · Block A \(Matching Headings\)/)).toBeInTheDocument();
     expect(onLogged).toHaveBeenCalled();
+    // Reading is an accuracy-tracked skill — the quick accuracy entry should appear.
+    expect(screen.getByLabelText("Số câu đã làm")).toBeInTheDocument();
+  });
+
+  it("does not show the accuracy entry after logging a skill with no accuracy component (e.g. Speaking)", async () => {
+    const user = userEvent.setup();
+    mockFetchSequence([
+      {
+        json: {
+          sessionId: "s1",
+          resultId: "r1",
+          source: "manual",
+          skill: { id: "SPEAKING", code: "SPEAKING", name: "Speaking" },
+          part: { id: "SPEAKING_A", code: "SPEAKING_A", name: "Block A" },
+          questionType: null,
+        },
+      },
+    ]);
+
+    render(<ManualPractice skills={makeSkills()} onLogged={vi.fn()} />);
+    await user.selectOptions(screen.getByLabelText("Kỹ năng"), "SPEAKING");
+    await user.click(screen.getByRole("button", { name: "Ghi nhận" }));
+
+    expect(await screen.findByText(/Đã ghi nhận: Speaking/)).toBeInTheDocument();
+    expect(screen.queryByLabelText("Số câu đã làm")).not.toBeInTheDocument();
   });
 
   it("shows an error when the request fails", async () => {

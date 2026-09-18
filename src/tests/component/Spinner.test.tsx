@@ -148,6 +148,43 @@ describe("Spinner", () => {
     expect(screen.getAllByText(/^Dạng bài \(đoạn/)).toHaveLength(2);
   });
 
+  it("shows an accuracy-entry form under a Reading/Listening result once the roll settles, but not under Writing/Speaking", async () => {
+    const user = userEvent.setup();
+    const skills = makeSkills();
+
+    mockFetchSequence([
+      {
+        json: {
+          sessionId: "s1",
+          results: [
+            {
+              id: "result-reading",
+              skill: { id: "READING", code: "READING", name: "Reading" },
+              part: { id: "READING_A", code: "READING_A", name: "Part A" },
+              questionTypes: [],
+            },
+            {
+              id: "result-writing",
+              skill: { id: "WRITING", code: "WRITING", name: "Writing" },
+              part: { id: "WRITING_A", code: "WRITING_A", name: "Part A" },
+              questionTypes: [],
+            },
+          ],
+        },
+      },
+      { json: skills },
+      { json: { items: [] } },
+    ]);
+
+    render(<Spinner initialSkills={skills} initialDecayExponent={1} initialRecentRolls={[]} />);
+
+    await user.click(screen.getByRole("button", { name: "Quay" }));
+
+    expect(await screen.findByRole("button", { name: "Quay lại" })).toBeInTheDocument();
+    // Only one accuracy-entry form should exist — Reading's, not Writing's.
+    expect(screen.getAllByLabelText("Số câu đã làm")).toHaveLength(1);
+  });
+
   it("shows an error and re-enables the button when the roll request fails", async () => {
     const user = userEvent.setup();
     const skills = makeSkills();

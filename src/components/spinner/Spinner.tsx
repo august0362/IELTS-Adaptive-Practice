@@ -142,12 +142,22 @@ export function Spinner({ initialSkills, initialDecayExponent, initialRecentRoll
         const drawIndex = drawStates.length;
         drawStates.push(Object.fromEntries(typePool.map((t) => [t.id, "idle" as PickCardState])));
 
-        await runCycleAnimation(typePool.length, typeLandIndex, (i) => {
-          drawStates[drawIndex] = Object.fromEntries(
-            typePool.map((t, idx) => [t.id, idx === i ? "cycling" : "idle"])
-          );
-          setTypeDrawStatesBySkillId((prev) => ({ ...prev, [chosenSkill.id]: [...drawStates] }));
-        });
+        // Faster than the skill/part cascades (lower minSteps/baseDelayMs): up to
+        // 4 of these can stack in one roll (2 skills x 2 draws each), and running
+        // each at the same pace as the top-level draws made a heavily-cascaded
+        // roll drag on for tens of seconds — a full-length flourish reads fine
+        // once, not four times nested.
+        await runCycleAnimation(
+          typePool.length,
+          typeLandIndex,
+          (i) => {
+            drawStates[drawIndex] = Object.fromEntries(
+              typePool.map((t, idx) => [t.id, idx === i ? "cycling" : "idle"])
+            );
+            setTypeDrawStatesBySkillId((prev) => ({ ...prev, [chosenSkill.id]: [...drawStates] }));
+          },
+          { minSteps: 6, baseDelayMs: 35 }
+        );
 
         drawStates[drawIndex] = Object.fromEntries(
           typePool.map((t, idx) => [t.id, idx === typeLandIndex ? "selected" : "dimmed"])

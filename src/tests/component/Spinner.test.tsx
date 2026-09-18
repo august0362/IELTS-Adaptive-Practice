@@ -94,6 +94,60 @@ describe("Spinner", () => {
     expect(cycleAnimationCalls[2].length).toBe(3);
   });
 
+  it("cascades into revealing question-type draws after a part with questionTypeRollCount > 0 settles", async () => {
+    // Mirrors Reading Block A bundling 2 passages (PROJECT_CONTEXT.md 5.7):
+    // questionTypeRollCount = 2, so the roll result carries 2 question-type picks.
+    const user = userEvent.setup();
+    const skills = makeSkills();
+    const reading = skills.find((s) => s.code === "READING")!;
+    reading.parts[0].questionTypeRollCount = 2; // READING_A
+    reading.questionTypes = [
+      { id: "RT_HEADINGS", skillId: "READING", code: "RT_HEADINGS", name: "Matching Headings", baseRatio: 1, occurrenceCount: 0, lastAppearedAt: null },
+      { id: "RT_GAP", skillId: "READING", code: "RT_GAP", name: "Gap Filling", baseRatio: 1, occurrenceCount: 0, lastAppearedAt: null },
+    ];
+
+    mockFetchSequence([
+      {
+        json: {
+          sessionId: "s1",
+          results: [
+            {
+              skill: { id: "READING", code: "READING", name: "Reading" },
+              part: { id: "READING_A", code: "READING_A", name: "Part A" },
+              questionTypes: [
+                { id: "RT_HEADINGS", code: "RT_HEADINGS", name: "Matching Headings" },
+                { id: "RT_GAP", code: "RT_GAP", name: "Gap Filling" },
+              ],
+            },
+            {
+              skill: { id: "SPEAKING", code: "SPEAKING", name: "Speaking" },
+              part: { id: "SPEAKING_A", code: "SPEAKING_A", name: "Part A" },
+              questionTypes: [],
+            },
+          ],
+        },
+      },
+      { json: skills },
+      { json: { items: [] } },
+    ]);
+
+    render(<Spinner initialSkills={skills} initialDecayExponent={1} initialRecentRolls={[]} />);
+
+    await user.click(screen.getByRole("button", { name: "Quay" }));
+
+    expect(await screen.findByRole("button", { name: "Quay lại" })).toBeInTheDocument();
+    // Both draws land, in order, on the exact types the server chose.
+    expect(screen.getByText("Dạng bài (đoạn 1)")).toBeInTheDocument();
+    expect(screen.getByText("Dạng bài (đoạn 2)")).toBeInTheDocument();
+    expect(screen.getAllByText("Matching Headings").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Gap Filling").length).toBeGreaterThan(0);
+    // Speaking was chosen too (its part reveal must still show)...
+    expect(screen.getByText("Speaking — chọn part")).toBeInTheDocument();
+    // ...but it has no question types at all, so it contributes zero "Dạng bài"
+    // sections — only Reading's 2 draws should exist anywhere in the tree.
+    expect(screen.getAllByText(/^Dạng bài \(đoạn/)).toHaveLength(2);
+  });
+
   it("shows an error and re-enables the button when the roll request fails", async () => {
     const user = userEvent.setup();
     const skills = makeSkills();

@@ -3,6 +3,7 @@ import {
   computeProbabilities,
   computeWeight,
   pickWeighted,
+  pickWeightedIndependent,
   pickWeightedWithoutReplacement,
   type WeightedItem,
 } from "../../lib/engine/weightedRandom";
@@ -141,6 +142,68 @@ describe("pickWeighted", () => {
     for (const c of counts.values()) {
       expect(c / trials).toBeGreaterThan(0.15);
       expect(c / trials).toBeLessThan(0.25);
+    }
+  });
+});
+
+describe("pickWeightedIndependent", () => {
+  it("returns exactly `count` items, even when count exceeds pool size (repeats are allowed, unlike without-replacement)", () => {
+    const items: WeightedItem[] = [{ id: "a", occurrenceCount: 0 }];
+    const picked = pickWeightedIndependent(items, 5);
+    expect(picked).toHaveLength(5);
+    expect(picked.every((p) => p.id === "a")).toBe(true);
+  });
+
+  it("draws from the same fixed pool each time — a later draw is not affected by an earlier one", () => {
+    // Reading Block A bundles 2 passages: each gets its own independent question-type
+    // draw (PROJECT_CONTEXT.md 5.7), so a fixed random() sequence must land on the same
+    // index both times, proving each draw re-reads the original, unshrunk pool.
+    const items: WeightedItem[] = [
+      { id: "a", occurrenceCount: 0 },
+      { id: "b", occurrenceCount: 0 },
+      { id: "c", occurrenceCount: 0 },
+    ];
+    let call = 0;
+    const random = () => {
+      call++;
+      return 0.99; // always lands on the last item
+    };
+    const picked = pickWeightedIndependent(items, 2, { random });
+    expect(picked.map((p) => p.id)).toEqual(["c", "c"]);
+    expect(call).toBe(2);
+  });
+
+  it("can draw the same item twice — no de-duplication, unlike pickWeightedWithoutReplacement", () => {
+    const items: WeightedItem[] = [
+      { id: "only", occurrenceCount: 0 },
+      { id: "never-picked", occurrenceCount: 1_000_000 },
+    ];
+    // Low decayExponent-driven weight makes "only" overwhelmingly likely at every draw,
+    // independent of how many times it's already been drawn in this same call.
+    const picked = pickWeightedIndependent(items, 3, { random: () => 0.01, decayExponent: 5 });
+    expect(picked.every((p) => p.id === "only")).toBe(true);
+  });
+
+  it("returns an empty array for count = 0", () => {
+    const items: WeightedItem[] = [{ id: "a", occurrenceCount: 0 }];
+    expect(pickWeightedIndependent(items, 0)).toEqual([]);
+  });
+
+  it("statistically distributes ~uniformly across many all-zero-count items, same as a single pickWeighted draw", () => {
+    const items: WeightedItem[] = Array.from({ length: 4 }, (_, i) => ({
+      id: `item-${i}`,
+      occurrenceCount: 0,
+    }));
+    const random = mulberry32(99);
+    const counts = new Map<string, number>(items.map((it) => [it.id, 0]));
+    const trials = 20000;
+    for (let i = 0; i < trials; i++) {
+      const [picked] = pickWeightedIndependent(items, 1, { random });
+      counts.set(picked.id, counts.get(picked.id)! + 1);
+    }
+    for (const c of counts.values()) {
+      expect(c / trials).toBeGreaterThan(0.2);
+      expect(c / trials).toBeLessThan(0.3);
     }
   });
 });

@@ -32,6 +32,7 @@ export function RecentRolls({ sessions, onDeleted }: RecentRollsProps) {
   }
 
   async function handleDelete(sessionId: string) {
+    if (!window.confirm("Xóa lượt quay này? Số liệu đã cộng (bộ đếm, dạng bài) sẽ được hoàn tác.")) return;
     setDeletingId(sessionId);
     setErrorMessage(null);
     try {

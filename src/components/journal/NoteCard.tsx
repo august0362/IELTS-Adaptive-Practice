@@ -29,7 +29,7 @@ export function NoteCard({ note, onEdit, onDelete }: NoteCardProps) {
           <button
             type="button"
             onClick={onDelete}
-            className="text-xs font-medium text-red-600 hover:underline dark:text-red-400"
+            className="text-xs font-medium text-red-600 hover:underline"
           >
             Xóa
           </button>

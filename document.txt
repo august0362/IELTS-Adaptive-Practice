@@ -343,3 +343,31 @@ DONE
     @supports fallback emitted by the build, not hand-written).
   - Not independently visually verified by the assistant (no way to render
     pixels) — user asked to re-check the Forest theme in-browser.
+
+[2026-09-18] Post-launch bug fix: page colors following OS/browser dark mode.
+  - User reported: with a light theme selected in Settings, the page still
+    went dark when the browser/OS was set to dark mode. Root cause was two
+    separate leftovers, both relying on `prefers-color-scheme` instead of the
+    app's own theme state: (1) globals.css still had the create-next-app
+    scaffold's `@media (prefers-color-scheme: dark) { :root {...} }` block,
+    overriding the exact same --background/--foreground/--surface/--border/
+    --primary/--primary-foreground/--input/--input-foreground/--chart-*
+    properties that ThemeProvider sets via inline style — competing with the
+    user's actual Settings choice; (2) 8 component files (Spinner, PickCard,
+    Journal, CambridgeTracker, CambridgeRow, NoteCard, RatioSliders,
+    PredictionPageClient) used Tailwind `dark:` variants on the
+    intentionally-fixed status colors (error alerts, delete links, spinner
+    cycling/selected states) — Tailwind's default `dark:` strategy compiles
+    to the same media query, so these shifted with OS preference too, despite
+    PROJECT_CONTEXT.md section 9 explicitly documenting them as "fixed, not
+    themed." Fixed by deleting the media-query block entirely and stripping
+    every `dark:*` class, leaving one fixed appearance per status color.
+  - Also discovered while verifying: the long-running dev server from earlier
+    in this session was serving a stale compiled CSS chunk that didn't reflect
+    several already-committed source edits (same chunk hash across multiple
+    unrelated changes) — restarted it to get an accurate compile. This may
+    also explain why the user was still seeing the dark-mode issue after
+    earlier, unrelated theme fixes had already landed in source.
+  - Verified: 99/99 tests, typecheck, lint all green; fetched the freshly
+    compiled CSS for both `/` and `/journal` and confirmed zero
+    `prefers-color-scheme` occurrences and zero `.dark\:` rules remain.

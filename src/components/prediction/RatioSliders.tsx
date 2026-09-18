@@ -65,7 +65,7 @@ export function RatioSliders({ skills }: { skills: SkillDTO[] }) {
         Tỉ lệ Block A / Block B (Speaking &amp; Reading)
       </h2>
       {errorMessage && (
-        <p role="alert" className="text-xs text-red-600 dark:text-red-400">
+        <p role="alert" className="text-xs text-red-600">
           {errorMessage}
         </p>
       )}

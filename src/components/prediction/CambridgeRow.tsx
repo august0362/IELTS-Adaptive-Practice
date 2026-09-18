@@ -33,7 +33,7 @@ export function CambridgeRow({ result, onEdit, onDelete }: CambridgeRowProps) {
         <button type="button" onClick={onEdit} className="text-xs font-medium text-foreground/60 hover:text-foreground hover:underline">
           Sửa
         </button>
-        <button type="button" onClick={onDelete} className="text-xs font-medium text-red-600 hover:underline dark:text-red-400">
+        <button type="button" onClick={onDelete} className="text-xs font-medium text-red-600 hover:underline">
           Xóa
         </button>
       </div>

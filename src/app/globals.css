@@ -4,10 +4,17 @@
   --background: #ffffff;
   --foreground: #171717;
 
-  /* Theme system (src/lib/theme.ts + ThemeProvider): these 4 are overridden via
+  /* Theme system (src/lib/theme.ts + ThemeProvider): these 6 are overridden via
      inline style on <html> once ThemeProvider mounts and applies the viewer's
      saved/default theme. The values here are only the "Mặc định" theme and the
-     pre-hydration fallback (briefly visible before JS runs). */
+     pre-hydration fallback (briefly visible before JS runs). Deliberately NOT
+     wrapped in an `@media (prefers-color-scheme: dark)` fallback: that was the
+     create-next-app scaffold default, but it competed with the theme system
+     for these exact properties and made the page follow the OS/browser's dark
+     mode instead of the theme the user actually picked in Settings — reported
+     bug: "chose a light theme but it still goes dark when the browser is in
+     dark mode." The app's theme system is the only source of truth for these
+     colors now; there is no OS-driven fallback. */
   --surface: #f4f4f5;
   --border: rgba(0, 0, 0, 0.1);
   --primary: #2563eb;
@@ -35,26 +42,6 @@
   --color-input-foreground: var(--input-foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-    --surface: #18181b;
-    --border: rgba(255, 255, 255, 0.1);
-    --primary: #3b82f6;
-    --primary-foreground: #ffffff;
-    --input: #f4f4f5;
-    --input-foreground: #111111;
-
-    --chart-reading: #3987e5;
-    --chart-listening: #d95926;
-    --chart-writing: #199e70;
-    --chart-speaking: #c98500;
-    --chart-gridline: #2c2c2a;
-    --chart-muted: #898781;
-  }
 }
 
 body {

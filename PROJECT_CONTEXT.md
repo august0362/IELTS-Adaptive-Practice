@@ -91,7 +91,8 @@ drizzle.config.ts              # config của drizzle-kit (dialect: sqlite, đư
   /components
     /layout                    # Nav.tsx — thanh điều hướng trên cùng, tô sáng link đang active
     /spinner                   # UI vòng quay may mắn, hiện lần lượt kỹ năng -> part -> dạng bài (0..2 lần, mục 5.7);
-                                # RecentRolls.tsx (có nút xóa, mục 5.9), ManualPractice.tsx (cộng luyện thủ công, mục 5.8)
+                                # RecentRolls.tsx (có nút xóa, mục 5.9), ManualPractice.tsx (cộng luyện thủ công, mục 5.8),
+                                # AccuracyEntry.tsx (nhập số câu đúng Reading/Listening, mục 5.12)
     /journal                   # Ô soạn ghi chú + nhập tag + danh sách ghi chú
     /prediction                # Thẻ dự đoán, nút chuyển cách làm tròn, thanh trượt tỉ lệ, biểu đồ tần suất,
                                 # theo dõi Cambridge (thêm/sửa/xóa + gần đây/"xem tất cả"), ghép lại trong

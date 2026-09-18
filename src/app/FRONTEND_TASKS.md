@@ -27,6 +27,14 @@
 - [x] Smoke-test qua dev server + curl: `/`, `/settings`, `/stats/READING`, `/stats/SPEAKING`, `/stats/BOGUS` (404), roll → stats cập nhật → xóa → revert đúng
 - [x] Tinh chỉnh màu chữ (`foreground`) theo tông màu từng theme + polish trực quan các mặt mới (biểu đồ stats, Topics, nút xóa/cộng luyện) — do agent Design/UI-UX riêng thực hiện (`src/lib/theme.ts`'s `tintNeutral()`/`dominantHue()`, xem `PROJECT_CONTEXT.md` mục 9), đã tự kiểm `typecheck`/`lint`/`test` xanh, đã review diff trước khi commit
 
+### Milestone 5 mở rộng (frontend) — Nhập số câu đúng, hiện breakdown Band v2
+
+- [x] `AccuracyEntry.tsx` (mới) — form nhỏ tùy chọn "Số câu đã làm"/"Số câu đúng", gọi `PATCH /api/results/:id/accuracy`
+- [x] `Spinner.tsx` — sau khi quay xong, hiện `AccuracyEntry` dưới mỗi kỹ năng Reading/Listening (dùng `resultIdBySkillId` mới lưu trong lúc cascade)
+- [x] `ManualPractice.tsx` — sau khi ghi nhận tự học Reading/Listening, hiện `AccuracyEntry` bằng `resultId` server trả về
+- [x] `PredictionCards.tsx` — thẻ kỹ năng hiện thêm dòng breakdown "Cambridge X.X · Luyện tập Y.Y" (ẩn phần Luyện tập nếu kỹ năng không có/chưa có dữ liệu)
+- [ ] Tách giao diện web/ứng dụng (khung ngoài luôn sáng) + sửa theme tối (nền xám đậm + glow, rà lại `src/theme/*.png`) — giao cho agent Design/UI-UX
+
 ## Việc còn chờ / chưa làm (xem `document.txt` để biết đầy đủ bối cảnh từng việc)
 
 - [ ] UI chỉnh `baseRatio` cho Writing (Task 1/2) và Listening (Block A/B) — hiện chỉ Speaking/Reading có, đúng theo phạm vi ban đầu

@@ -8,6 +8,9 @@ import type { HistorySession, RollResultItem, SkillDTO } from "@/lib/types";
 import { PickCard, type PickCardState } from "./PickCard";
 import { RecentRolls } from "./RecentRolls";
 import { ManualPractice } from "./ManualPractice";
+import { AccuracyEntry } from "./AccuracyEntry";
+
+const ACCURACY_SKILL_CODES = new Set(["READING", "LISTENING"]);
 
 type Phase = "idle" | "rolling" | "done" | "error";
 
@@ -41,6 +44,7 @@ export function Spinner({ initialSkills, initialDecayExponent, initialRecentRoll
     Record<string, Record<string, PickCardState>[]>
   >({});
   const [chosenTypeNamesBySkillId, setChosenTypeNamesBySkillId] = useState<Record<string, string[]>>({});
+  const [resultIdBySkillId, setResultIdBySkillId] = useState<Record<string, string>>({});
 
   const skillProbabilities = computeProbabilities(
     skills.map((s) => ({ id: s.id, occurrenceCount: s.occurrenceCount })),
@@ -102,6 +106,7 @@ export function Spinner({ initialSkills, initialDecayExponent, initialRecentRoll
       const chosenSkill = candidateSkills[landIndex];
       setSkillStates((prev) => ({ ...prev, [chosenSkill.id]: "selected" }));
       setOrderedSelectedSkillIds((prev) => [...prev, chosenSkill.id]);
+      setResultIdBySkillId((prev) => ({ ...prev, [chosenSkill.id]: result.id }));
       setPartStatesBySkillId((prev) => ({
         ...prev,
         [chosenSkill.id]: Object.fromEntries(chosenSkill.parts.map((p) => [p.id, "idle" as PickCardState])),
@@ -203,6 +208,7 @@ export function Spinner({ initialSkills, initialDecayExponent, initialRecentRoll
     setPartStatesBySkillId({});
     setTypeDrawStatesBySkillId({});
     setChosenTypeNamesBySkillId({});
+    setResultIdBySkillId({});
     setSkillStates(Object.fromEntries(skills.map((s) => [s.id, "idle" as PickCardState])));
 
     try {
@@ -314,6 +320,9 @@ export function Spinner({ initialSkills, initialDecayExponent, initialRecentRoll
                 </div>
               );
             })}
+            {phase === "done" && ACCURACY_SKILL_CODES.has(skill.code) && resultIdBySkillId[skillId] && (
+              <AccuracyEntry resultId={resultIdBySkillId[skillId]} />
+            )}
           </section>
         );
       })}

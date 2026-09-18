@@ -2,6 +2,9 @@
 
 import { useState } from "react";
 import type { PracticeResponse, SkillDTO } from "@/lib/types";
+import { AccuracyEntry } from "./AccuracyEntry";
+
+const ACCURACY_SKILL_CODES = new Set(["READING", "LISTENING"]);
 
 interface ManualPracticeProps {
   skills: SkillDTO[];
@@ -21,6 +24,7 @@ export function ManualPractice({ skills, onLogged }: ManualPracticeProps) {
   const [status, setStatus] = useState<"idle" | "saving" | "error">("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [confirmation, setConfirmation] = useState<string | null>(null);
+  const [loggedResult, setLoggedResult] = useState<{ resultId: string; skillCode: string } | null>(null);
 
   const selectedSkill = skills.find((s) => s.code === skillCode);
   const selectedPart = selectedSkill?.parts.find((p) => p.code === partCode);
@@ -45,6 +49,7 @@ export function ManualPractice({ skills, onLogged }: ManualPracticeProps) {
     setStatus("saving");
     setErrorMessage(null);
     setConfirmation(null);
+    setLoggedResult(null);
     try {
       const res = await fetch("/api/practice", {
         method: "POST",
@@ -60,6 +65,9 @@ export function ManualPractice({ skills, onLogged }: ManualPracticeProps) {
       setStatus("idle");
       setConfirmation(
         `Đã ghi nhận: ${data.skill.name} · ${data.part.name}${data.questionType ? ` (${data.questionType.name})` : ""}`
+      );
+      setLoggedResult(
+        ACCURACY_SKILL_CODES.has(data.skill.code) ? { resultId: data.resultId, skillCode: data.skill.code } : null
       );
       onLogged();
     } catch {
@@ -83,6 +91,7 @@ export function ManualPractice({ skills, onLogged }: ManualPracticeProps) {
         </p>
       )}
       {confirmation && <p className="text-xs text-emerald-600">{confirmation}</p>}
+      {loggedResult && <AccuracyEntry resultId={loggedResult.resultId} />}
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-2 sm:flex-row sm:items-end sm:gap-3">
         <label className="flex flex-1 flex-col gap-1 text-xs text-foreground/60">

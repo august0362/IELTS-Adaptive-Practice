@@ -22,6 +22,12 @@ function SkillCard({ name, code, result }: { name: string; code: string; result:
         <>
           <span className="text-2xl font-semibold text-foreground">{result.predictedBand}</span>
           <span className="text-xs text-foreground/50">{result.sampleSize} bài thi thử</span>
+          {result.cambridgeEwma !== null && (
+            <span className="text-[11px] text-foreground/40">
+              Cambridge {result.cambridgeEwma.toFixed(1)}
+              {result.accuracyEwma !== null ? ` · Luyện tập ${result.accuracyEwma.toFixed(1)}` : ""}
+            </span>
+          )}
         </>
       )}
     </Link>

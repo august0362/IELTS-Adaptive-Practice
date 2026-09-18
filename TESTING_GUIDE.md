@@ -1,51 +1,51 @@
-# TESTING_GUIDE.md — Running and Extending the Test Suite
+# TESTING_GUIDE.md — Cách chạy và mở rộng bộ test
 
-> How-to reference for the test suite described in `PROJECT_CONTEXT.md` §7. Read that section first for *what* the suite covers and *why* it's split the way it is; this file is the *how* — commands, conventions, and what to add when you change something.
+> Đây là hướng dẫn thao tác cho bộ test đã mô tả ở `PROJECT_CONTEXT.md` mục 7. Đọc mục đó trước để biết *bộ test bao phủ những gì* và *tại sao lại chia như vậy*; file này chỉ nói *cách làm* — lệnh chạy, quy ước, và cần thêm gì khi bạn sửa code.
 
 ---
 
-## 1. Running tests
+## 1. Chạy test
 
-| Command | Runs |
+| Lệnh | Chạy gì |
 |---|---|
-| `npm run test` | Vitest, both projects (`unit` + `component`), once |
-| `npm run test:watch` | Vitest, both projects, watch mode |
-| `npx vitest run --project unit` | Only the pure-function tests (fast, no DOM) |
-| `npx vitest run --project component` | Only the RTL component tests |
-| `npm run test:e2e` | Playwright — builds the app, starts it on a disposable DB and port 3100, runs all specs |
-| `npm run typecheck` | `tsc --noEmit` (via `next typegen` first — see the note in §3) |
-| `npm run lint` | ESLint (includes the React Compiler-based hooks rules — see §4) |
+| `npm run test` | Vitest, cả 2 project (`unit` + `component`), chạy 1 lần |
+| `npm run test:watch` | Vitest, cả 2 project, chế độ theo dõi liên tục |
+| `npx vitest run --project unit` | Chỉ chạy test hàm thuần túy (nhanh, không có DOM) |
+| `npx vitest run --project component` | Chỉ chạy test component bằng RTL |
+| `npm run test:e2e` | Playwright — build app, chạy trên 1 DB riêng và cổng 3100, chạy hết các kịch bản |
+| `npm run typecheck` | `tsc --noEmit` (chạy `next typegen` trước — xem ghi chú ở mục 3) |
+| `npm run lint` | ESLint (bao gồm cả các rule hooks dựa trên React Compiler — xem mục 4) |
 
-Run `typecheck` + `lint` + `test` before every commit. Run `test:e2e` before closing out a milestone, or after touching anything in `src/app/api/**`, a page's data-fetching, or the Playwright specs/setup themselves — it's slower (a full production build), so it isn't part of the fast per-step loop.
+Chạy `typecheck` + `lint` + `test` trước mỗi lần commit. Chạy `test:e2e` trước khi chốt xong 1 milestone, hoặc sau khi đụng vào bất cứ gì trong `src/app/api/**`, cách 1 trang lấy dữ liệu, hoặc chính các file Playwright — lệnh này chậm hơn (build production đầy đủ) nên không nằm trong vòng kiểm tra nhanh sau mỗi bước.
 
 ---
 
-## 2. Where a new test goes
+## 2. Test mới thì để ở đâu
 
-| You changed... | Add a test in... |
+| Bạn sửa gì... | Thêm test ở đâu... |
 |---|---|
-| A pure function in `src/lib/engine/**` or another `src/lib/*.ts` module | `src/tests/unit/<module>.test.ts` (node environment — no DOM, no React) |
-| A React component in `src/components/**` | `src/tests/component/<Component>.test.tsx` (jsdom + React Testing Library) |
-| A full user flow spanning pages/API (roll, journal CRUD, Cambridge → prediction) | `src/tests/e2e/<flow>.spec.ts` (Playwright, real browser, real build) |
+| 1 hàm thuần túy trong `src/lib/engine/**` hoặc module `src/lib/*.ts` khác | `src/tests/unit/<module>.test.ts` (môi trường node — không có DOM, không có React) |
+| 1 component React trong `src/components/**` | `src/tests/component/<Component>.test.tsx` (jsdom + React Testing Library) |
+| 1 luồng người dùng đầy đủ, xuyên qua nhiều trang/API (quay, CRUD nhật ký, Cambridge → dự đoán) | `src/tests/e2e/<flow>.spec.ts` (Playwright, trình duyệt thật, build thật) |
 
-Naming: unit/component specs must end in `.test.ts`/`.test.tsx` (matches `vitest.config.mts`'s per-project `include` globs); e2e specs must end in `.spec.ts` (matches `playwright.config.ts`'s `testMatch`). A file that doesn't match its project's glob silently never runs — if a new test file isn't showing up in the run count, check the extension first.
-
----
-
-## 3. Environment gotchas already hit once (don't re-hit them)
-
-- **`@` path alias**: plain Vitest doesn't read Next.js's bundler config, so `vitest.config.mts` declares its own `resolve.alias` for `@` → `src`. If you add a new top-level alias to `tsconfig.json`, mirror it here too.
-- **RTL cleanup**: this project does not use Vitest's `globals: true` (every test file explicitly imports `describe`/`it`/`expect`/`vi` from `"vitest"`), so React Testing Library's automatic `afterEach(cleanup)` never self-registers. `src/tests/setup.ts` (the `component` project's `setupFiles` entry) does it explicitly, alongside `vi.unstubAllGlobals()` to undo any `mockFetchSequence` stub between tests. If you ever see "found multiple elements" errors across tests in the *same* file that pass individually, this is almost certainly the cause — check `setup.ts` is still wired into `vitest.config.mts`.
-- **`typecheck` needs `next typegen` first**: Next 16's App Router generates ambient `LayoutProps`/`PageProps` types into `.next/types/` at build/dev time. A bare `tsc --noEmit` on a fresh checkout (no `.next/` yet) false-positives on `layout.tsx`. Always use `npm run typecheck`, never call `tsc` directly.
-- **`react-hooks/set-state-in-effect`**: this project's ESLint config (React Compiler-based) flags *any* `setState` call reachable from inside a `useEffect`, including inside an async function's post-`await` continuation — not just the naive synchronous case. This has bitten real code twice (the Spinner's original data-fetch pattern in Milestone 2, the theme system's original localStorage-sync effect in Milestone 4 prep). The fix both times: move state-syncing logic to either (a) a Server Component fetching data and passing it as props (for page-level data), or (b) a `useState` **lazy initializer** for one-time synchronous reads of a browser API like `localStorage`, keeping any `useEffect` DOM-only (no `setState` call inside it at all). If ESLint reports this error, don't work around it with an eslint-disable comment — restructure using one of these two patterns; check `src/components/theme/ThemeProvider.tsx` for a worked example.
-- **e2e runs a *production build*, not `next dev`**: Next 16 refuses to start a 2nd `next dev` instance for the same project directory even on a different port, which collides with a manually-running dev server during normal development. `playwright.config.ts`'s `webServer.command` runs `tsx src/tests/e2e/setupDb.ts && next build && next start` instead. This also means: **a Server Component page that reads live DB state must have `export const dynamic = "force-dynamic"`**, or `next build` will silently prerender it as static HTML frozen at build time — this was a real bug caught only when e2e first ran a real build (see `PROJECT_CONTEXT.md` §3). If you add a new page that reads the DB, add this export, then confirm with `npm run test:e2e` (not just `npm run dev`, which never prerenders and would hide the bug).
-- **e2e DB isolation**: `src/tests/e2e/setupDb.ts` wipes/migrates/seeds a disposable `./e2e-test.db` (via the `DATABASE_PATH` env var `client.ts` already supports), chained via `&&` *ahead of* `next build`/`next start` in one shell command — not via Playwright's `globalSetup` hook, which was tried first and turned out not to guarantee it finishes before the webServer starts. The real `./dev.db` is never touched by e2e runs. If e2e ever fails with `SQLITE_ERROR: no such table`, check `setupDb.ts` is still the *first* command in `webServer.command`, not a separate `globalSetup`.
+Đặt tên file: test unit/component phải kết thúc bằng `.test.ts`/`.test.tsx` (khớp với glob `include` của từng project trong `vitest.config.mts`); test e2e phải kết thúc bằng `.spec.ts` (khớp `testMatch` của `playwright.config.ts`). File nào đặt tên sai đuôi sẽ âm thầm không bao giờ được chạy — nếu thêm file test mới mà không thấy số lượng test tăng lên, kiểm tra đuôi file trước tiên.
 
 ---
 
-## 4. What "done" looks like for a test (per `CLAUDE.md`'s Definition of Done)
+## 3. Vài cái "bẫy" môi trường đã từng gặp (đừng gặp lại)
 
-- A new/changed pure function has at least a happy-path test the moment it's written, before any review pass.
-- Edge cases worth adding for engine-adjacent code: the boundary values PROJECT_CONTEXT.md's formulas call out explicitly (e.g. `ieltsRound`'s `.25`/`.75` thresholds, the 7-day weekly-override boundary, all-zero-count pools), not just one happy path.
-- A component test should prove the thing it claims to prove — if you can comment out the feature it's testing and the test still passes, it's not a real test. This project caught two such gaps by deliberately reintroducing a bug and confirming the existing test failed (see the Spinner candidate-pool-narrowing test and the `journal.spec.ts` substring-locator fix in git history) — when in doubt about whether a new test is meaningful, do the same: break the feature on purpose, confirm the test catches it, then revert.
-- Mocking `fetch`: use `src/tests/component/mockFetch.ts`'s `mockFetchSequence()` rather than hand-rolling a new stub. It matches by call *order*, not URL — know the exact sequence of requests your component makes before writing the mock responses.
+- **Alias đường dẫn `@`**: Vitest thuần không đọc config bundler của Next.js, nên `vitest.config.mts` phải tự khai báo `resolve.alias` cho `@` → `src`. Nếu thêm alias mới vào `tsconfig.json`, nhớ khai báo tương tự ở đây.
+- **Dọn dẹp RTL**: dự án này không bật `globals: true` của Vitest (mỗi file test đều tự import `describe`/`it`/`expect`/`vi` từ `"vitest"`), nên `afterEach(cleanup)` tự động của React Testing Library sẽ không tự đăng ký. `src/tests/setup.ts` (khai trong `setupFiles` của project `component`) làm việc này thủ công, cùng với `vi.unstubAllGlobals()` để hủy các mock `mockFetchSequence` giữa các test. Nếu thấy lỗi "found multiple elements" trong nhiều test *cùng 1 file* dù từng test chạy riêng lẻ vẫn qua, gần như chắc chắn là do lỗi này — kiểm tra `setup.ts` còn được khai trong `vitest.config.mts` không.
+- **`typecheck` cần chạy `next typegen` trước**: App Router của Next 16 tự sinh type `LayoutProps`/`PageProps` vào `.next/types/` lúc build/dev. Chạy thẳng `tsc --noEmit` trên 1 checkout mới (chưa có thư mục `.next/`) sẽ báo lỗi giả ở `layout.tsx`. Luôn dùng `npm run typecheck`, đừng gọi `tsc` trực tiếp.
+- **`react-hooks/set-state-in-effect`**: cấu hình ESLint của dự án (dựa trên React Compiler) báo lỗi *bất kỳ* lệnh gọi `setState` nào có thể chạy tới từ bên trong `useEffect`, kể cả trong phần code chạy sau 1 `await` của hàm async — không chỉ trường hợp đồng bộ đơn giản. Lỗi này đã từng gặp thật 2 lần (cách fetch dữ liệu ban đầu của Vòng quay ở Milestone 2, effect đồng bộ localStorage ban đầu của hệ thống theme lúc chuẩn bị Milestone 4). Cả 2 lần đều sửa theo 1 trong 2 cách: (a) chuyển logic đồng bộ state sang 1 Server Component lấy dữ liệu rồi truyền qua props (cho dữ liệu cấp trang), hoặc (b) dùng **lazy initializer** của `useState` để đọc 1 lần API trình duyệt như `localStorage`, giữ cho `useEffect` (nếu có) chỉ thao tác DOM thuần túy (không gọi `setState` bên trong). Nếu ESLint báo lỗi này, đừng dùng comment eslint-disable để né — sửa lại theo 1 trong 2 cách trên; xem `src/components/theme/ThemeProvider.tsx` làm ví dụ mẫu.
+- **Test e2e chạy trên *bản build production*, không phải `next dev`**: Next 16 không cho chạy instance `next dev` thứ 2 cho cùng 1 thư mục dự án dù dùng cổng khác, nên sẽ xung đột với dev server đang chạy thủ công trong lúc phát triển bình thường. Lệnh `webServer.command` của `playwright.config.ts` chạy `tsx src/tests/e2e/setupDb.ts && next build && next start` thay vì `next dev`. Điều này cũng có nghĩa: **bất kỳ trang Server Component nào đọc dữ liệu DB trực tiếp phải có `export const dynamic = "force-dynamic"`**, nếu không `next build` sẽ âm thầm dựng sẵn nó thành HTML tĩnh, đóng băng dữ liệu tại thời điểm build — đây là lỗi thật, chỉ phát hiện được khi e2e chạy build thật lần đầu (xem `PROJECT_CONTEXT.md` mục 3). Nếu thêm 1 trang mới có đọc DB, nhớ thêm dòng export này, rồi xác nhận lại bằng `npm run test:e2e` (không chỉ `npm run dev`, vì lệnh đó không bao giờ dựng sẵn tĩnh nên sẽ không lộ ra lỗi).
+- **Cô lập DB cho e2e**: `src/tests/e2e/setupDb.ts` xóa/migrate/seed 1 file `./e2e-test.db` riêng (qua biến môi trường `DATABASE_PATH` mà `client.ts` đã hỗ trợ sẵn), nối bằng `&&` *trước* `next build`/`next start` trong cùng 1 lệnh shell — không dùng hook `globalSetup` của Playwright (đã thử cách này trước, nhưng thứ tự chạy so với lúc webServer khởi động không đảm bảo như tưởng). File `./dev.db` thật không bao giờ bị e2e đụng vào. Nếu e2e báo lỗi `SQLITE_ERROR: no such table`, kiểm tra `setupDb.ts` còn là lệnh *đầu tiên* trong `webServer.command` không, chứ không phải tách ra `globalSetup` riêng.
+
+---
+
+## 4. "Xong" nghĩa là gì với 1 test (theo Định nghĩa hoàn thành của `CLAUDE.md`)
+
+- 1 hàm thuần túy mới/sửa phải có ít nhất 1 test cho trường hợp bình thường ngay khi viết xong, trước khi review.
+- Với code liên quan tới engine, nên thêm cả các trường hợp biên mà công thức trong PROJECT_CONTEXT.md nêu rõ (ví dụ: ngưỡng `.25`/`.75` của `ieltsRound`, ranh giới 7 ngày của quy tắc bắt buộc hàng tuần, các pool có count bằng 0 hết) — không chỉ 1 trường hợp bình thường.
+- 1 test component phải chứng minh đúng cái nó tuyên bố kiểm tra — nếu comment bỏ tính năng đang test mà test vẫn pass thì đó không phải test thật. Dự án này từng bắt được 2 lỗ hổng kiểu này bằng cách cố tình đưa lại lỗi vào code rồi xác nhận test có báo fail không (xem test thu hẹp pool ứng viên của Spinner, và lần sửa cách định vị bằng substring trong `journal.spec.ts` trong lịch sử git) — khi không chắc 1 test mới có ý nghĩa hay không, làm tương tự: cố tình phá tính năng, xác nhận test bắt được lỗi, rồi khôi phục lại.
+- Giả lập `fetch`: dùng `mockFetchSequence()` trong `src/tests/component/mockFetch.ts` thay vì tự viết stub mới. Hàm này khớp theo *thứ tự* gọi, không theo URL — phải biết chính xác thứ tự các request mà component gọi trước khi viết response giả lập.

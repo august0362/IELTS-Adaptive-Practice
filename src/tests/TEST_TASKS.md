@@ -1,22 +1,22 @@
-# QA & Test Coverage — Task List
+# QA & Độ bao phủ test — Danh sách việc
 
-> Scope: `src/tests/**`, plus flagging (not owning) coverage gaps anywhere else in the repo. Testing strategy/conventions live in `PROJECT_CONTEXT.md` §7 — this file only tracks *what's done vs. pending*. Read `PROGRESS.md` at the repo root first for overall status before this file.
+> Phạm vi: `src/tests/**`, ngoài ra chỉ báo (không tự sửa) nếu thấy thiếu test ở chỗ khác trong repo. Chiến lược/quy ước test nằm ở `PROJECT_CONTEXT.md` mục 7 — file này chỉ theo dõi *việc nào xong, việc nào chưa*. Đọc `PROGRESS.md` ở gốc dự án trước để biết trạng thái tổng quan.
 
-## Done
+## Đã xong
 
-- [x] Vitest split into two **projects** (`vitest.config.mts`): `unit` (node env, `tests/unit/**`) and `component` (jsdom env via RTL, `tests/component/**`), sharing one `@` path alias
-- [x] `tests/setup.ts` — RTL cleanup + `vi.unstubAllGlobals()` per test (required since this project doesn't use Vitest's `globals: true`)
-- [x] Unit: `weightedRandom`, `weeklyConstraint`, `bandPrediction`, `ieltsRounding`, `countSoftReset`, `tagUtils`, `spinnerAnimation`, `theme` (contrast-safety + primary-synthesis rules; gained 2 WCAG contrast-ratio regression tests during Milestone 4 Step 1's review after it found `primaryForeground` failing AA contrast on 7 of the 19 themes — see `document.txt`)
-- [x] Component: `Spinner` (animation mocked instantly — its timing has its own unit test), `Journal`, `CambridgeTracker`, `RoundingModeToggle`, `PredictionCards`, `PredictionPageClient` (integration-level: toggle → `PATCH /api/config` → prediction refresh), `ThemePicker`+`ThemeProvider` (applies CSS vars, persists to localStorage, restores/falls back on mount)
-- [x] `tests/component/mockFetch.ts` — shared sequential-fetch-response stub helper
-- [x] Playwright e2e (`playwright.config.ts`, `tests/e2e/*.spec.ts`): full roll flow, journal CRUD, Cambridge add → prediction dashboard updates a real displayed value (not just "not enough data" disappearing)
-- [x] e2e DB isolation — `tests/e2e/setupDb.ts` wipes/migrates/seeds a disposable `./e2e-test.db`, chained via `&&` ahead of `next build && next start` in the webServer command (never touches the real `./dev.db`); runs against a production build since `next dev` refuses a 2nd instance for the same project directory
+- [x] Tách Vitest thành 2 **project** (`vitest.config.mts`): `unit` (môi trường node, `tests/unit/**`) và `component` (môi trường jsdom qua RTL, `tests/component/**`), dùng chung 1 alias đường dẫn `@`
+- [x] `tests/setup.ts` — dọn dẹp RTL + `vi.unstubAllGlobals()` sau mỗi test (cần thiết vì dự án này không bật `globals: true` của Vitest)
+- [x] Test unit: `weightedRandom`, `weeklyConstraint`, `bandPrediction`, `ieltsRounding`, `countSoftReset`, `tagUtils`, `spinnerAnimation`, `theme` (quy tắc an toàn độ tương phản + tự tạo màu primary; có thêm 2 test kiểm tra tỉ lệ tương phản WCAG sau khi review Milestone 4 Bước 1 phát hiện `primaryForeground` không đạt chuẩn AA ở 7/19 theme — xem `document.txt`)
+- [x] Test component: `Spinner` (giả lập animation chạy ngay lập tức — phần thời gian chạy có test unit riêng), `Journal`, `CambridgeTracker`, `RoundingModeToggle`, `PredictionCards`, `PredictionPageClient` (test tích hợp: bấm toggle → gọi `PATCH /api/config` → dự đoán được làm mới), `ThemePicker`+`ThemeProvider` (áp CSS var, lưu vào localStorage, khôi phục/dùng mặc định khi mount)
+- [x] `tests/component/mockFetch.ts` — hàm giả lập chuỗi kết quả `fetch` dùng chung
+- [x] Test e2e Playwright (`playwright.config.ts`, `tests/e2e/*.spec.ts`): quay đầy đủ 1 lượt, thêm/sửa/xóa/lọc nhật ký, thêm điểm Cambridge → bảng dự đoán cập nhật ra số thật (không chỉ kiểm tra dòng "chưa đủ dữ liệu" biến mất)
+- [x] Cô lập DB cho e2e — `tests/e2e/setupDb.ts` xóa/migrate/seed 1 file `./e2e-test.db` dùng riêng cho test, chạy nối bằng `&&` trước `next build && next start` trong lệnh webServer (không bao giờ đụng vào `./dev.db` thật); chạy trên bản build production vì `next dev` không cho chạy instance thứ 2 cùng thư mục dự án
 
-## Backlog / deferred
+## Việc còn chờ / chưa làm
 
-- [ ] `TESTING_GUIDE.md` (Milestone 4 Step 2 — how to run/extend the suite, regression-test conventions)
-- [ ] CI pipeline integration — not currently requested/planned; open question for later
+- [ ] `TESTING_GUIDE.md` (Milestone 4 Bước 2 — cách chạy/mở rộng bộ test, quy ước viết test)
+- [ ] Tích hợp CI — hiện chưa có yêu cầu/kế hoạch, để ngỏ tính sau
 
-## Adding a new task
+## Thêm việc mới
 
-New test-scoped work (a new spec file, closing a coverage gap someone flags) gets a line added here in the same step that adds it, not batched up later. If a gap is found in another scope's code, flag it in that scope's own `*_TASKS.md` (`BACKEND_TASKS.md` / `FRONTEND_TASKS.md`) rather than silently fixing it here.
+Việc mới thuộc phạm vi test (file spec mới, vá 1 lỗ hổng test ai đó phát hiện) thì ghi thêm 1 dòng vào đây ngay trong bước làm việc đó, không dồn lại ghi sau. Nếu phát hiện thiếu test ở phạm vi khác, ghi vào đúng `*_TASKS.md` của phạm vi đó (`BACKEND_TASKS.md` / `FRONTEND_TASKS.md`) thay vì tự âm thầm sửa ở đây.

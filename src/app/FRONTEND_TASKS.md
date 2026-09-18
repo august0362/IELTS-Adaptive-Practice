@@ -1,26 +1,26 @@
-# Frontend & UI Pages — Task List
+# Trang & Giao diện — Danh sách việc
 
-> Scope: `src/app/**` (pages, layout) + `src/components/**`. Technical contracts (API shapes this layer consumes) live in `PROJECT_CONTEXT.md` §6 — this file only tracks *what's done vs. pending*. Read `PROGRESS.md` at the repo root first for overall status before this file.
+> Phạm vi: `src/app/**` (trang, layout) + `src/components/**`. Hình dạng API mà tầng này dùng nằm ở `PROJECT_CONTEXT.md` mục 6 — file này chỉ theo dõi *việc nào xong, việc nào chưa*. Đọc `PROGRESS.md` ở gốc dự án trước để biết trạng thái tổng quan.
 
-## Done
+## Đã xong
 
-- [x] App shell & nav — `layout.tsx`, `components/layout/Nav.tsx` (active-link highlighting)
-- [x] Spinner page — `page.tsx` (Server Component data fetch) + `components/spinner/*` (cascading roll animation, per-card probability display, recent-rolls list)
-- [x] Journal page — `journal/page.tsx` + `components/journal/*` (note CRUD, `#tag` auto-extraction from content, tag-chip filter)
-- [x] Cambridge test tracking — `components/prediction/CambridgeTracker.tsx` + `CambridgeRow.tsx` (add/edit/delete, 5-most-recent + "Xem tất cả"/"Thu gọn")
-- [x] Prediction Dashboard — `components/prediction/PredictionCards.tsx`, `RoundingModeToggle.tsx`, `RatioSliders.tsx`, `FrequencyChart.tsx`, composed by `PredictionPageClient.tsx`
-- [x] Dataviz-compliant frequency chart — validated categorical palette (light + dark), direct value labels, hover tooltip
-- [x] Fix: `export const dynamic = "force-dynamic"` on all 3 pages (a live-DB Server Component must not be statically prerendered by `next build` — see `PROJECT_CONTEXT.md` §3)
-- [x] Standing pattern: initial data via Server Component props, never a client-side `useEffect` fetch-on-mount (this project's `eslint-plugin-react-hooks` flags any `setState` reachable from an effect)
-- [x] Theme system (Milestone 4 prep, before Step 1's review) — `src/lib/theme.ts` (19 themes sourced from `src/theme/*.png`, `computeThemeRoles()`), `components/theme/ThemeProvider.tsx` + `ThemePicker.tsx`, `/settings` page, `Cài đặt` nav link. Swept every component off hardcoded `bg-white/60`/`border-black/10`/`bg-foreground text-background` onto theme-aware `bg-surface`/`border-border`/`bg-primary`/`text-primary-foreground` utilities so the whole app repaints on theme change; kept destructive/status colors (delete=red, spinner cycling/selected=blue/emerald) fixed on purpose. Sweep verified clean by Milestone 4 Step 1's review (no remaining hardcoded color classes found).
-- [x] Milestone 4 Step 1 fix: `computeThemeRoles`'s `primaryForeground` text-color pick was a flat `relativeLuminance > 0.5` split, which failed WCAG AA contrast on 7 of the 19 themes (3 of those below even the AA-large/UI 3:1 floor) — fixed to pick whichever of `#111111`/`#ffffff` has the higher measured contrast against `primary`. See `document.txt`'s "Milestone 4, Step 1" entry.
+- [x] Khung app & thanh điều hướng — `layout.tsx`, `components/layout/Nav.tsx` (tô sáng link đang active)
+- [x] Trang Vòng quay — `page.tsx` (lấy dữ liệu bằng Server Component) + `components/spinner/*` (hiệu ứng quay nối tiếp, hiển thị % xác suất từng thẻ, danh sách lượt quay gần đây)
+- [x] Trang Nhật ký — `journal/page.tsx` + `components/journal/*` (thêm/sửa/xóa ghi chú, tự nhận diện `#tag` trong nội dung, lọc theo tag)
+- [x] Theo dõi điểm thi thử Cambridge — `components/prediction/CambridgeTracker.tsx` + `CambridgeRow.tsx` (thêm/sửa/xóa, hiện 5 gần nhất + nút "Xem tất cả"/"Thu gọn")
+- [x] Bảng dự đoán điểm — `components/prediction/PredictionCards.tsx`, `RoundingModeToggle.tsx`, `RatioSliders.tsx`, `FrequencyChart.tsx`, ghép lại trong `PredictionPageClient.tsx`
+- [x] Biểu đồ tần suất luyện tập đạt chuẩn dataviz — bảng màu đã kiểm tra (cả sáng lẫn tối), có nhãn giá trị trực tiếp, có tooltip khi hover
+- [x] Sửa lỗi: thêm `export const dynamic = "force-dynamic"` ở cả 3 trang (1 Server Component đọc DB trực tiếp thì không được để `next build` dựng sẵn thành HTML tĩnh — xem `PROJECT_CONTEXT.md` mục 3)
+- [x] Quy tắc chung: lấy dữ liệu ban đầu qua props của Server Component, không bao giờ fetch bằng `useEffect` phía client lúc mount (ESLint của dự án này báo lỗi bất kỳ `setState` nào gọi được từ trong effect)
+- [x] Hệ thống theme (chuẩn bị cho Milestone 4, trước bước review Bước 1) — `src/lib/theme.ts` (19 theme lấy từ `src/theme/*.png`, hàm `computeThemeRoles()`), `components/theme/ThemeProvider.tsx` + `ThemePicker.tsx`, trang `/settings`, link "Cài đặt" trên nav. Đã rà toàn bộ component, bỏ hết màu cứng kiểu `bg-white/60`/`border-black/10`/`bg-foreground text-background`, chuyển sang dùng class theo theme như `bg-surface`/`border-border`/`bg-primary`/`text-primary-foreground` để cả app đổi màu đồng bộ khi đổi theme; cố tình giữ nguyên màu cố định cho các trạng thái đặc biệt (xóa = đỏ, vòng quay đang chạy/đã chọn = xanh dương/xanh ngọc). Đã được review ở Milestone 4 Bước 1 xác nhận sạch (không còn class màu cứng nào sót lại).
+- [x] Sửa lỗi ở Milestone 4 Bước 1: hàm chọn màu chữ `primaryForeground` trong `computeThemeRoles` trước đây chỉ dựa vào ngưỡng độ sáng `relativeLuminance > 0.5`, khiến 7/19 theme không đạt độ tương phản chuẩn WCAG AA (3 trong số đó còn dưới cả ngưỡng tối thiểu 3:1 cho chữ lớn/UI) — đã sửa để chọn màu nào trong `#111111`/`#ffffff` cho độ tương phản với `primary` cao hơn. Xem mục "Milestone 4, Step 1" trong `document.txt`.
 
-## Backlog / deferred (see `document.txt` for full context on each)
+## Việc còn chờ / chưa làm (xem `document.txt` để biết đầy đủ bối cảnh từng việc)
 
-- [ ] Adjustable `baseRatio` UI for Writing (Task 1/2) and Listening (Block A/B) — currently only Speaking/Reading are exposed, per the original spec's scope
-- [ ] Dedicated Config UI for engine constants (`decay_exponent`, `weekly_threshold_days`, etc.) — currently only reachable via the API/DB directly
-- [ ] Milestone 4's `USER_GUIDE.md` may surface further UX polish items once written
+- [ ] UI chỉnh `baseRatio` cho Writing (Task 1/2) và Listening (Block A/B) — hiện chỉ Speaking/Reading có, đúng theo phạm vi ban đầu
+- [ ] UI cấu hình riêng cho các hằng số của engine (`decay_exponent`, `weekly_threshold_days`, v.v.) — hiện chỉ chỉnh được qua API/DB trực tiếp
+- [ ] `USER_GUIDE.md` của Milestone 4 có thể phát sinh thêm vài việc cải thiện UX sau khi viết xong
 
-## Adding a new task
+## Thêm việc mới
 
-New frontend-scoped work (a new page, a new component, a UI-facing bug fix) gets a line added here in the same step that implements it, not batched up later.
+Việc mới thuộc phạm vi frontend (trang mới, component mới, sửa lỗi UI) thì ghi thêm 1 dòng vào đây ngay trong bước làm việc đó, không dồn lại ghi sau.

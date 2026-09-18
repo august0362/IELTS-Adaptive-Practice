@@ -35,6 +35,10 @@ export default async function PredictionPage() {
       ...part,
       lastAppearedAt: part.lastAppearedAt?.toISOString() ?? null,
     })),
+    questionTypes: skill.questionTypes.map((type) => ({
+      ...type,
+      lastAppearedAt: type.lastAppearedAt?.toISOString() ?? null,
+    })),
   }));
 
   return (

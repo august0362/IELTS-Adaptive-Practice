@@ -6,6 +6,17 @@ export interface SkillPartDTO {
   baseRatio: number;
   occurrenceCount: number;
   lastAppearedAt: string | null;
+  questionTypeRollCount: number;
+}
+
+export interface QuestionTypeDTO {
+  id: string;
+  skillId: string;
+  code: string;
+  name: string;
+  baseRatio: number;
+  occurrenceCount: number;
+  lastAppearedAt: string | null;
 }
 
 export interface SkillDTO {
@@ -15,11 +26,21 @@ export interface SkillDTO {
   occurrenceCount: number;
   lastAppearedAt: string | null;
   parts: SkillPartDTO[];
+  /** Empty for Speaking — see PROJECT_CONTEXT.md section 5.7. */
+  questionTypes: QuestionTypeDTO[];
+}
+
+export interface QuestionTypeRef {
+  id: string;
+  code: string;
+  name: string;
 }
 
 export interface RollResultItem {
   skill: { id: string; code: string; name: string };
   part: { id: string; code: string; name: string };
+  /** 0..2 entries — see SkillPartDTO.questionTypeRollCount. Empty for Speaking / Writing Task 2. */
+  questionTypes: QuestionTypeRef[];
 }
 
 export interface RollResponse {
@@ -27,15 +48,53 @@ export interface RollResponse {
   results: RollResultItem[];
 }
 
+export type RollSource = "roll" | "manual";
+
 export interface HistorySession {
   id: string;
   rolledAt: string;
+  source: RollSource;
   results: RollResultItem[];
 }
 
 export interface HistoryResponse {
   total: number;
   items: HistorySession[];
+}
+
+export interface PracticeRequest {
+  skillCode: string;
+  partCode: string;
+  /** Omit when the part has no question types (questionTypeRollCount === 0). */
+  questionTypeCode?: string;
+}
+
+export interface PracticeResponse {
+  sessionId: string;
+  source: "manual";
+  skill: { id: string; code: string; name: string };
+  part: { id: string; code: string; name: string };
+  questionType: QuestionTypeRef | null;
+}
+
+export interface TopicDTO {
+  id: string;
+  name: string;
+  createdAt: string;
+}
+
+export interface QuestionTypeStat {
+  code: string;
+  name: string;
+  count: number;
+  percentage: number;
+}
+
+export interface SkillStatsResponse {
+  skill: { id: string; code: string; name: string };
+  practiceLog: { rolledAt: string; source: RollSource; part: { code: string; name: string } }[];
+  /** null when the skill has no question types (Speaking). */
+  questionTypeStats: QuestionTypeStat[] | null;
 }
 
 export interface NoteDTO {

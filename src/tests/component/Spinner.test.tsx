@@ -43,9 +43,10 @@ function makeSkills(): SkillDTO[] {
     occurrenceCount: 0,
     lastAppearedAt: null,
     parts: [
-      { id: `${partPrefix}_A`, skillId: code, code: `${partPrefix}_A`, name: "Part A", baseRatio: 0.6, occurrenceCount: 0, lastAppearedAt: null },
-      { id: `${partPrefix}_B`, skillId: code, code: `${partPrefix}_B`, name: "Part B", baseRatio: 0.4, occurrenceCount: 0, lastAppearedAt: null },
+      { id: `${partPrefix}_A`, skillId: code, code: `${partPrefix}_A`, name: "Part A", baseRatio: 0.6, occurrenceCount: 0, lastAppearedAt: null, questionTypeRollCount: 0 },
+      { id: `${partPrefix}_B`, skillId: code, code: `${partPrefix}_B`, name: "Part B", baseRatio: 0.4, occurrenceCount: 0, lastAppearedAt: null, questionTypeRollCount: 0 },
     ],
+    questionTypes: [],
   });
 
   return [
@@ -66,8 +67,8 @@ describe("Spinner", () => {
         json: {
           sessionId: "s1",
           results: [
-            { skill: { id: "READING", code: "READING", name: "Reading" }, part: { id: "READING_A", code: "READING_A", name: "Part A" } },
-            { skill: { id: "LISTENING", code: "LISTENING", name: "Listening" }, part: { id: "LISTENING_B", code: "LISTENING_B", name: "Part B" } },
+            { skill: { id: "READING", code: "READING", name: "Reading" }, part: { id: "READING_A", code: "READING_A", name: "Part A" }, questionTypes: [] },
+            { skill: { id: "LISTENING", code: "LISTENING", name: "Listening" }, part: { id: "LISTENING_B", code: "LISTENING_B", name: "Part B" }, questionTypes: [] },
           ],
         },
       },

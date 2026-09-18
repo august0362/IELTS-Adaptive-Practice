@@ -8,7 +8,7 @@ const CAMBRIDGE_SAMPLE_SIZE = 30;
 const PRACTICE_WINDOW_DAYS = 30;
 
 export function getSkillsWithParts() {
-  return db.query.skills.findMany({ with: { parts: true } });
+  return db.query.skills.findMany({ with: { parts: true, questionTypes: true } });
 }
 
 export function getAllNotes() {
@@ -28,7 +28,7 @@ export function getRecentRollHistory(limit: number, offset = 0) {
     limit,
     offset,
     with: {
-      results: { with: { skill: true, part: true } },
+      results: { with: { skill: true, part: true, questionTypes: { with: { questionType: true } } } },
     },
   });
 }

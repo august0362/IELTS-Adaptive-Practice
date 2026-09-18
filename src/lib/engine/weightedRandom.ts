@@ -62,6 +62,26 @@ export function pickWeighted<T extends WeightedItem>(items: T[], options: Weight
 }
 
 /**
+ * Draws `count` items independently from the *same* fixed pool/weights —
+ * repeats are allowed. Used where each draw genuinely doesn't affect the
+ * others' odds (e.g. Reading Block A bundles 2 passages, and each passage
+ * gets its own question-type draw; the same type can legitimately land on
+ * both, just like a real test). Counts are not incremented mid-draw, same as
+ * `pickWeightedWithoutReplacement`.
+ */
+export function pickWeightedIndependent<T extends WeightedItem>(
+  items: T[],
+  count: number,
+  options: WeightedPickOptions = {}
+): T[] {
+  const picked: T[] = [];
+  for (let i = 0; i < count; i++) {
+    picked.push(pickWeighted(items, options));
+  }
+  return picked;
+}
+
+/**
  * Draws `count` distinct items from the pool without replacement. Weights are
  * recomputed over the shrinking pool after each draw using the *original*
  * occurrenceCount values passed in — counts are not incremented mid-draw.

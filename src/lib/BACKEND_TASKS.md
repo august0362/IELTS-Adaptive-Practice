@@ -1,38 +1,51 @@
-# Backend & Math Engine — Task List
+# Backend & Engine tính toán — Danh sách việc
 
-> Scope: `src/lib/**` (engine, db, types) + `src/app/api/**`. Technical contracts (schema, formulas, API shapes) live in `PROJECT_CONTEXT.md` — this file only tracks *what's done vs. pending*, checklist-style. Read `PROGRESS.md` at the repo root first for overall status before this file.
+> Phạm vi: `src/lib/**` (engine, db, types) + `src/app/api/**`. Chi tiết kỹ thuật (schema, công thức, hình dạng API) nằm ở `PROJECT_CONTEXT.md` — file này chỉ theo dõi *việc nào xong, việc nào chưa*, dạng checklist. Đọc `PROGRESS.md` ở gốc dự án trước để biết trạng thái tổng quan.
 
-## Done
+## Đã xong
 
-- [x] Tech pivot: Prisma → Drizzle ORM + better-sqlite3 (`PROJECT_CONTEXT.md` §2.1)
-- [x] Drizzle schema — 7 tables (`db/schema.ts`)
-- [x] DB client singleton (`db/client.ts`)
-- [x] Seed data — 4 skills, 8 parts, 6 config defaults (`db/seed.ts`'s `seedDatabase()`, reused by both `db/seedCli.ts` and the e2e test setup)
-- [x] Shared query helpers (`db/queries.ts`): `getSkillsWithParts`, `getAllNotes`, `getCambridgeResults`, `getRecentRollHistory`, `getPredictionData`
-- [x] `db/configHelpers.ts` — typed `EngineConfig` reader (works both inside a sync `db.transaction()` and from a plain route handler)
-- [x] `api/../requestJson.ts` — safe JSON body parsing shared across mutating routes
-- [x] Formula 1 — `engine/weightedRandom.ts`
-- [x] Formula 2 — `engine/weeklyConstraint.ts`
-- [x] Formula 3 — `engine/bandPrediction.ts` (+ `overall_prediction_rounding_mode` toggle)
-- [x] `engine/ieltsRounding.ts` — official IELTS overall-band rounding rule
-- [x] `engine/countSoftReset.ts` — counter rescale safeguard
-- [x] `POST /api/roll` — single synchronous transaction (Formula 2 → Formula 1 per skill → counters → soft-reset)
+- [x] Đổi công nghệ: Prisma → Drizzle ORM + better-sqlite3 (xem `PROJECT_CONTEXT.md` mục 2.1)
+- [x] Schema Drizzle — 7 bảng (`db/schema.ts`)
+- [x] Client DB dùng chung 1 instance (`db/client.ts`)
+- [x] Dữ liệu khởi tạo — 4 kỹ năng, 8 phần, 6 config mặc định (hàm `seedDatabase()` trong `db/seed.ts`, dùng chung cho cả `db/seedCli.ts` lẫn phần setup test e2e)
+- [x] Hàm query dùng chung (`db/queries.ts`): `getSkillsWithParts`, `getAllNotes`, `getCambridgeResults`, `getRecentRollHistory`, `getPredictionData`
+- [x] `db/configHelpers.ts` — hàm đọc `EngineConfig` có kiểu rõ ràng (dùng được cả trong `db.transaction()` đồng bộ lẫn trong route handler bình thường)
+- [x] `api/../requestJson.ts` — hàm parse JSON body an toàn, dùng chung cho các route có thay đổi dữ liệu
+- [x] Công thức 1 — `engine/weightedRandom.ts`
+- [x] Công thức 2 — `engine/weeklyConstraint.ts`
+- [x] Công thức 3 — `engine/bandPrediction.ts` (kèm tùy chọn `overall_prediction_rounding_mode`)
+- [x] `engine/ieltsRounding.ts` — quy tắc làm tròn Band tổng chính thức của IELTS
+- [x] `engine/countSoftReset.ts` — cơ chế tự giảm bớt bộ đếm khi quá cao
+- [x] `POST /api/roll` — gói gọn trong 1 transaction đồng bộ (Công thức 2 → Công thức 1 cho từng kỹ năng → cập nhật bộ đếm → soft-reset)
 - [x] `GET /api/skills`
 - [x] `PATCH /api/skills/parts/:id/ratio`
 - [x] `GET /api/history`
 - [x] `GET/POST /api/notes`, `PATCH/DELETE /api/notes/:id`
 - [x] `GET/POST /api/cambridge`, `PATCH/DELETE /api/cambridge/:id`
-- [x] `GET /api/prediction` (gained `practiceCount30dPerSkill` in Milestone 2 Step 5)
+- [x] `GET /api/prediction` (Milestone 2 Bước 5 bổ sung thêm `practiceCount30dPerSkill`)
 - [x] `GET/PATCH /api/config`
 
-## Backlog / deferred (see `document.txt` for full context on each)
+### Milestone 5 (backend) — Dạng bài, xóa lượt quay, cộng luyện thủ công, thống kê, chủ đề
 
-- [ ] Band Prediction v2 — OLS linear regression per skill, replacing the flat 30-test mean
-- [ ] Weekly-minimum-appearance safety net at the Part/Block level (currently skill-level only)
-- [ ] Tune `count_soft_reset_threshold` once real usage data exists
-- [ ] Auth / multi-user support (indefinitely deferred — local-only app)
-- [ ] Cloud deployment config (indefinitely deferred)
+- [x] Schema: bảng `questionTypes`, `rollResultQuestionTypes`, `topics`; cột `questionTypeRollCount` trên `skillParts`; cột `source` (`$type<"roll"|"manual">`) trên `rollSessions` — migration `drizzle/migrations/0001_clean_aaron_stack.sql`
+- [x] Seed: 10 dạng Reading, 7 dạng Listening, 7 dạng Writing (tỉ lệ theo `PROJECT_CONTEXT.md` 5.7) + `questionTypeRollCount` đúng cho từng part
+- [x] `engine/weightedRandom.ts` — thêm `pickWeightedIndependent()` (random N lần độc lập, cho phép trùng)
+- [x] `POST /api/roll` — mở rộng: random thêm dạng bài sau khi chọn part, cộng count + soft-reset cho pool dạng bài, response có `questionTypes` per kết quả
+- [x] `DELETE /api/history/:id` — xóa + hoàn tác bộ đếm (mục 5.9), đã smoke-test qua curl
+- [x] `POST /api/practice` — cộng luyện thủ công (mục 5.8), đã smoke-test qua curl
+- [x] `GET /api/stats/:skillCode` — dữ liệu trang thống kê (mục 5.10), đã smoke-test qua curl
+- [x] `GET/POST /api/topics`, `DELETE /api/topics/:id` (mục 5.11), đã smoke-test qua curl
+- [x] `GET /api/skills`, `GET /api/history` — mở rộng response (`questionTypes`, `source`)
+- [x] Cập nhật `PROJECT_CONTEXT.md` mục 3/4/5 (thêm 5.7–5.11)/6 cùng bước
 
-## Adding a new task
+## Việc còn chờ / chưa làm (xem `document.txt` để biết đầy đủ bối cảnh từng việc)
 
-New backend-scoped work (a new API route, a new engine module, a schema change) gets a line added under a task's relevant section here — done in the same step that implements it, not batched up later.
+- [ ] Dự đoán Band v2 — hồi quy tuyến tính (OLS) riêng cho từng kỹ năng, thay cho cách tính trung bình 30 bài gần nhất hiện tại
+- [ ] Cơ chế đảm bảo tần suất tối thiểu hàng tuần ở cấp Part/Block (hiện chỉ áp dụng ở cấp kỹ năng)
+- [ ] Tinh chỉnh `count_soft_reset_threshold` khi đã có dữ liệu dùng thực tế
+- [ ] Đăng nhập / nhiều người dùng (chưa có kế hoạch làm — app chỉ chạy local)
+- [ ] Cấu hình deploy lên cloud (chưa có kế hoạch làm)
+
+## Thêm việc mới
+
+Việc mới thuộc phạm vi backend (route API mới, module engine mới, đổi schema) thì ghi thêm 1 dòng vào mục liên quan ở đây — ghi ngay trong bước làm việc đó, không dồn lại ghi sau.

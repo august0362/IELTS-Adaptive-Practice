@@ -1,157 +1,176 @@
-# PROJECT_CONTEXT.md — IELTS Adaptive Practice App
+# PROJECT_CONTEXT.md — App luyện thi IELTS thích ứng
 
-> **Purpose of this file**: this is the single source of truth for the project's architecture. Any AI session (or human) that opens this repo cold should be able to read this file top to bottom and understand exactly what exists, why it's shaped this way, and how to continue building it — without needing the original conversation that designed it.
+> **File này để làm gì**: đây là nguồn thông tin duy nhất, đáng tin cậy nhất về kiến trúc dự án. Bất kỳ ai (người hoặc AI) mở repo này lần đầu, đọc file này từ đầu tới cuối là phải hiểu được app đang có gì, tại sao lại làm như vậy, và làm sao để tiếp tục xây dựng — không cần phải biết cuộc trò chuyện gốc đã thiết kế ra nó.
 >
-> **Update rule**: any change to the DB schema, a formula, an API contract, or a folder convention MUST be reflected here in the same task/commit that makes the change. A stale PROJECT_CONTEXT.md is treated as a bug.
+> **Quy tắc cập nhật**: bất kỳ thay đổi nào về schema DB, 1 công thức, 1 hợp đồng API, hay quy ước thư mục đều PHẢI được cập nhật vào file này ngay trong cùng bước/commit thực hiện thay đổi đó. File này mà lỗi thời thì coi như là 1 lỗi (bug).
 
-Last updated: 2026-09-18 (all 4 originally-scoped milestones done — backend/engine/API, frontend, tests, and a Milestone 4 theme system + full review + `TESTING_GUIDE.md`/`USER_GUIDE.md`. See `PROGRESS.md` for current status and §2.1 for an important tech-stack change from Milestone 1, §9 for the theme system).
-
----
-
-## 1. Product overview
-
-A personal, local-only web app to plan and track IELTS practice across the 4 skills (Reading, Listening, Writing, Speaking), using an **adaptive weighted-random engine** so that skills/parts practiced less often become more likely to be picked next. It has three user-facing surfaces:
-
-1. **Spinner** — picks 2 of the 4 skills per session, then cascades into picking the specific part/task/block for each chosen skill.
-2. **Daily Journal** — free-text notes per day, taggable (e.g. `#Reading`, `#Vocabulary`).
-3. **Prediction Dashboard** — predicted band score per skill (and overall), based mostly on logged Cambridge mock-test results plus a small nudge from practice frequency; shows recent Cambridge test history (5 most recent + "view all") and a per-skill practice-frequency chart.
-4. **Settings** (`/settings`) — a theme picker letting the user switch the whole app's color scheme; see §9.
-
-Single user, no login, runs locally. Multi-user/auth/cloud deploy are intentionally deferred — see [`document.txt`](./document.txt).
+Cập nhật lần cuối: 2026-09-18 (cả 4 milestone theo kế hoạch ban đầu đã xong — backend/engine/API, frontend, test, và Milestone 4 gồm hệ thống theme + review toàn bộ + `TESTING_GUIDE.md`/`USER_GUIDE.md`. Xem `PROGRESS.md` để biết trạng thái hiện tại, mục 2.1 để biết 1 thay đổi công nghệ quan trọng từ Milestone 1, mục 9 để biết về hệ thống theme).
 
 ---
 
-## 2. Tech stack
+## 1. Tổng quan sản phẩm
 
-| Layer | Choice | Why |
+App web cá nhân, chạy hoàn toàn trên máy, dùng để lên kế hoạch và theo dõi việc luyện thi IELTS ở cả 4 kỹ năng (Reading, Listening, Writing, Speaking), dùng **engine chọn ngẫu nhiên có trọng số, tự thích ứng** — kỹ năng/phần nào lâu chưa luyện thì càng dễ được chọn ở lần sau. App có 3 phần chính cho người dùng:
+
+1. **Vòng quay** — chọn 2 trong 4 kỹ năng cho mỗi buổi luyện, sau đó chọn tiếp part/task/block cụ thể cho từng kỹ năng đã chọn.
+2. **Nhật ký hằng ngày** — ghi chú tự do theo ngày, gắn được tag (ví dụ `#Reading`, `#Vocabulary`).
+3. **Bảng dự đoán điểm** — dự đoán Band điểm cho từng kỹ năng (và điểm tổng), chủ yếu dựa vào kết quả thi thử Cambridge đã ghi nhận, cộng thêm 1 chút điều chỉnh nhỏ theo tần suất luyện tập; hiển thị lịch sử thi thử Cambridge gần đây (5 lần gần nhất + nút "xem tất cả") và biểu đồ tần suất luyện tập theo từng kỹ năng.
+4. **Cài đặt** (`/settings`) — nơi chọn bảng màu giao diện cho toàn app; xem mục 9.
+
+Chỉ 1 người dùng, không cần đăng nhập, chạy hoàn toàn local. Việc hỗ trợ nhiều người dùng/đăng nhập/deploy cloud được cố tình để sau — xem [`document.txt`](./document.txt).
+
+---
+
+## 2. Công nghệ sử dụng
+
+| Tầng | Chọn dùng | Vì sao |
 |---|---|---|
-| Framework | **Next.js 16 (App Router)**, single repo | Full-stack in one project: React frontend + API Route Handlers as backend. No separate server to run/deploy. |
-| Language | **TypeScript** | The weighted-random and band-prediction math is the core value of this app — type safety on DB models and formula inputs/outputs catches mistakes at compile time. |
-| Database | **SQLite** via **Drizzle ORM** + `better-sqlite3` | File-based (`./dev.db`), zero server setup, matches "very simple database" requirement, fully local. See §2.1 — originally planned as Prisma, changed during Milestone 1. |
-| Styling | **Tailwind CSS v4** | Fast to build simple, consistent UI without a design system. |
-| Charts | **Recharts** | Simple declarative charts for the prediction dashboard (skill frequency bars, band trend). |
-| Testing | **Vitest** + **React Testing Library** (unit/component), **Playwright** (e2e) | Matches Next.js/TS conventions; Vitest is fast for pure-function formula testing. |
-| Auth | None (single implicit user) | Local-only for now. Deferred in `document.txt`. |
-| Deployment | Local dev only (`npm run dev`) | No cloud deploy yet. Deferred in `document.txt`. |
+| Framework | **Next.js 16 (App Router)**, 1 repo duy nhất | Full-stack gọn trong 1 dự án: frontend React + Route Handler làm backend luôn. Không cần chạy/deploy server riêng. |
+| Ngôn ngữ | **TypeScript** | Phần tính toán ngẫu nhiên có trọng số và dự đoán Band điểm là giá trị cốt lõi của app — kiểm tra kiểu dữ liệu (type) trên model DB và input/output công thức giúp bắt lỗi ngay lúc build. |
+| Database | **SQLite** qua **Drizzle ORM** + `better-sqlite3` | Lưu dạng file (`./dev.db`), không cần cài server DB riêng, đúng yêu cầu "database rất đơn giản", chạy hoàn toàn local. Xem mục 2.1 — ban đầu định dùng Prisma, đã đổi trong lúc làm Milestone 1. |
+| Giao diện | **Tailwind CSS v4** | Xây UI đơn giản, đồng nhất nhanh mà không cần cả 1 design system. |
+| Biểu đồ | **Recharts** | Vẽ biểu đồ đơn giản, khai báo kiểu declarative cho bảng dự đoán (cột tần suất kỹ năng, xu hướng Band điểm). |
+| Test | **Vitest** + **React Testing Library** (unit/component), **Playwright** (e2e) | Hợp với quy ước Next.js/TS; Vitest chạy nhanh khi test các hàm công thức thuần túy. |
+| Đăng nhập | Không có (chỉ 1 user ngầm định) | Hiện chỉ chạy local. Để sau trong `document.txt`. |
+| Deploy | Chỉ chạy dev local (`npm run dev`) | Chưa deploy lên cloud. Để sau trong `document.txt`. |
 
-### 2.1 Why Drizzle instead of Prisma (read this before "fixing" it back)
+### 2.1 Vì sao dùng Drizzle thay vì Prisma (đọc mục này trước khi định "sửa lại" cho giống ban đầu)
 
-The original Phase 0 plan specified Prisma ORM. During Milestone 1 Step 1, `npx create-next-app@latest` installed **Next.js 16.3.5 / React 19.2.8**, and installing Prisma pulled in **Prisma 8.0.0-rc.15**, which turned out to have pivoted hard into a cloud platform product ("Prisma Platform": Composer/Compute/Prisma Postgres, `prisma deploy`, branches, etc.). In that version:
+Kế hoạch gốc ở Phase 0 định dùng Prisma ORM. Trong lúc làm Milestone 1 Bước 1, lệnh `npx create-next-app@latest` cài ra **Next.js 16.3.5 / React 19.2.8**, và khi cài Prisma thì kéo theo **Prisma 8.0.0-rc.15** — bản này hóa ra đã chuyển hướng mạnh sang sản phẩm nền tảng cloud ("Prisma Platform": Composer/Compute/Prisma Postgres, lệnh `prisma deploy`, branch, v.v.). Ở phiên bản đó:
 
-- `prisma orm init --target` only accepts `postgres` or `mongodb` — **SQLite is no longer an option** in the guided setup.
-- The classic commands (`prisma generate`, `prisma migrate dev`) **no longer exist** in the CLI at all; everything routes through the new `contract` / `db` / `migration` / `composer` command groups.
-- The platform's own local dev stack (`prisma dev`) **does not support Windows** yet, which is this project's OS.
+- Lệnh `prisma orm init --target` chỉ nhận `postgres` hoặc `mongodb` — **SQLite không còn là lựa chọn** trong phần setup hướng dẫn.
+- Các lệnh cũ quen thuộc (`prisma generate`, `prisma migrate dev`) **không còn tồn tại** trong CLI nữa; mọi thứ giờ đi qua các nhóm lệnh mới `contract` / `db` / `migration` / `composer`.
+- Bộ công cụ dev local riêng của nền tảng này (`prisma dev`) **chưa hỗ trợ Windows** — mà đây lại đúng là hệ điều hành của dự án này.
 
-None of that fits a local-only, single-file-database, no-cloud-account app. Rather than fight a tool that has moved to a different problem (managed cloud hosting) or pin to a frozen old Prisma major version, the project uses **Drizzle ORM** (`drizzle-orm` + `drizzle-kit`) with the **`better-sqlite3`** driver instead — first-class SQLite support, fully local, lightweight, no account/telemetry-heavy CLI. The data model (tables/fields/relations) is unchanged from what Phase 0 designed; only the schema-authoring syntax and migration commands differ. If a future session sees Prisma mentioned anywhere else in this repo's history/docs, this section is why it isn't what got built — don't re-attempt the Prisma path without re-checking whether its SQLite support has come back.
+Không cái nào trong số đó phù hợp với 1 app chỉ chạy local, dùng database 1-file, không cần tài khoản cloud. Thay vì cố dùng 1 công cụ đã chuyển hướng sang bài toán khác (hosting cloud có quản lý) hoặc ghim cứng vào 1 bản Prisma cũ đã ngừng cập nhật, dự án chuyển sang dùng **Drizzle ORM** (`drizzle-orm` + `drizzle-kit`) với driver **`better-sqlite3`** — hỗ trợ SQLite đầy đủ, chạy hoàn toàn local, nhẹ, không cần tài khoản hay CLI thu thập dữ liệu sử dụng nặng nề. Mô hình dữ liệu (bảng/trường/quan hệ) không đổi so với thiết kế gốc ở Phase 0 — chỉ khác cú pháp viết schema và lệnh migration. Nếu 1 phiên làm việc sau này thấy Prisma được nhắc tới ở đâu đó trong lịch sử/tài liệu của repo, đây chính là lý do vì sao nó không được dùng thật — đừng thử lại hướng Prisma mà không kiểm tra lại xem hỗ trợ SQLite của nó đã quay lại chưa.
 
 ---
 
-## 3. Folder structure
+## 3. Cấu trúc thư mục
 
 ```
-drizzle.config.ts              # drizzle-kit config (dialect: sqlite, schema path, migrations out dir)
+drizzle.config.ts              # config của drizzle-kit (dialect: sqlite, đường dẫn schema, thư mục migration)
 /drizzle
-  /migrations                  # SQL migration files generated by `npm run db:generate`
+  /migrations                  # file SQL migration được sinh ra bởi `npm run db:generate`
 /src
   /app
     /api
-      /roll/route.ts           # POST: run a roll session
-      /skills/route.ts         # GET: skills + parts + counters + ratios
-      /skills/parts/[id]/ratio/route.ts   # PATCH: update a part's baseRatio
-      /history/route.ts        # GET: paginated roll history
-      /notes/route.ts          # GET/POST daily notes
-      /notes/[id]/route.ts     # PATCH/DELETE a note
-      /cambridge/route.ts      # GET (?limit=5 for recent, ?all=true for full history) / POST
-      /cambridge/[id]/route.ts # PATCH/DELETE a test result
-      /prediction/route.ts     # GET: computed band prediction (calls lib/db/queries.ts's getPredictionData(),
-                                #      which wraps lib/engine/bandPrediction.ts — shared with the /prediction
-                                #      Server Component so both compute Formula 3 identically; added Milestone 2 Step 5)
-      /config/route.ts         # GET/PATCH engine config values
-    page.tsx                   # Home page: the Spinner (also shows "recent rolls" — see Milestone 2 Step 2;
-                                # there is no separate /history page, only the GET /api/history route above)
+      /roll/route.ts           # POST: thực hiện 1 lượt quay (kỹ năng + part + random thêm dạng bài, mục 5.7)
+      /skills/route.ts         # GET: kỹ năng + part + dạng bài + bộ đếm + tỉ lệ
+      /skills/parts/[id]/ratio/route.ts   # PATCH: đổi baseRatio của 1 part
+      /history/route.ts        # GET: lịch sử quay (cả roll lẫn manual), có phân trang
+      /history/[id]/route.ts   # DELETE: xóa 1 lượt quay/tự học, hoàn tác bộ đếm (mục 5.9)
+      /practice/route.ts       # POST: cộng luyện thủ công, không qua vòng quay (mục 5.8)
+      /stats/[skillCode]/route.ts   # GET: lịch sử luyện + thống kê dạng bài theo kỹ năng (mục 5.10)
+      /notes/route.ts          # GET/POST ghi chú hằng ngày
+      /notes/[id]/route.ts     # PATCH/DELETE 1 ghi chú
+      /cambridge/route.ts      # GET (?limit=5 cho gần đây, ?all=true cho toàn bộ) / POST
+      /cambridge/[id]/route.ts # PATCH/DELETE 1 kết quả thi thử
+      /prediction/route.ts     # GET: kết quả dự đoán Band điểm (gọi hàm getPredictionData() trong lib/db/queries.ts,
+                                #      hàm này bọc quanh lib/engine/bandPrediction.ts — dùng chung với Server Component
+                                #      của /prediction để cả 2 nơi tính Công thức 3 giống hệt nhau; thêm ở Milestone 2 Bước 5)
+      /config/route.ts         # GET/PATCH các giá trị cấu hình của engine
+      /topics/route.ts         # GET/POST chủ đề (mục 5.11)
+      /topics/[id]/route.ts    # DELETE 1 chủ đề
+    page.tsx                   # Trang chủ: Vòng quay (cũng hiện "lượt quay gần đây" — xem Milestone 2 Bước 2;
+                                # không có trang /history riêng, chỉ có route GET /api/history ở trên)
     /journal/page.tsx
     /prediction/page.tsx
-    /settings/page.tsx         # theme picker (ThemePicker.tsx) — see section 9
+    /settings/page.tsx         # trang chọn theme (ThemePicker.tsx) — xem mục 9
     layout.tsx
-    # `page.tsx`, `journal/page.tsx`, and `prediction/page.tsx` all set
-    # `export const dynamic = "force-dynamic"` — added in Milestone 3 Step 2 after
-    # `next build` silently prerendered them as *static* HTML (they have no
-    # dynamic-triggering API like cookies()/headers(), so Next's default guess was
-    # static) and shipped a permanently-frozen snapshot of whatever the DB held at
-    # build time. Any future Server Component page doing a live DB read needs this
-    # same export, or it will look correct in `next dev` (which never prerenders)
-    # and only break in a real `next build`/`next start`.
+    # `page.tsx`, `journal/page.tsx`, và `prediction/page.tsx` đều khai báo
+    # `export const dynamic = "force-dynamic"` — thêm vào ở Milestone 3 Bước 2 sau khi
+    # `next build` âm thầm dựng sẵn các trang này thành HTML *tĩnh* (vì chúng không gọi
+    # API nào báo hiệu "cần render động" như cookies()/headers(), nên Next đoán mặc định
+    # là tĩnh) và đưa ra 1 bản dữ liệu đông cứng mãi mãi, đúng như DB lúc build.
+    # Bất kỳ trang Server Component nào sau này đọc DB trực tiếp đều cần khai báo
+    # export này, nếu không sẽ chạy đúng khi `next dev` (không bao giờ dựng sẵn tĩnh)
+    # nhưng lại lỗi khi chạy `next build`/`next start` thật.
   /components
-    /layout                    # Nav.tsx — top nav bar, active-link highlighting
-    /spinner                   # Lucky-wheel UI, cascades skill -> part reveal
-    /journal                   # Note editor + tag input + note list
-    /prediction                # Prediction cards, rounding-mode toggle, ratio sliders, frequency chart,
-                                # Cambridge tracker (add/edit/delete + recent/"view all"), composed by
-                                # PredictionPageClient.tsx (client component fed by /prediction/page.tsx's
-                                # Server Component data fetch)
-    /theme                     # ThemeProvider.tsx (context + CSS-var application), ThemePicker.tsx
+    /layout                    # Nav.tsx — thanh điều hướng trên cùng, tô sáng link đang active
+    /spinner                   # UI vòng quay may mắn, hiện lần lượt kỹ năng rồi tới part
+    /journal                   # Ô soạn ghi chú + nhập tag + danh sách ghi chú
+    /prediction                # Thẻ dự đoán, nút chuyển cách làm tròn, thanh trượt tỉ lệ, biểu đồ tần suất,
+                                # theo dõi Cambridge (thêm/sửa/xóa + gần đây/"xem tất cả"), ghép lại trong
+                                # PredictionPageClient.tsx (component client, nhận dữ liệu từ Server Component
+                                # của /prediction/page.tsx)
+    /theme                     # ThemeProvider.tsx (context + áp CSS-var), ThemePicker.tsx
   /lib
-    theme.ts                   # THEMES + computeThemeRoles() — see section 9
+    theme.ts                   # THEMES + computeThemeRoles() — xem mục 9
     /engine
-      weightedRandom.ts        # Formula 1: pick from a weighted pool
-      weeklyConstraint.ts      # Formula 2: weekly-minimum override for the 4-skill pool
-      bandPrediction.ts        # Formula 3: Cambridge avg + frequency nudge, per skill
-      ieltsRounding.ts         # Official IELTS overall-band rounding rule
-      countSoftReset.ts        # Safeguard: rescale counts when max(count) crosses threshold
+      weightedRandom.ts        # Công thức 1: chọn ngẫu nhiên có trọng số từ 1 pool
+      weeklyConstraint.ts      # Công thức 2: quy tắc bắt buộc hàng tuần cho pool 4 kỹ năng
+      bandPrediction.ts        # Công thức 3: trung bình Cambridge + điều chỉnh theo tần suất, từng kỹ năng
+      ieltsRounding.ts         # Quy tắc làm tròn Band tổng chính thức của IELTS
+      countSoftReset.ts        # Cơ chế an toàn: giảm bớt bộ đếm khi count lớn nhất vượt ngưỡng
     /db
-      schema.ts                # Drizzle table definitions (source of truth for the DB shape)
-      client.ts                # better-sqlite3 + drizzle client singleton
-      seed.ts                  # exports seedDatabase(db) — takes any Drizzle db instance, so both seedCli.ts
-                                # (the real ./dev.db) and the e2e test setup (a disposable ./e2e-test.db) seed
-                                # identically without duplicating the skill/part/config data
-      seedCli.ts                # `npm run db:seed` entry point — calls seedDatabase(the real db singleton)
+      schema.ts                # Định nghĩa bảng Drizzle (nguồn thông tin gốc cho cấu trúc DB)
+      client.ts                # Client dùng chung 1 instance của better-sqlite3 + drizzle
+      seed.ts                  # export hàm seedDatabase(db) — nhận bất kỳ instance db Drizzle nào, nên cả seedCli.ts
+                                # (dùng cho ./dev.db thật) lẫn phần setup test e2e (dùng ./e2e-test.db dùng-rồi-bỏ)
+                                # đều seed dữ liệu kỹ năng/part/config giống hệt nhau, không phải viết lặp lại
+      seedCli.ts                # điểm vào của `npm run db:seed` — gọi seedDatabase(instance db thật)
     /types
-      index.ts                 # Shared TS types (Skill, SkillPart, RollResult, etc.)
+      index.ts                 # Các type TS dùng chung (Skill, SkillPart, RollResult, v.v.)
   /tests
-    setup.ts                   # RTL cleanup + jest-dom matchers, loaded only by the "component" vitest project
-    /unit                      # Vitest "unit" project (node env): one file per lib/*.ts pure-function module
-    /component                 # Vitest "component" project (jsdom env): RTL tests per interactive component
-    /e2e                       # Playwright specs + testDbPath.ts (shared const) + setupDb.ts (wipe/migrate/seed
-                                # the disposable e2e DB, chained into playwright.config.ts's webServer command)
+    setup.ts                   # dọn dẹp RTL + jest-dom matchers, chỉ dùng cho project "component" của vitest
+    /unit                      # project "unit" của Vitest (môi trường node): mỗi file lib/*.ts là 1 file test riêng
+    /component                 # project "component" của Vitest (môi trường jsdom): test RTL cho từng component tương tác
+    /e2e                       # file test Playwright + testDbPath.ts (hằng số dùng chung) + setupDb.ts (xóa/migrate/seed
+                                # DB e2e dùng-rồi-bỏ, nối vào lệnh webServer trong playwright.config.ts)
 playwright.config.ts
 document.txt
 PROJECT_CONTEXT.md
 CLAUDE.md
-TESTING_GUIDE.md               # how to run/extend the test suite, environment gotchas
-USER_GUIDE.md                  # end-user (Vietnamese) guide to the 4 pages
+TESTING_GUIDE.md               # cách chạy/mở rộng bộ test, các bẫy về môi trường
+USER_GUIDE.md                  # hướng dẫn sử dụng (tiếng Việt) cho người dùng cuối, về 4 trang chính
 package.json
 tsconfig.json
 ```
 
 ---
 
-## 4. Database schema (Drizzle ORM / SQLite)
+## 4. Schema database (Drizzle ORM / SQLite)
 
-Defined in `src/lib/db/schema.ts` (this is the actual source of truth — the block below mirrors it):
+Định nghĩa trong `src/lib/db/schema.ts` (đây mới là nguồn gốc thật sự — bảng dưới đây chỉ là mô tả lại):
 
 ```ts
-skills               (id, code unique, name, occurrenceCount default 0, lastAppearedAt nullable)
-skillParts           (id, skillId -> skills.id, code unique, name, baseRatio default 0.5,
-                       occurrenceCount default 0, lastAppearedAt nullable)
-rollSessions         (id, rolledAt default now())
+skills               (id, code duy nhất, name, occurrenceCount mặc định 0, lastAppearedAt có thể null)
+skillParts           (id, skillId -> skills.id, code duy nhất, name, baseRatio mặc định 0.5,
+                       occurrenceCount mặc định 0, lastAppearedAt có thể null,
+                       questionTypeRollCount mặc định 0 [số lần random dạng bài khi part này được
+                       chọn — xem mục 5.7])
+questionTypes        (id, skillId -> skills.id, code duy nhất, name, baseRatio mặc định 1.0,
+                       occurrenceCount mặc định 0, lastAppearedAt có thể null)
+                       // Pool dạng bài của 1 kỹ năng — dùng chung cho mọi part/block của kỹ năng đó,
+                       // không tách riêng theo block. Speaking không có dòng nào ở bảng này. Xem mục 5.7.
+rollSessions         (id, rolledAt mặc định là thời điểm hiện tại,
+                       source mặc định "roll" ["roll" = qua Vòng quay | "manual" = tự ghi luyện tập, mục 5.8])
 rollResults          (id, rollSessionId -> rollSessions.id, skillId -> skills.id,
                        skillPartId -> skillParts.id)
-                       // Exactly 2 rows per rollSession (one per chosen skill).
+                       // Đúng 2 dòng cho mỗi rollSession có source="roll" (1 dòng/kỹ năng được chọn);
+                       // đúng 1 dòng cho mỗi rollSession có source="manual".
+rollResultQuestionTypes (id, rollResultId -> rollResults.id, questionTypeId -> questionTypes.id)
+                       // 0..N dòng cho mỗi rollResult — N = questionTypeRollCount của part đó lúc quay
+                       // (0 hoặc 1 với 1 lượt "manual", vì tự ghi chỉ chọn tối đa 1 dạng bài).
 cambridgeTestResults (id, testDate, testName, readingBand, listeningBand, writingBand,
-                       speakingBand, overallBand [computed via ieltsRound() at write time],
-                       note nullable, createdAt default now())
-dailyNotes           (id, noteDate, tags [comma-separated, e.g. "Reading,Vocabulary"],
-                       content, createdAt default now(), updatedAt default now())
-config               (id, key unique, value [string; parsed to number/bool by the engine])
+                       speakingBand, overallBand [tự tính bằng ieltsRound() ngay lúc ghi],
+                       note có thể null, createdAt mặc định là thời điểm hiện tại)
+dailyNotes           (id, noteDate, tags [cách nhau bằng dấu phẩy, ví dụ "Reading,Vocabulary"],
+                       content, createdAt và updatedAt mặc định là thời điểm hiện tại)
+config               (id, key duy nhất, value [dạng chuỗi; engine tự parse thành số/bool])
+topics               (id, name, createdAt mặc định là thời điểm hiện tại)
+                       // Chủ đề tự thêm của user (nút "+" ở Cài đặt) — hiện chỉ có tên, CHƯA gắn vào
+                       // vòng quay. Sẽ mở rộng thêm trường sau. Xem mục 5.9.
 ```
 
-All primary keys are `text` (`crypto.randomUUID()`), all timestamp columns are stored as SQLite integers in `{ mode: "timestamp" }` (i.e. JS `Date` in/out through Drizzle). Foreign keys use `.references()`; relations for the query-builder API (`db.query.skills.findMany({ with: { parts: true } })` etc.) are declared alongside each table via Drizzle's `relations()` helper.
+Mọi khóa chính đều là `text` (sinh bằng `crypto.randomUUID()`), mọi cột thời gian đều lưu dạng số nguyên SQLite ở chế độ `{ mode: "timestamp" }` (tức là ra vào Drizzle dưới dạng `Date` của JS). Khóa ngoại dùng `.references()`; quan hệ để dùng query-builder (ví dụ `db.query.skills.findMany({ with: { parts: true } })`) được khai báo cùng mỗi bảng bằng helper `relations()` của Drizzle.
 
-**Migrations**: `npm run db:generate` (writes SQL to `drizzle/migrations/`) → `npm run db:migrate` (applies to `./dev.db`). `npm run db:studio` opens Drizzle Studio (a local DB browser/GUI) against `./dev.db`. `./dev.db` itself is gitignored — anyone restoring this repo runs `db:migrate` then `db:seed` to recreate it.
+**Migration**: `npm run db:generate` (sinh file SQL vào `drizzle/migrations/`) → `npm run db:migrate` (áp dụng vào `./dev.db`). `npm run db:studio` mở Drizzle Studio (giao diện xem DB local) trên `./dev.db`. File `./dev.db` không được git track — ai lấy lại repo này thì chạy `db:migrate` rồi `db:seed` để tạo lại từ đầu.
 
-**Seed data** (`src/lib/db/seed.ts`'s `seedDatabase()`, run against the real DB via `npm run db:seed` → `seedCli.ts`):
+**Dữ liệu khởi tạo (seed)** (hàm `seedDatabase()` trong `src/lib/db/seed.ts`, chạy trên DB thật qua `npm run db:seed` → `seedCli.ts`):
 
-| Skill code | Part code | Name | baseRatio |
+| Mã kỹ năng | Mã part | Tên | baseRatio |
 |---|---|---|---|
 | READING | READING_BLOCK_A | Block A (Passage 1+2) | 0.6 |
 | READING | READING_BLOCK_B | Block B (Passage 3) | 0.4 |
@@ -162,97 +181,99 @@ All primary keys are `text` (`crypto.randomUUID()`), all timestamp columns are s
 | SPEAKING | SPEAKING_BLOCK_A | Block A (Part 1+2) | 0.6 |
 | SPEAKING | SPEAKING_BLOCK_B | Block B (Part 3) | 0.4 |
 
-**Config defaults** (seeded into the `Config` table):
+**Dạng bài (question types)** — xem đầy đủ danh sách + tỉ lệ ở mục 5.7. Reading 10 dạng, Listening 7 dạng (`baseRatio` bằng nhau, `1.0`/dạng), Writing 7 dạng (4 dạng biểu đồ phổ biến `baseRatio 2.0`, 3 dạng hiếm hơn `baseRatio 1.0`), Speaking không có dòng nào.
 
-| key | default | meaning |
+**Config mặc định** (được seed vào bảng `Config`):
+
+| key | mặc định | ý nghĩa |
 |---|---|---|
-| `decay_exponent` | `1.0` | `k` in Formula 1 |
-| `weekly_threshold_days` | `7` | Formula 2 override threshold |
-| `frequency_adjustment_factor` | `0.05` | Formula 3 nudge slope |
-| `frequency_adjustment_cap` | `0.5` | Formula 3 max ± nudge |
-| `overall_prediction_rounding_mode` | `per_skill_rounded` | Formula 3: `per_skill_rounded` or `raw_average` — see section 5.4 |
-| `count_soft_reset_threshold` | `50` | Formula 1 safeguard threshold |
+| `decay_exponent` | `1.0` | `k` trong Công thức 1 |
+| `weekly_threshold_days` | `7` | ngưỡng để kích hoạt quy tắc bắt buộc của Công thức 2 |
+| `frequency_adjustment_factor` | `0.05` | độ dốc điều chỉnh theo tần suất trong Công thức 3 |
+| `frequency_adjustment_cap` | `0.5` | mức điều chỉnh ± tối đa trong Công thức 3 |
+| `overall_prediction_rounding_mode` | `per_skill_rounded` | cách tính Công thức 3: `per_skill_rounded` hoặc `raw_average` — xem mục 5.4 |
+| `count_soft_reset_threshold` | `50` | ngưỡng kích hoạt cơ chế an toàn của Công thức 1 |
 
 ---
 
-## 5. Core domain logic
+## 5. Logic tính toán cốt lõi
 
-### 5.1 Skill/Part decomposition
+### 5.1 Cách chia nhỏ Kỹ năng/Part
 
-- **Writing**: 2 tasks (Task 1, Task 2) — random 1 per session, equal prior (50/50).
-- **Speaking**: 2 blocks — Block A (Part 1+2), Block B (Part 3) — prior 60/40 (Block A favored; Part 3 is harder, appears less by default). User-adjustable via UI (`PATCH /api/skills/parts/:id/ratio`).
-- **Reading**: 2 blocks — Block A (Passage 1+2), Block B (Passage 3) — prior 60/40, same reasoning and adjustability as Speaking.
-- **Listening**: 2 blocks — Block A (Part 1+4), Block B (Part 2+3) — equal prior (50/50).
-- **4-skill pool**: every session picks exactly 2 of {Reading, Listening, Writing, Speaking}, no repeats within the same session, equal prior (1.0) modulated purely by occurrence count.
+- **Writing**: 2 task (Task 1, Task 2) — chọn ngẫu nhiên 1 trong buổi luyện, tỉ lệ ban đầu bằng nhau (50/50).
+- **Speaking**: 2 block — Block A (Part 1+2), Block B (Part 3) — tỉ lệ ban đầu 60/40 (ưu tiên Block A hơn; Part 3 khó hơn nên mặc định ra ít hơn). Người dùng chỉnh được qua UI (`PATCH /api/skills/parts/:id/ratio`).
+- **Reading**: 2 block — Block A (Passage 1+2), Block B (Passage 3) — tỉ lệ ban đầu 60/40, lý do và cách chỉnh giống Speaking.
+- **Listening**: 2 block — Block A (Part 1+4), Block B (Part 2+3) — tỉ lệ ban đầu bằng nhau (50/50).
+- **Pool 4 kỹ năng**: mỗi buổi luyện chọn đúng 2 trong 4 {Reading, Listening, Writing, Speaking}, không lặp lại trong cùng 1 buổi, tỉ lệ ban đầu bằng nhau (1.0), chỉ bị thay đổi theo số lần đã xuất hiện.
 
-### 5.2 Formula 1 — Weighted Random Engine
+### 5.2 Công thức 1 — Engine chọn ngẫu nhiên có trọng số
 
-Used for every pool above (the 4-skill pool, and each skill's 2-part pool).
+Dùng cho mọi pool ở trên (pool 4 kỹ năng, và pool 2 part của mỗi kỹ năng).
 
 ```
 w_i = baseRatio_i * (1 / (count_i + 1)) ^ k
 p_i = w_i / Σ_j w_j
 ```
 
-- `baseRatio_i` = `SkillPart.baseRatio` (or `1.0` for skills, which have no ratio field).
-- `count_i` = `occurrenceCount` at the time of the roll.
-- `k` = `Config.decay_exponent` (default `1.0`).
-- Selection: cumulative-sum roulette-wheel draw over `p_i` — pick a uniform random `r ∈ [0, Σw)`, walk the cumulative weights, return the first item whose cumulative weight ≥ `r`. This maps directly onto the spinner UI (slice size = `p_i`).
+- `baseRatio_i` = `SkillPart.baseRatio` (hoặc `1.0` với kỹ năng, vì kỹ năng không có trường ratio).
+- `count_i` = `occurrenceCount` tại thời điểm quay.
+- `k` = `Config.decay_exponent` (mặc định `1.0`).
+- Cách chọn: quay kiểu "vòng quay may mắn" cộng dồn theo `p_i` — chọn 1 số ngẫu nhiên đều `r ∈ [0, Σw)`, duyệt qua tổng dồn trọng số, trả về mục đầu tiên có tổng dồn ≥ `r`. Cách này ánh xạ thẳng vào UI vòng quay (kích thước lát cắt = `p_i`).
 
-**4-skill, pick-2, no-replacement procedure:**
-1. Compute Formula 2 (weekly override) first — see 5.3. This may already force 0, 1, or 2 skills.
-2. For any remaining slot(s): compute `p_i` via Formula 1 over the skills not yet chosen, draw, remove the drawn skill from the pool, recompute `p_i` over what's left (same counts — they are **not** incremented mid-draw), draw again if a second slot remains.
-3. Once both skills are finalized, for **each** chosen skill independently run Formula 1 over its own 2-part pool to pick the part/task.
-4. Increment `occurrenceCount` and set `lastAppearedAt = now()` for both chosen skills and both chosen parts (4 rows updated total). Write one `RollSession` + 2 `RollResult` rows.
-5. Run `countSoftReset.ts` (see 5.2.1) on the affected pools after incrementing.
+**Quy trình chọn 2 trong 4 kỹ năng, không lặp:**
+1. Tính Công thức 2 trước (quy tắc bắt buộc hàng tuần) — xem mục 5.3. Bước này có thể đã ép buộc chọn sẵn 0, 1, hoặc 2 kỹ năng.
+2. Với (các) suất còn lại: tính `p_i` theo Công thức 1 trên các kỹ năng chưa được chọn, quay, loại kỹ năng vừa quay ra khỏi pool, tính lại `p_i` trên phần còn lại (count vẫn giữ nguyên — **không** cộng thêm giữa các lần quay), quay tiếp nếu còn 1 suất nữa.
+3. Khi cả 2 kỹ năng đã chốt xong, với **từng** kỹ năng đã chọn, chạy Công thức 1 riêng trên pool 2 part của kỹ năng đó để chọn part/task.
+4. Tăng `occurrenceCount` và đặt `lastAppearedAt = thời điểm hiện tại` cho cả 2 kỹ năng và 2 part đã chọn (tổng cộng 4 dòng được cập nhật). Ghi 1 dòng `RollSession` + 2 dòng `RollResult`.
+5. Chạy `countSoftReset.ts` (xem mục 5.2.1) trên các pool liên quan sau khi đã tăng count.
 
-**5.2.1 Count soft-reset safeguard**
+**5.2.1 Cơ chế an toàn soft-reset bộ đếm**
 
-After incrementing, for each pool (the 4-skill pool; each skill's part-pool), if `max(occurrenceCount)` in that pool ≥ `Config.count_soft_reset_threshold` (default 50): replace every `occurrenceCount` in that pool with `floor(occurrenceCount / 2)`. This keeps the numbers bounded over the app's lifetime while preserving relative fairness ordering. It does **not** touch `RollResult` history — that log is permanent and unaffected.
+Sau khi tăng count, với mỗi pool (pool 4 kỹ năng; pool part của từng kỹ năng), nếu `max(occurrenceCount)` trong pool đó ≥ `Config.count_soft_reset_threshold` (mặc định 50): thay mọi `occurrenceCount` trong pool đó bằng `floor(occurrenceCount / 2)`. Cách này giữ cho các con số không tăng vô hạn theo thời gian dùng app, mà vẫn giữ nguyên thứ tự công bằng tương đối. Cơ chế này **không** đụng vào lịch sử `RollResult` — log đó vĩnh viễn không đổi.
 
-**Evaluation (documented intentionally, not to be "fixed" later without discussion):**
-- Never reaches exactly 0% probability; self-normalizing; deterministic and simple to unit test.
-- By design, ignores recency entirely — only raw counts matter for the probability shape. Recency is handled solely by Formula 2.
+**Đánh giá (ghi rõ có chủ đích, không phải để "sửa lại" sau này mà không bàn trước):**
+- Không bao giờ xác suất về đúng 0%; tự chuẩn hóa; xác định rõ ràng, dễ viết test đơn vị.
+- Cố tình bỏ qua yếu tố thời gian gần đây — chỉ số lần thô mới quyết định hình dạng xác suất. Yếu tố thời gian gần đây chỉ được xử lý riêng ở Công thức 2.
 
-### 5.3 Formula 2 — Weekly-minimum override (skill pool only)
-
-```
-overdue_i = (today - Skill.lastAppearedAt) >= Config.weekly_threshold_days days   // treat null lastAppearedAt as "always overdue"
-```
-
-- If ≥1 skill is overdue: sort overdue skills by days-since-last-appearance descending, force-select up to 2 of the most overdue into this session.
-- Any remaining slot (0, 1, or 2 needed) is filled by the normal Formula 1 draw among non-forced skills, without replacement.
-- This constraint applies **only** to the 4-skill pool, not to parts/blocks (parts have no minimum-frequency guarantee in v1 — see `document.txt`).
-
-### 5.4 Formula 3 — Band Prediction (v1)
-
-Per skill, independently:
+### 5.3 Công thức 2 — Quy tắc bắt buộc hàng tuần (chỉ áp dụng cho pool kỹ năng)
 
 ```
-cambridgeAvg_skill     = mean(<skill>Band across the most recent 30 CambridgeTestResult rows, or fewer if <30 exist)
-practiceCount30d_skill = count of RollResult rows for this skill in the last 30 days
-avgPracticeCount30d    = mean(practiceCount30d across all 4 skills)
-frequencyDelta_skill   = clamp(-cap, +cap, (practiceCount30d_skill - avgPracticeCount30d) * factor)
-rawPredictedBand_skill = clamp(0, 9, cambridgeAvg_skill + frequencyDelta_skill)
-predictedBand_skill    = rawPredictedBand_skill rounded to nearest 0.5, for display
+overdue_i = (hôm nay - Skill.lastAppearedAt) >= Config.weekly_threshold_days ngày   // lastAppearedAt là null thì coi như "luôn quá hạn"
 ```
 
-Where `factor = Config.frequency_adjustment_factor` (default `0.05`) and `cap = Config.frequency_adjustment_cap` (default `0.5`).
+- Nếu có ≥1 kỹ năng quá hạn: sắp xếp các kỹ năng quá hạn theo số ngày chưa xuất hiện giảm dần, ép chọn tối đa 2 kỹ năng quá hạn nhất vào buổi luyện này.
+- Suất còn lại (cần 0, 1, hoặc 2) được lấp bằng cách quay bình thường theo Công thức 1 trong số các kỹ năng không bị ép chọn, không lặp lại.
+- Ràng buộc này **chỉ** áp dụng cho pool 4 kỹ năng, không áp dụng cho part/block (part chưa có đảm bảo tần suất tối thiểu ở bản v1 — xem `document.txt`).
 
-If a skill has **zero** `CambridgeTestResult` rows, both `predictedBand_skill` and `rawPredictedBand_skill` are `null` and the UI shows "not enough data yet" instead of a fabricated number.
+### 5.4 Công thức 3 — Dự đoán Band điểm (v1)
 
-**Overall predicted band — two user-configurable modes** (`Config.overall_prediction_rounding_mode`, default `per_skill_rounded`):
+Tính riêng cho từng kỹ năng:
 
 ```
-per_skill_rounded (default): overallPredicted = ieltsOfficialRound( mean(predictedBand_reading, predictedBand_listening, predictedBand_writing, predictedBand_speaking) )
-raw_average:                 overallPredicted = ieltsOfficialRound( mean(rawPredictedBand_reading, rawPredictedBand_listening, rawPredictedBand_writing, rawPredictedBand_speaking) )
+cambridgeAvg_skill     = trung bình điểm <kỹ năng> của 30 kết quả thi thử Cambridge gần nhất (ít hơn nếu chưa đủ 30)
+practiceCount30d_skill = số lần luyện kỹ năng này trong 30 ngày gần đây
+avgPracticeCount30d    = trung bình practiceCount30d của cả 4 kỹ năng
+frequencyDelta_skill   = giới hạn trong [-cap, +cap] của (practiceCount30d_skill - avgPracticeCount30d) * factor
+rawPredictedBand_skill = giới hạn trong [0, 9] của (cambridgeAvg_skill + frequencyDelta_skill)
+predictedBand_skill    = rawPredictedBand_skill được làm tròn tới 0.5 gần nhất, để hiển thị
 ```
 
-(only computed once all 4 per-skill predictions are non-null, in either mode).
+Trong đó `factor = Config.frequency_adjustment_factor` (mặc định `0.05`) và `cap = Config.frequency_adjustment_cap` (mặc định `0.5`).
 
-This was a genuine design ambiguity caught during Milestone 1 Step 2's review (round each skill first, or average full precision and round once?) — resolved by the user as a toggle rather than a fixed choice, since both are defensible: `per_skill_rounded` mirrors how real IELTS certificates work (a skill's reported band is always already a discrete 0.5-increment value before the overall is computed from it), while `raw_average` avoids compounding two separate rounding steps. **Milestone 2 (Frontend/UI Agent) must expose this as a toggle in the Prediction Dashboard** — see `CLAUDE.md`'s Milestone 2 entry and `document.txt`.
+Nếu 1 kỹ năng **chưa có** kết quả thi thử Cambridge nào, cả `predictedBand_skill` và `rawPredictedBand_skill` đều là `null`, và UI hiện "chưa đủ dữ liệu" thay vì bịa ra 1 con số.
 
-### 5.5 IELTS official rounding rule (`ieltsRounding.ts`)
+**Band tổng dự đoán — 2 cách tính, người dùng tự chọn** (qua `Config.overall_prediction_rounding_mode`, mặc định `per_skill_rounded`):
+
+```
+per_skill_rounded (mặc định): overallPredicted = ieltsOfficialRound( trung bình(predictedBand_reading, predictedBand_listening, predictedBand_writing, predictedBand_speaking) )
+raw_average:                  overallPredicted = ieltsOfficialRound( trung bình(rawPredictedBand_reading, rawPredictedBand_listening, rawPredictedBand_writing, rawPredictedBand_speaking) )
+```
+
+(chỉ tính khi cả 4 dự đoán của từng kỹ năng đều khác null, ở bất kỳ cách nào).
+
+Đây là 1 điểm mơ hồ thật sự trong thiết kế, phát hiện ra trong lúc review Milestone 1 Bước 2 (làm tròn từng kỹ năng trước, hay lấy trung bình chính xác rồi làm tròn 1 lần?) — được xử lý bằng cách cho user chọn qua công tắc bật/tắt thay vì chốt cứng 1 cách, vì cả 2 cách đều có lý riêng: `per_skill_rounded` giống cách chứng chỉ IELTS thật hoạt động (điểm từng kỹ năng luôn đã là 1 giá trị rời rạc, bước nhảy 0.5, trước khi tính điểm tổng từ đó), còn `raw_average` tránh việc làm tròn 2 lần chồng lên nhau. **Milestone 2 (Frontend/UI) phải đưa cái này thành 1 công tắc trên Bảng dự đoán** — xem mục Milestone 2 trong `CLAUDE.md` và trong `document.txt`.
+
+### 5.5 Quy tắc làm tròn chính thức của IELTS (`ieltsRounding.ts`)
 
 ```ts
 function ieltsRound(mean: number): number {
@@ -264,78 +285,133 @@ function ieltsRound(mean: number): number {
 }
 ```
 
-Used both for `CambridgeTestResult.overallBand` (computed from the 4 entered skill bands at write time) and for `overallPredicted` in Formula 3.
+Dùng cho cả `CambridgeTestResult.overallBand` (tính từ 4 điểm kỹ năng vừa nhập, ngay lúc ghi) và cho `overallPredicted` trong Công thức 3.
 
-### 5.6 Deferred: Band Prediction v2 (OLS Linear Regression)
+### 5.6 Chưa làm: Dự đoán Band v2 (Hồi quy tuyến tính OLS)
 
-Once enough `CambridgeTestResult` history exists per skill, replace the flat 30-test mean with an **independent ordinary-least-squares linear regression per skill** (`band ~ testDate` or `band ~ testIndex`), and use the regression's projected next value instead of (or blended with) the historical mean. This is a drop-in replacement for `cambridgeAvg_skill` in Formula 3 — the frequency-nudge layer stays the same. Logged in `document.txt`; not built until Milestone 4+.
+Khi đã có đủ lịch sử `CambridgeTestResult` cho từng kỹ năng, sẽ thay cách tính trung bình phẳng 30 bài gần nhất bằng **hồi quy tuyến tính bình phương tối thiểu (OLS) riêng cho từng kỹ năng** (`band ~ testDate` hoặc `band ~ testIndex`), và dùng giá trị dự đoán từ hồi quy đó thay cho (hoặc kết hợp với) trung bình lịch sử. Đây sẽ là 1 bản thay thế trực tiếp cho `cambridgeAvg_skill` trong Công thức 3 — phần điều chỉnh theo tần suất giữ nguyên không đổi. Đã ghi vào `document.txt`; chưa làm cho tới Milestone 4 trở lên.
+
+### 5.7 Dạng bài (question types) — Milestone 5
+
+Mỗi kỹ năng (trừ Speaking) có 1 pool "dạng bài" riêng, dùng chung cho mọi block/part của kỹ năng đó (không tách theo block):
+
+- **Reading** (10 dạng, `baseRatio 1.0`/dạng): Matching Headings, True-False-Not Given, Yes-No-Not Given, Multiple Choice (One Answer), Matching Information, Matching Features, Multiple Choice (Many Answers), Map/Diagram Label, Gap Filling, Other Types.
+- **Listening** (7 dạng, `baseRatio 1.0`/dạng): Gap Filling, Map/Diagram Label, Multiple Choice (One Answer), Matching Information, Multiple Choice (Many Answers), Matching, Other Types.
+- **Writing** (7 dạng, tỉ lệ lệch): Line Graph / Bar Chart / Pie Chart / Table (`baseRatio 2.0` — phổ biến hơn), Mixed Graph / Map / Process (`baseRatio 1.0` — hiếm hơn). **Chỉ áp dụng khi part được chọn là Task 1** — Task 2 luôn là bài luận, không có "dạng biểu đồ" (`WRITING_TASK2.questionTypeRollCount = 0`).
+- **Speaking**: không có dạng bài, không có dòng nào trong `questionTypes`.
+
+**Số lần random dạng bài mỗi khi 1 part được chọn** = `SkillPart.questionTypeRollCount`, khớp đúng số passage/part con gộp trong block đó (không phải 1 con số cố định cho mọi block):
+
+| Part | questionTypeRollCount | Vì sao |
+|---|---|---|
+| READING_BLOCK_A | 2 | Gồm Passage 1+2 |
+| READING_BLOCK_B | 1 | Chỉ có Passage 3 |
+| LISTENING_BLOCK_A | 2 | Gồm Part 1+4 |
+| LISTENING_BLOCK_B | 2 | Gồm Part 2+3 |
+| WRITING_TASK1 | 1 | 1 biểu đồ/bài |
+| WRITING_TASK2 | 0 | Bài luận, không có dạng |
+| SPEAKING_BLOCK_A / B | 0 | Speaking không có dạng bài |
+
+**Cách random**: dùng lại đúng Công thức 1 (`pickWeightedIndependent` trong `weightedRandom.ts`) trên pool `questionTypes` của kỹ năng đó, chạy N lần **độc lập** (N = `questionTypeRollCount`) — **cho phép trùng** giữa các lần (ví dụ 2 passage của Reading Block A có thể ra cùng 1 dạng câu hỏi, giống thực tế đề thi). Không tăng count giữa các lần random trong cùng 1 lượt quay (giống cách pool 4 kỹ năng không tăng count giữa 2 lượt chọn). Sau khi chốt, mỗi dạng bài được chọn cộng `occurrenceCount +1`/`lastAppearedAt = now`, rồi áp `countSoftReset.ts` cho pool dạng bài của kỹ năng đó (ngưỡng dùng chung `Config.count_soft_reset_threshold`).
+
+Chưa có UI chỉnh tỉ lệ dạng bài ở milestone này — giống các hằng số engine khác, chỉ sửa được qua API/DB trực tiếp.
+
+### 5.8 Cộng luyện thủ công (không qua vòng quay) — Milestone 5
+
+`POST /api/practice`: cho lúc user tự học 1 kỹ năng mà không dùng Vòng quay. User tự chọn Kỹ năng + Part + (Dạng bài, nếu part đó có `questionTypeRollCount > 0`) — không random. Ghi vào đúng `rollSessions`/`rollResults`/`rollResultQuestionTypes` như 1 lượt quay thật, chỉ khác `rollSessions.source = "manual"` thay vì `"roll"`. Nhờ dùng chung bảng, lượt này tự động:
+- Tính vào `occurrenceCount`/`lastAppearedAt` của Formula 1 (công bằng lâu dài) và Formula 2 (quy tắc hàng tuần) y hệt 1 lượt quay thật.
+- Tính vào `practiceCount30d` của Formula 3 (điều chỉnh tần suất trong Bảng dự đoán) — không cần sửa `getPredictionData()`, vì hàm đó vốn đã đếm mọi dòng `rollResults` trong 30 ngày, không lọc theo `source`.
+- Hiện trong `GET /api/history` cùng các lượt quay thật (phân biệt bằng `source`, UI gắn nhãn "Tự học").
+
+### 5.9 Xóa lượt quay (hoàn tác) — Milestone 5
+
+`DELETE /api/history/:sessionId` — xóa 1 `rollSession` (cả loại `"roll"` lẫn `"manual"`) và hoàn tác đúng những gì lượt đó đã cộng vào bộ đếm:
+
+- Trừ lại `occurrenceCount` của skill/part/dạng bài liên quan (không cho xuống dưới 0).
+- Tính lại `lastAppearedAt` bằng cách tra lịch sử còn lại (lượt gần nhất **sau khi đã xóa** lượt này) — không chỉ để nguyên giá trị cũ.
+- Xóa `rollResultQuestionTypes` → `rollResults` → `rollSessions` (thủ công trong 1 transaction, không dùng `ON DELETE CASCADE` — nhất quán với cách các bảng khác trong schema đang quản lý xóa thủ công).
+
+**Giới hạn đã biết (ghi chủ đích, không phải bug):** nếu `countSoftReset` (mục 5.2.1) đã chạy sau lượt quay bị xóa, việc trừ lại chỉ là "cố gắng tốt nhất" trên số đã bị giảm nửa — không thể tái tạo chính xác 100%. Chỉ ảnh hưởng sau 50+ lần xuất hiện của cùng 1 pool nên chấp nhận được, không chặn tính năng.
+
+### 5.10 Trang thống kê theo kỹ năng — Milestone 5
+
+`GET /api/stats/:skillCode` phục vụ trang `/stats/[skillCode]`: trả về `practiceLog` (mọi lần luyện kỹ năng đó — cả "roll" lẫn "manual" — kèm ngày và part) và `questionTypeStats` (số lần + % theo từng dạng bài; `null` với Speaking vì không có dạng bài). Xem `SkillStatsResponse` trong `src/lib/types/index.ts`.
+
+### 5.11 Chủ đề (topics) — Milestone 5
+
+`topics` (id, name, createdAt) — CRUD cơ bản qua `GET/POST /api/topics` và `DELETE /api/topics/:id`. Cố tình tối giản: chỉ có tên, **chưa** gắn vào vòng quay (không random chủ đề, không liên kết với skill/roll). Sẽ mở rộng thêm trường và (có thể) tích hợp vào vòng quay ở milestone sau, theo yêu cầu cụ thể hơn từ user.
 
 ---
 
-## 6. API contracts
+## 6. Hợp đồng API
 
-| Method | Path | Body / Query | Response |
+| Method | Đường dẫn | Body / Query | Response |
 |---|---|---|---|
-| POST | `/api/roll` | — | `{ sessionId, results: [{ skill, part }, { skill, part }] }` |
-| GET | `/api/skills` | — | `[{ id, code, name, occurrenceCount, lastAppearedAt, parts: [{ id, code, name, baseRatio, occurrenceCount, lastAppearedAt }] }]` |
-| PATCH | `/api/skills/parts/:id/ratio` | `{ baseRatio: number }` (0–1; sibling part auto-adjusts to `1 - baseRatio`) | `SkillPart[]` — both parts of the skill (the one updated and its sibling), so the UI can refresh both slider positions from one response without a second fetch |
-| GET | `/api/history` | `?limit=&offset=` | `{ total, items: [{ id, rolledAt, results: [{skill, part}, ...] }] }` |
-| GET | `/api/notes` | `?date=` optional | `[{ id, noteDate, tags, content }]` |
-| POST | `/api/notes` | `{ noteDate, tags, content }` | created note |
-| PATCH/DELETE | `/api/notes/:id` | `{ tags?, content? }` | updated/deleted note |
-| GET | `/api/cambridge` | `?limit=5` (default, recent) or `?all=true` | `[{ id, testDate, testName, readingBand, listeningBand, writingBand, speakingBand, overallBand, note }]` |
-| POST | `/api/cambridge` | `{ testDate, testName, readingBand, listeningBand, writingBand, speakingBand, note? }` | created row (`overallBand` computed server-side) |
-| PATCH/DELETE | `/api/cambridge/:id` | fields to update | updated/deleted row |
-| GET | `/api/prediction` | — | `{ perSkill: { reading, listening, writing, speaking }, overall, sampleSizePerSkill, practiceCount30dPerSkill, hasEnoughData }` (`practiceCount30dPerSkill` added in Milestone 2 Step 5 to back the frequency chart — same counts already used internally for Formula 3's frequency nudge) |
-| GET/PATCH | `/api/config` | PATCH body: `{ key, value }` | current config map |
+| POST | `/api/roll` | — | `{ sessionId, results: [{ skill, part, questionTypes: [{id,code,name}] }, ...] }` |
+| GET | `/api/skills` | — | `[{ id, code, name, occurrenceCount, lastAppearedAt, parts: [{ id, code, name, baseRatio, occurrenceCount, lastAppearedAt, questionTypeRollCount }], questionTypes: [{ id, code, name, baseRatio, occurrenceCount, lastAppearedAt }] }]` |
+| PATCH | `/api/skills/parts/:id/ratio` | `{ baseRatio: number }` (0–1; part còn lại tự chỉnh thành `1 - baseRatio`) | `SkillPart[]` — cả 2 part của kỹ năng (part vừa sửa và part còn lại), để UI cập nhật cả 2 thanh trượt từ 1 response, khỏi phải gọi lần 2 |
+| GET | `/api/history` | `?limit=&offset=` | `{ total, items: [{ id, rolledAt, source, results: [{skill, part, questionTypes}, ...] }] }` |
+| DELETE | `/api/history/:id` | — | `{ ok: true }` — xóa lượt quay/lượt tự học và hoàn tác bộ đếm (mục 5.9); 404 nếu không tìm thấy |
+| POST | `/api/practice` | `{ skillCode, partCode, questionTypeCode? }` | `{ sessionId, source: "manual", skill, part, questionType }` — cộng luyện thủ công (mục 5.8) |
+| GET | `/api/stats/:skillCode` | — | `{ skill, practiceLog: [...], questionTypeStats: [...] \| null }` (mục 5.10) |
+| GET | `/api/notes` | `?date=` (tùy chọn) | `[{ id, noteDate, tags, content }]` |
+| POST | `/api/notes` | `{ noteDate, tags, content }` | ghi chú vừa tạo |
+| PATCH/DELETE | `/api/notes/:id` | `{ tags?, content? }` | ghi chú đã sửa/xóa |
+| GET | `/api/cambridge` | `?limit=5` (mặc định, gần đây) hoặc `?all=true` | `[{ id, testDate, testName, readingBand, listeningBand, writingBand, speakingBand, overallBand, note }]` |
+| POST | `/api/cambridge` | `{ testDate, testName, readingBand, listeningBand, writingBand, speakingBand, note? }` | dòng vừa tạo (`overallBand` tính ở server) |
+| PATCH/DELETE | `/api/cambridge/:id` | các trường cần sửa | dòng đã sửa/xóa |
+| GET | `/api/prediction` | — | `{ perSkill: { reading, listening, writing, speaking }, overall, sampleSizePerSkill, practiceCount30dPerSkill, hasEnoughData }` (`practiceCount30dPerSkill` thêm ở Milestone 2 Bước 5 để phục vụ biểu đồ tần suất — dùng lại chính số liệu nội bộ đã có cho phần điều chỉnh tần suất của Công thức 3) |
+| GET/PATCH | `/api/config` | body PATCH: `{ key, value }` | bảng config hiện tại |
+| GET/POST | `/api/topics` | POST body: `{ name }` | danh sách/tạo chủ đề (mục 5.11) |
+| DELETE | `/api/topics/:id` | — | `{ ok: true }` |
 
 ---
 
-## 7. Testing strategy (summary — full detail in [`TESTING_GUIDE.md`](./TESTING_GUIDE.md))
+## 7. Chiến lược test (tóm tắt — chi tiết đầy đủ ở [`TESTING_GUIDE.md`](./TESTING_GUIDE.md))
 
-`vitest.config.mts` defines two Vitest **projects** (the modern replacement for a separate workspace file / the old `environmentMatchGlobs`), each with its own environment — `npm run test` runs both:
+`vitest.config.mts` khai báo 2 **project** Vitest (cách hiện đại thay cho file workspace riêng / `environmentMatchGlobs` cũ), mỗi cái có môi trường riêng — `npm run test` chạy cả 2:
 
-- **`unit`** (node env, `src/tests/unit/**/*.test.ts`): every function in `lib/engine/*` plus other pure modules (`tagUtils.ts`, `spinnerAnimation.ts`) gets a dedicated test file. Required edge cases: all-counts-zero (equal probabilities), one dominant count (approaches but never 0), overdue-forcing (0/1/2 skills overdue, 3+ simultaneously overdue), soft-reset trigger, <30 and 0 Cambridge rows, clamp boundaries in Formula 3, all `ieltsRound` boundary values (.24/.25/.74/.75).
-- **`component`** (jsdom env via React Testing Library, `src/tests/component/**/*.test.tsx`, setup in `src/tests/setup.ts`): spinner cascade renders both server-chosen picks (the cycling animation itself is mocked here — its timing/landing-index correctness is the `unit` project's job, not this one's); journal tag extraction + filter-chip interaction; Cambridge tracker's 5-most-recent vs "Xem tất cả" toggle; prediction rounding-mode toggle states. `src/tests/component/mockFetch.ts` is a small shared helper for stubbing sequential `fetch` responses — not a test file itself.
-- **E2E (Playwright)**, `playwright.config.ts` + `src/tests/e2e/*.spec.ts`: full roll (`roll.spec.ts`), journal create/filter/edit/delete (`journal.spec.ts`), Cambridge add → prediction dashboard updates (`cambridge-prediction.spec.ts`). Runs against a **production build** (`next build && next start`), not `next dev` — `next dev` refuses a 2nd instance for the same project directory even on a different port (Next 16's dev-server singleton lock), which collides with a manually-run `npm run dev` during this project's own development. The webServer command chain is `tsx src/tests/e2e/setupDb.ts && next build && next start -p 3100`: `setupDb.ts` wipes, migrates, and seeds a disposable `./e2e-test.db` (via `DATABASE_PATH`, same mechanism `client.ts` already supported) *before* the build step, so the real `./dev.db` is never touched and every e2e run starts from identical seeded state. (An earlier attempt used Playwright's `globalSetup` hook for this instead — its ordering relative to `webServer` startup was not the "always finishes first" guarantee it reads as, and left the test DB with zero tables at runtime; chaining the setup into the same shell command via `&&` removed the ambiguity.) Run via `npm run test:e2e`.
-
----
-
-## 8. Roadmap / deferred features
-
-See [`document.txt`](./document.txt) for the live, append-only list (auth, cloud deploy, Band Prediction v2, part-level weekly minimum, etc.).
+- **`unit`** (môi trường node, `src/tests/unit/**/*.test.ts`): mỗi hàm trong `lib/engine/*` và các module thuần túy khác (`tagUtils.ts`, `spinnerAnimation.ts`) đều có 1 file test riêng. Các trường hợp biên bắt buộc phải test: tất cả count bằng 0 (xác suất bằng nhau), 1 count vượt trội (tiệm cận nhưng không bao giờ về 0), ép chọn do quá hạn (0/1/2 kỹ năng quá hạn, 3+ kỹ năng quá hạn cùng lúc), kích hoạt soft-reset, ít hơn 30 và 0 dòng Cambridge, ranh giới clamp trong Công thức 3, mọi giá trị ranh giới của `ieltsRound` (.24/.25/.74/.75).
+- **`component`** (môi trường jsdom qua React Testing Library, `src/tests/component/**/*.test.tsx`, setup ở `src/tests/setup.ts`): vòng quay hiện đúng cả 2 lựa chọn do server chọn (bản thân hiệu ứng quay được giả lập ở đây — độ đúng của thời gian/vị trí dừng là việc của project `unit`, không phải chỗ này); trích tag trong nhật ký + tương tác lọc theo tag; nút chuyển "5 gần nhất" và "Xem tất cả" của theo dõi Cambridge; các trạng thái của công tắc chuyển cách làm tròn. `src/tests/component/mockFetch.ts` là 1 hàm hỗ trợ dùng chung để giả lập chuỗi response `fetch` — bản thân nó không phải file test.
+- **E2E (Playwright)**, `playwright.config.ts` + `src/tests/e2e/*.spec.ts`: quay đầy đủ 1 lượt (`roll.spec.ts`), tạo/lọc/sửa/xóa nhật ký (`journal.spec.ts`), thêm điểm Cambridge → bảng dự đoán cập nhật (`cambridge-prediction.spec.ts`). Chạy trên **bản build production** (`next build && next start`), không phải `next dev` — Next 16 không cho chạy instance `next dev` thứ 2 cho cùng 1 thư mục dự án dù khác cổng (Next 16 khóa dev-server chỉ cho 1 instance), sẽ xung đột với `npm run dev` đang chạy tay trong lúc phát triển. Chuỗi lệnh webServer là `tsx src/tests/e2e/setupDb.ts && next build && next start -p 3100`: `setupDb.ts` xóa, migrate, và seed 1 file `./e2e-test.db` dùng-rồi-bỏ (qua `DATABASE_PATH`, cơ chế mà `client.ts` đã hỗ trợ sẵn) *trước khi* build, nên file `./dev.db` thật không bao giờ bị đụng tới, và mỗi lần chạy e2e đều bắt đầu từ đúng 1 trạng thái dữ liệu giống hệt nhau. (Có thử cách khác trước đó, dùng hook `globalSetup` của Playwright — nhưng thứ tự chạy so với lúc webServer khởi động không đảm bảo "luôn chạy xong trước" như tưởng, khiến DB test có 0 bảng lúc chạy. Nối setup vào chung 1 lệnh shell bằng `&&` giải quyết dứt điểm vấn đề này.) Chạy bằng `npm run test:e2e`.
 
 ---
 
-## 9. Theme system
+## 8. Lộ trình / tính năng để sau
 
-Source palettes live in `src/theme/*.png` (6 named light→dark ramps + 12 Color Hunt 4-color exports — filenames of the latter encode their hex codes directly, e.g. `Color Hunt Palette 3368a066a3bfc8dfdbf2efe7.png` = `#3368a0/#66a3bf/#c8dfdb/#f2efe7`). `src/lib/theme.ts` defines `THEMES` (19 entries, including a `"default"` matching the app's original look) and `computeThemeRoles(colors)`, which derives 8 usable UI roles from each theme's 4 raw colors:
+Xem [`document.txt`](./document.txt) để có danh sách đầy đủ, cập nhật liên tục (đăng nhập, deploy cloud, Dự đoán Band v2, tần suất tối thiểu hàng tuần ở cấp part, v.v.).
+
+---
+
+## 9. Hệ thống theme (giao diện màu)
+
+Các bảng màu gốc nằm ở `src/theme/*.png` (6 dải màu sáng→tối có tên + 12 bảng 4-màu xuất từ Color Hunt — tên file của nhóm sau mã hóa thẳng mã hex, ví dụ `Color Hunt Palette 3368a066a3bfc8dfdbf2efe7.png` = `#3368a0/#66a3bf/#c8dfdb/#f2efe7`). `src/lib/theme.ts` định nghĩa `THEMES` (19 theme, kể cả 1 theme `"default"` giống giao diện gốc của app) và hàm `computeThemeRoles(colors)`, tính ra 8 vai trò màu UI dùng được từ 4 màu gốc của mỗi theme:
 
 ```
-background, foreground   — a FIXED safe light/dark neutral pair (never taken from the palette itself)
-surface, border           — the palette color closest to the background's lightness tier (subtle card tinting)
-primary, primaryForeground — the most usable saturated/mid-lightness palette color for buttons/accents;
-                             synthesized (same hue, boosted saturation/clamped lightness) if none of the
-                             4 raw colors qualify — several source palettes are 4 close-lightness pastels
-                             with nothing dark/saturated enough to read well as a button otherwise
-input, inputForeground    — a "writing surface" pair for form fields (text/number/date inputs, textareas)
-                             that is ALWAYS bright, regardless of whether the theme itself is light or dark
+background, foreground   — 1 cặp màu sáng/tối trung tính, CỐ ĐỊNH sẵn cho an toàn (không bao giờ lấy từ bảng màu gốc)
+surface, border           — màu trong bảng màu gần nhất với "tầng" độ sáng của background (tạo sắc nhẹ cho thẻ/card)
+primary, primaryForeground — màu bão hòa/độ sáng vừa phải, dễ dùng nhất trong bảng màu, dùng cho nút/điểm nhấn;
+                             tự tạo ra (giữ nguyên tông màu, tăng độ bão hòa/giới hạn độ sáng) nếu không màu nào
+                             trong 4 màu gốc đạt yêu cầu — vài bảng màu gốc là 4 màu pastel gần giống độ sáng,
+                             không có màu nào đủ tối/đủ bão hòa để làm nút cho dễ đọc
+input, inputForeground    — 1 cặp màu "mặt giấy viết" cho ô nhập liệu (chữ/số/ngày, textarea)
+                             LUÔN sáng, bất kể bản thân theme là sáng hay tối
 ```
 
-`background`/`foreground` are deliberately NOT derived from the palette's own lightest/darkest color: some source palettes (e.g. "Sorbet": `ffeecc/ffddcc/ffcccc/febbcc`) are 4 pastels with no genuinely dark color at all, so naively using the palette's own extremes would produce unreadable text. Which fixed pair is used (light vs. dark neutrals) is decided by `isDark` in `ThemeRoles` — **not** the palette's average luminance, but a component count: `isDark` is true only when fewer than 2 of the palette's own 4 raw colors are individually light (`relativeLuminance >= 0.4`). This replaced a flat average-luminance threshold after a reported bug: "Forest" (`499a13/bbdc12/8eca3c/276f27`) averages to ~0.37 despite 2 of its 4 colors being bright, vivid greens, so the average-based rule rendered it as full dark mode (near-black page) when the user expected a bright nature theme with the palette's colors used as accents — the count-based rule reclassifies it as light while leaving genuinely dark-intended palettes ("Dark Cold", "Dark Winter", each with only 1 of 4 colors qualifying as light) unaffected.
+`background`/`foreground` cố tình KHÔNG lấy từ màu sáng nhất/tối nhất của chính bảng màu: 1 số bảng màu gốc (ví dụ "Sorbet": `ffeecc/ffddcc/ffcccc/febbcc`) là 4 màu pastel, không hề có màu nào thật sự tối, nên nếu lấy thẳng 2 màu cực trị của bảng màu thì chữ sẽ không đọc được. Việc chọn dùng cặp cố định nào (sáng hay tối) do `isDark` trong `ThemeRoles` quyết định — **không** dựa vào độ sáng trung bình của bảng màu, mà dựa vào số lượng: `isDark` chỉ là true khi có ít hơn 2 trong 4 màu gốc của bảng màu tự nó đã sáng (`relativeLuminance >= 0.4`). Cách này thay cho ngưỡng độ sáng trung bình phẳng trước đây, sau khi có 1 báo lỗi: theme "Forest" (`499a13/bbdc12/8eca3c/276f27`) có độ sáng trung bình ~0.37 dù 2 trong 4 màu của nó là xanh lá tươi, sáng rõ, nên quy tắc dựa trên trung bình đã hiển thị nó thành chế độ tối hoàn toàn (nền gần đen) trong khi user mong đợi 1 theme thiên nhiên tươi sáng, dùng các màu đó làm điểm nhấn — quy tắc dựa trên số lượng đã phân loại lại nó thành theme sáng, mà vẫn giữ đúng các theme thật sự định làm tối ("Dark Cold", "Dark Winter", mỗi cái chỉ có 1 trong 4 màu đạt chuẩn sáng) không bị ảnh hưởng.
 
-`input`/`inputForeground` exist to fix a related reported bug: form fields originally used `bg-background` — the theme's own fixed background, near-black for a dark-classified theme — so a textarea could render as a near-invisible dark box inside a much brighter themed card. `pickInputBackground()` picks the *lightest of the theme's own 4 raw colors* (so the input still visually belongs to the theme), then enforces a `0.85` HSL-lightness floor — if even the lightest raw color falls short (e.g. "Dark Cold"'s `#afcffa` at ~0.833), it's lightened further in HSL space while preserving hue/saturation (capped at `0.4` saturation) rather than returned verbatim or replaced with a flat white. This runs independently of `isDark`, so the writing surface stays bright even for themes that are still genuinely dark overall. `inputForeground` is then picked the same contrast-maximizing way as `primaryForeground` (below): whichever of `#111111`/`#ffffff` yields the higher contrast ratio against `input` — see `src/tests/unit/theme.test.ts` for the "guarantees WCAG AA contrast (>= 4.5:1) between input and inputForeground for every defined theme" regression test.
+`input`/`inputForeground` sinh ra để sửa 1 lỗi liên quan đã được báo: ô nhập liệu ban đầu dùng `bg-background` — chính là màu nền cố định của theme, gần đen với 1 theme bị phân loại tối — nên 1 ô textarea có thể hiện ra như 1 hộp tối gần như vô hình nằm trong 1 thẻ sáng hơn nhiều. Hàm `pickInputBackground()` chọn *màu sáng nhất trong 4 màu gốc của theme* (để ô nhập liệu vẫn mang cảm giác thuộc về theme đó), sau đó áp ngưỡng tối thiểu `0.85` cho độ sáng HSL — nếu ngay cả màu sáng nhất cũng chưa đạt (ví dụ "Dark Cold" có `#afcffa` ở mức ~0.833), màu đó sẽ được làm sáng thêm trong không gian HSL, vẫn giữ tông màu/độ bão hòa (giới hạn độ bão hòa tối đa `0.4`) thay vì giữ nguyên hoặc thay bằng trắng phẳng. Việc này chạy độc lập với `isDark`, nên ô nhập liệu vẫn sáng ngay cả với các theme thật sự tối về tổng thể. `inputForeground` sau đó được chọn theo cách tối đa hóa độ tương phản giống `primaryForeground` (bên dưới): chọn `#111111` hoặc `#ffffff`, cái nào cho tỉ lệ tương phản cao hơn so với `input` — xem `src/tests/unit/theme.test.ts` để thấy test "đảm bảo độ tương phản đạt chuẩn WCAG AA (>= 4.5:1) giữa input và inputForeground cho mọi theme đã định nghĩa".
 
-**Runtime**: `src/components/theme/ThemeProvider.tsx` wraps the app (in `layout.tsx`). It reads the saved choice from `localStorage` (key `ielts-app-theme`) via a `useState` **lazy initializer** — not a `useEffect` — specifically to avoid the same `react-hooks/set-state-in-effect` rule documented in §2.1's Milestone 2 Step 2 history; the effect that actually applies the theme (`document.documentElement.style.setProperty(...)` for `--background`/`--foreground`/`--surface`/`--border`/`--primary`/`--primary-foreground`/`--input`/`--input-foreground`) calls no `setState`, so it's exempt. `src/app/globals.css` maps these 8 CSS custom properties through `@theme inline` into Tailwind utilities (`bg-surface`, `border-border`, `bg-primary`, `text-primary-foreground`, `bg-input`, `text-input-foreground`, etc.) — component code uses those utilities exclusively, never a raw hex, so every themed surface repaints when the user picks a different theme. `src/components/theme/ThemePicker.tsx` (rendered on `/settings`) is the picker UI; clicking a swatch calls `setThemeId`, which applies the new theme and persists it.
+**Lúc chạy thật**: `src/components/theme/ThemeProvider.tsx` bọc quanh toàn app (trong `layout.tsx`). Nó đọc lựa chọn đã lưu từ `localStorage` (key `ielts-app-theme`) bằng **lazy initializer** của `useState` — không dùng `useEffect` — để tránh đúng lỗi `react-hooks/set-state-in-effect` đã ghi ở lịch sử Milestone 2 Bước 2 trong mục 2.1; effect thật sự áp dụng theme (`document.documentElement.style.setProperty(...)` cho `--background`/`--foreground`/`--surface`/`--border`/`--primary`/`--primary-foreground`/`--input`/`--input-foreground`) không gọi `setState` nào, nên không bị lỗi đó. `src/app/globals.css` ánh xạ 8 CSS custom property này qua `@theme inline` thành các class Tailwind (`bg-surface`, `border-border`, `bg-primary`, `text-primary-foreground`, `bg-input`, `text-input-foreground`, v.v.) — code component chỉ dùng đúng các class đó, không bao giờ viết mã hex trực tiếp, nên mọi bề mặt có theme đều đổi màu khi user chọn theme khác. `src/components/theme/ThemePicker.tsx` (hiện ở trang `/settings`) là UI để chọn; bấm vào 1 ô màu sẽ gọi `setThemeId`, áp theme mới và lưu lại lựa chọn.
 
-**Form-field "paper" treatment**: every text/date/number input and textarea (`Journal.tsx`'s date field and textarea; `CambridgeTracker.tsx`'s date/name/band/note fields) uses a shared `.input-paper` utility class (`globals.css`, under `@layer utilities`) instead of raw `bg-input text-input-foreground` — a bug report showed the plain fill still read as a flat, low-contrast box against a colorful card. `.input-paper` adds a visible colored border (`color-mix(in srgb, var(--primary) 35%, transparent)` — a real border, not the near-transparent `border` role) and a layered `box-shadow` (a soft drop shadow for elevation + a wide, low-opacity glow in the input's own `var(--input)` color) so each field reads as a distinct, lifted "paper" surface rather than inheriting the surrounding card's flat color. Focus state swaps the border to solid `var(--primary)` and brightens the glow. Browsers without `color-mix()` support get an automatic solid-`var(--primary)` border fallback (Lightning CSS emits both, gated by `@supports`).
+**Kiểu "tờ giấy" cho ô nhập liệu**: mọi ô nhập chữ/ngày/số và textarea (ô ngày và textarea trong `Journal.tsx`; các ô ngày/tên/điểm/ghi chú trong `CambridgeTracker.tsx`) dùng chung 1 class `.input-paper` (trong `globals.css`, thuộc `@layer utilities`) thay vì dùng thẳng `bg-input text-input-foreground` — có báo lỗi cho thấy nếu chỉ tô màu nền phẳng thì ô vẫn trông như 1 hộp phẳng, ít tương phản trên 1 thẻ nhiều màu. `.input-paper` thêm viền màu rõ ràng (`color-mix(in srgb, var(--primary) 35%, transparent)` — viền thật, không phải vai trò `border` gần như trong suốt) và 1 `box-shadow` nhiều lớp (1 bóng đổ mềm tạo cảm giác nổi lên + 1 quầng sáng rộng, mờ, cùng màu `var(--input)` của ô) để mỗi ô nhập liệu trông như 1 "tờ giấy" nổi bật, tách biệt, thay vì bị hòa lẫn vào màu phẳng của thẻ xung quanh. Trạng thái focus đổi viền thành `var(--primary)` đặc và làm quầng sáng rõ hơn. Trình duyệt không hỗ trợ `color-mix()` sẽ tự động dùng viền `var(--primary)` đặc làm phương án dự phòng (Lightning CSS tự sinh cả 2, có `@supports` kiểm soát).
 
-Status/semantic colors (delete = red, the Spinner's "cycling"/"selected" animation states = blue/emerald) are intentionally left as fixed Tailwind colors, not themed — same reasoning as the dataviz palette's "status colors are reserved" rule. "Fixed" means fixed: these must never use a `dark:` Tailwind variant. Tailwind's default `dark:` strategy compiles to `@media (prefers-color-scheme: dark)`, so a few of these had accidentally shipped with `dark:` variants that made them (and, separately, a leftover create-next-app `@media (prefers-color-scheme: dark) { :root {...} }` block overriding the theme system's own `--background`/`--foreground`/etc.) shift based on the OS/browser's color-scheme preference — a real reported bug where a light in-app theme still rendered dark because the browser itself was in dark mode. Both were removed: the app's own theme system (driven only by the user's Settings choice, persisted in `localStorage`) is now the sole source of truth for every color on the page, with zero dependency on `prefers-color-scheme`.
+Các màu trạng thái/ý nghĩa cố định (xóa = đỏ, trạng thái "đang quay"/"đã chọn" của Vòng quay = xanh dương/xanh ngọc) cố tình để là màu Tailwind cố định, không theo theme — cùng lý do với quy tắc "màu trạng thái luôn cố định" trong bảng màu dataviz. "Cố định" nghĩa là cố định thật: những màu này không bao giờ được dùng biến thể `dark:` của Tailwind. Cách `dark:` mặc định của Tailwind biên dịch ra `@media (prefers-color-scheme: dark)`, nên trước đây 1 vài chỗ vô tình có biến thể `dark:` khiến chúng (và, riêng biệt, 1 khối `@media (prefers-color-scheme: dark) { :root {...} }` còn sót lại từ create-next-app, đè lên `--background`/`--foreground`/v.v. của chính hệ thống theme) tự đổi theo lựa chọn sáng/tối của hệ điều hành/trình duyệt — đây là lỗi có thật, từng bị báo: 1 theme sáng chọn trong app vẫn hiện ra tối vì bản thân trình duyệt đang ở chế độ tối. Cả 2 chỗ đó đã được gỡ bỏ: hệ thống theme của app (chỉ do lựa chọn ở trang Cài đặt của user quyết định, lưu trong `localStorage`) giờ là nguồn duy nhất quyết định mọi màu trên trang, không phụ thuộc gì vào `prefers-color-scheme` nữa.
 
-**`color-scheme`**: `layout.tsx` exports `viewport = { colorScheme: "light" }` (pre-hydration baseline, most themes are light) and `ThemeProvider`'s `applyTheme()` sets `documentElement.style.setProperty("color-scheme", roles.isDark ? "dark" : "light")` per the active theme. This is a real CSS/meta signal (verified: `getComputedStyle(html).colorScheme` reflects it) that tells the browser the page manages its own light/dark appearance — added after a follow-up report that the page still rendered dark in a Chromium-based browser (Cốc Cốc) even with a light theme selected and the `prefers-color-scheme` dependency already removed above. Root cause there is very likely the browser's own built-in "force dark mode for web content" toggle (Cốc Cốc ships one in its toolbar, distinct from the OS/browser dark-mode *preference* this app already stops following) — a page-level filter some browsers apply that a website's own CSS cannot fully override; `color-scheme` is the standards-based opt-out signal some (not all) such features check, so this is a best-effort mitigation, not a guarantee. Verified via a fresh Playwright browser context (no such feature enabled) that the app's own logic already produces the correct light background for "Forest" — confirming the app-side bug was already fixed and any further discrepancy is the specific browser's own page-repainting feature, not app code.
+**`color-scheme`**: `layout.tsx` khai báo `viewport = { colorScheme: "light" }` (giá trị nền trước khi hydrate, đa số theme là sáng) và hàm `applyTheme()` của `ThemeProvider` đặt `documentElement.style.setProperty("color-scheme", roles.isDark ? "dark" : "light")` theo đúng theme đang dùng. Đây là 1 tín hiệu CSS/meta thật sự (đã kiểm chứng: `getComputedStyle(html).colorScheme` phản ánh đúng giá trị) báo cho trình duyệt biết là trang tự quản lý giao diện sáng/tối của chính nó — được thêm vào sau khi có báo lỗi tiếp theo: trang vẫn hiện tối trên 1 trình duyệt nền Chromium (Cốc Cốc) dù đã chọn theme sáng và đã gỡ bỏ phụ thuộc vào `prefers-color-scheme` ở trên. Nguyên nhân gốc rất có thể là tính năng "ép chế độ tối cho nội dung web" có sẵn trong chính trình duyệt đó (Cốc Cốc có nút này trên thanh công cụ, khác với *lựa chọn* sáng/tối của hệ điều hành/trình duyệt mà app đã ngừng theo ở trên) — đây là 1 bộ lọc ở cấp trình duyệt mà CSS của 1 trang web không thể ghi đè hoàn toàn; `color-scheme` là tín hiệu "xin phép không áp dụng" theo chuẩn mà 1 số (không phải tất cả) tính năng kiểu này có kiểm tra, nên đây chỉ là cách khắc phục ở mức cố gắng tối đa, không phải đảm bảo chắc chắn. Đã kiểm chứng bằng 1 trình duyệt Playwright mới hoàn toàn (không bật tính năng đó) rằng logic của app đã tự cho ra đúng nền sáng cho theme "Forest" — xác nhận lỗi phía app đã được sửa xong, và bất kỳ khác biệt nào còn lại là do tính năng tự tô lại màu trang riêng của trình duyệt đó, không phải do code của app.
 
 ---
 
-## 10. Multi-agent framework
+## 10. Framework nhiều vai trò (multi-agent)
 
-See [`CLAUDE.md`](./CLAUDE.md) for agent roles, review workflow, and the milestone execution plan.
+Xem [`CLAUDE.md`](./CLAUDE.md) để biết vai trò từng bên, quy trình review, và kế hoạch thực hiện theo milestone.

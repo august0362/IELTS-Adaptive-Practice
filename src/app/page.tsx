@@ -25,14 +25,24 @@ export default async function Home() {
       ...part,
       lastAppearedAt: part.lastAppearedAt?.toISOString() ?? null,
     })),
+    questionTypes: skill.questionTypes.map((type) => ({
+      ...type,
+      lastAppearedAt: type.lastAppearedAt?.toISOString() ?? null,
+    })),
   }));
 
   const initialRecentRolls: HistorySession[] = historySessions.map((session) => ({
     id: session.id,
     rolledAt: session.rolledAt.toISOString(),
+    source: session.source,
     results: session.results.map((r) => ({
       skill: { id: r.skill.id, code: r.skill.code, name: r.skill.name },
       part: { id: r.part.id, code: r.part.code, name: r.part.name },
+      questionTypes: r.questionTypes.map((rqt) => ({
+        id: rqt.questionType.id,
+        code: rqt.questionType.code,
+        name: rqt.questionType.name,
+      })),
     })),
   }));
 

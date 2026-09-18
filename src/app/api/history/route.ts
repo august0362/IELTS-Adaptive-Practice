@@ -26,9 +26,15 @@ export async function GET(request: Request) {
   const items = sessions.map((session) => ({
     id: session.id,
     rolledAt: session.rolledAt,
+    source: session.source,
     results: session.results.map((r) => ({
       skill: { id: r.skill.id, code: r.skill.code, name: r.skill.name },
       part: { id: r.part.id, code: r.part.code, name: r.part.name },
+      questionTypes: r.questionTypes.map((rqt) => ({
+        id: rqt.questionType.id,
+        code: rqt.questionType.code,
+        name: rqt.questionType.name,
+      })),
     })),
   }));
 

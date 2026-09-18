@@ -13,11 +13,6 @@ function formatDateTime(iso: string): string {
   });
 }
 
-function formatResult(r: HistorySession["results"][number]): string {
-  const typesSuffix = r.questionTypes.length > 0 ? ` [${r.questionTypes.map((t) => t.name).join(", ")}]` : "";
-  return `${r.skill.name} · ${r.part.name}${typesSuffix}`;
-}
-
 interface RecentRollsProps {
   sessions: HistorySession[];
   onDeleted?: (sessionId: string) => void;
@@ -57,26 +52,42 @@ export function RecentRolls({ sessions, onDeleted }: RecentRollsProps) {
         {sessions.map((session) => (
           <li
             key={session.id}
-            className="flex flex-col gap-1 rounded-lg border border-border bg-surface/70 px-3 py-2 text-sm sm:flex-row sm:items-center sm:justify-between"
+            className="flex flex-col gap-2 rounded-lg border border-border bg-surface/70 px-3 py-2 text-sm"
           >
-            <div className="flex flex-col gap-0.5 sm:flex-row sm:items-center sm:gap-2">
-              <span className="text-foreground/50">{formatDateTime(session.rolledAt)}</span>
-              {session.source === "manual" && (
-                <span className="w-fit rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
-                  Tự học
-                </span>
-              )}
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <span className="text-foreground/50">{formatDateTime(session.rolledAt)}</span>
+                {session.source === "manual" && (
+                  <span className="w-fit rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
+                    Tự học
+                  </span>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => handleDelete(session.id)}
+                disabled={deletingId === session.id}
+                aria-label={`Xóa lượt quay lúc ${formatDateTime(session.rolledAt)}`}
+                className="shrink-0 rounded-md px-2 py-1 text-xs font-medium text-red-600 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {deletingId === session.id ? "Đang xóa..." : "Xóa"}
+              </button>
             </div>
-            <span className="font-medium">{session.results.map(formatResult).join("  —  ")}</span>
-            <button
-              type="button"
-              onClick={() => handleDelete(session.id)}
-              disabled={deletingId === session.id}
-              aria-label={`Xóa lượt quay lúc ${formatDateTime(session.rolledAt)}`}
-              className="w-fit rounded-md px-2 py-1 text-xs font-medium text-red-600 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              {deletingId === session.id ? "Đang xóa..." : "Xóa"}
-            </button>
+
+            <div className="flex flex-col gap-1.5">
+              {session.results.map((r, i) => (
+                <div key={i}>
+                  <span className="font-medium">
+                    {r.skill.name} · {r.part.name}
+                  </span>
+                  {r.questionTypes.length > 0 && (
+                    <span className="block text-xs text-foreground/50">
+                      Dạng bài: {r.questionTypes.map((t) => t.name).join(", ")}
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
           </li>
         ))}
       </ul>

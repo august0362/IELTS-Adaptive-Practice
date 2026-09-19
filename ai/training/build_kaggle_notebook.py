@@ -29,6 +29,7 @@ def markdown_cell(source: str) -> dict:
 
 def build_notebook() -> dict:
     chunks_json = CHUNKS_PATH.read_text(encoding="utf-8")
+    chunk_count = len(json.loads(chunks_json))
 
     cells = [
         markdown_cell(
@@ -37,7 +38,7 @@ def build_notebook() -> dict:
             "**Trước khi Run All:** bật GPU — `Settings` (bảng bên phải) → `Accelerator` → chọn "
             "**GPU T4 x2** (hoặc P100). Không bật GPU thì cell load model sẽ rất chậm hoặc lỗi hết bộ nhớ.\n"
             "\n"
-            "Notebook này **không cần bạn upload thêm gì** — 139 đoạn tài liệu của dự án đã được nhúng "
+            f"Notebook này **không cần bạn upload thêm gì** — {chunk_count} đoạn tài liệu của dự án đã được nhúng "
             "sẵn ở cell dưới. Chạy xong, tải file `generated_qa.jsonl` về (link tải hiện ở cell cuối) rồi "
             "gửi lại cho Claude.\n"
             "\n"
@@ -52,8 +53,11 @@ def build_notebook() -> dict:
         markdown_cell(
             "## 1. Dữ liệu đoạn tài liệu (đã nhúng sẵn, không cần upload)\n"
             "\n"
-            f"139 đoạn từ `PROJECT_CONTEXT.md`/`USER_GUIDE.md`/`document.txt`, đã chunk sẵn ở Milestone 6 "
-            "(`ai/server/chunking.py`)."
+            f"{chunk_count} đoạn từ `PROJECT_CONTEXT.md`/`USER_GUIDE.md` — đã chunk sẵn ở Milestone 6 "
+            "(`ai/server/chunking.py`), sau đó lọc chỉ giữ các mục *người dùng thật sự quan tâm* "
+            "(`ai/training/extract_kaggle_chunks.py`, cùng danh sách mục với bước sinh dữ liệu template) "
+            "— bỏ các mục dành cho dev (schema DB, hợp đồng API, cấu trúc thư mục...) và toàn bộ "
+            "`document.txt` (log lịch sử xây dựng, không phải nội dung cho người dùng)."
         ),
         code_cell("import json\n\nCHUNKS = json.loads(r'''" + chunks_json + "''')\nprint(f\"Loaded {len(CHUNKS)} chunks\")\n"),
         markdown_cell("## 2. Tải model (4-bit, vừa GPU T4 16GB)"),
@@ -154,10 +158,10 @@ def build_notebook() -> dict:
         ),
         markdown_cell(
             "**Dừng ở đây kiểm tra kết quả smoke test phía trên trước khi chạy tiếp.** Nếu 2 đoạn trên ra "
-            "kết quả hợp lý (câu hỏi tự nhiên, đáp án đúng nội dung đoạn), chạy tiếp cell dưới cho toàn "
-            "bộ 139 đoạn. Nếu lỗi, gửi lại thông báo lỗi để debug."
+            f"kết quả hợp lý (câu hỏi tự nhiên, đáp án đúng nội dung đoạn), chạy tiếp cell dưới cho toàn "
+            f"bộ {chunk_count} đoạn. Nếu lỗi, gửi lại thông báo lỗi để debug."
         ),
-        markdown_cell("## 5. Chạy toàn bộ 139 đoạn (ước tính 20–40 phút trên GPU T4)"),
+        markdown_cell(f"## 5. Chạy toàn bộ {chunk_count} đoạn (ước tính 5–15 phút trên GPU T4)"),
         code_cell(
             "results = []\n"
             "errors = []\n"

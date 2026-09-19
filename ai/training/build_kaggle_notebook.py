@@ -13,7 +13,10 @@ import json
 from pathlib import Path
 
 CHUNKS_PATH = Path(__file__).resolve().parents[1] / "data" / "processed" / "doc_chunks_for_kaggle.json"
-OUTPUT_PATH = Path(__file__).resolve().parent / "generate_dataset_kaggle.ipynb"
+# ai/kaggle/ — a dedicated, obvious place for notebooks meant to be uploaded
+# to Kaggle (this one, and the LoRA-training one to come later in Milestone
+# 7) — separate from ai/training/'s own Python source that builds them.
+OUTPUT_PATH = Path(__file__).resolve().parents[1] / "kaggle" / "generate_dataset_kaggle.ipynb"
 
 
 def code_cell(source: str) -> dict:

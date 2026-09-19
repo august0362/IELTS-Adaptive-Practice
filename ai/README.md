@@ -7,7 +7,9 @@ models/       # Ollama tự quản model (không tải file .gguf thủ công v�
 data/
   raw/        # tài liệu nguồn thêm cho RAG/train sau này — gitignore
   processed/  # doc_index.json do build_index.py sinh ra — gitignore
-training/     # script/notebook fine-tune (chạy trên Kaggle, Milestone 7)
+training/     # script Python sinh dữ liệu train + build các notebook Kaggle (Milestone 7)
+kaggle/       # notebook .ipynb sinh ra bởi training/build_*.py — tải thẳng lên Kaggle,
+              # gitignore (tái tạo bằng script, không sửa tay file .ipynb)
 server/       # FastAPI — RAG + gọi Ollama, web/ gọi vào đây qua HTTP
   chunking.py     # chunk markdown thành đoạn nhỏ (pure, có test)
   retrieval.py    # cosine similarity + top-k (pure, có test)
@@ -36,4 +38,4 @@ python -m venv .venv
 
 Tự kiểm phần logic thuần (không cần Ollama chạy): `./.venv/Scripts/python -m pytest` từ thư mục `ai/`.
 
-**Trạng thái:** Milestone 6 — hạ tầng cơ bản đã dựng (route/trang phía `web/`, RAG + server phía `ai/`), đang xác nhận chạy thật với model đã tải — xem `AI_TASKS.md`.
+**Trạng thái:** Milestone 6 (+ mở rộng: đổi tên Navita, bình chat nổi, 3 chế độ, lịch sử hội thoại) đã xong. Đang làm Milestone 7 (fine-tune) — xem `AI_TASKS.md`.

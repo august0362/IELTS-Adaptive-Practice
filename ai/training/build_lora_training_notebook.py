@@ -226,6 +226,9 @@ def build_notebook() -> dict:
             "import os\n"
             'os.environ["CUDA_VISIBLE_DEVICES"] = "0"  # Kaggle cap 2 GPU T4 - chan con 1 de tranh Trainer tu dong DataParallel ca 2\n'
             "\n"
+            "import warnings\n"
+            "warnings.filterwarnings(\"ignore\", message=\"MatMul8bitLt: inputs will be cast\")  # vo hai, chi lam ngop output/lag notebook (in lai moi lop moi buoc)\n"
+            "\n"
             "import torch\n"
             "from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig\n"
             "from peft import LoraConfig, TaskType, get_peft_model, prepare_model_for_kbit_training\n"

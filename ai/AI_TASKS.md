@@ -52,14 +52,18 @@
   
   Tự kiểm lại sau khi sửa: `typecheck`/`lint` sạch, `test` 158/158, `test:e2e` 9/9 (web/), `pytest` 22/22 (ai/) — tất cả xanh. **MILESTONE 6 MỞ RỘNG XONG.**
 
-## Milestone 7 — Fine-tune (chưa bắt đầu)
+## Milestone 7 — Fine-tune (đang làm)
 
-- [ ] Soạn template câu hỏi tự động điền số liệu từ tài liệu dự án
-- [ ] Chạy Qwen3.5-9B trên Kaggle sinh thêm cặp hỏi-đáp đa dạng (KHÔNG dùng Claude — xem lý do ở `AI_CHATBOT_PLAN.md` mục 6)
+> User xác nhận (2026-09-19): đã có tài khoản Kaggle; đồng ý ranh giới không đưa dữ liệu cá nhân lên Kaggle; số lượng mẫu mục tiêu ~200–300 cặp giữ nguyên như kế hoạch. Cách xem mẫu duyệt trả lời ngắn gọn ("Thôi") — hiểu là dùng mặc định (hiện trong chat), đã nói rõ lại với user trước khi làm.
+
+- [x] Soạn template câu hỏi tự động điền số liệu từ tài liệu dự án — `ai/training/generate_template_data.py` (+ `markdown_sections.py` thuần, 6 test), quét `PROJECT_CONTEXT.md`/`USER_GUIDE.md` theo mục đã chọn lọc (chỉ mục user-facing, bỏ mục dev-facing như schema/API/test strategy), cộng parse trực tiếp mục "Câu hỏi thường gặp" (đã sẵn dạng Q&A). Ra **26 cặp** (ít hơn ước tính 40–60, chấp nhận được — chất lượng hơn số lượng). `clean_answer()` **chỉ làm sạch cú pháp** (link markdown, dấu `---` thừa) — cố tình **không** rút gọn/viết lại nội dung, vì làm vậy tức là Claude "sáng tác" nội dung train, đúng điều bị cấm ở mục 6. Kết quả: một số câu trả lời dài/kỹ thuật (lẫn code, ghi chú dev) vì trích nguyên văn tài liệu — sẽ để user tự đánh giá ở cổng duyệt, không tự ý "sửa cho hay".
+- [x] Viết notebook Kaggle sinh dữ liệu bằng Qwen3.5-9B (KHÔNG dùng Claude) — `ai/training/build_kaggle_notebook.py` sinh ra `generate_dataset_kaggle.ipynb` (gitignore, tái tạo bằng script), nhúng sẵn 139 đoạn tài liệu (đã strip embedding, chỉ giữ text — `doc_chunks_for_kaggle.json`) nên user chỉ cần tải notebook lên Kaggle chạy, không cần upload gì thêm. Có cell "smoke test" 2 đoạn trước khi chạy hết 139 đoạn (đỡ tốn GPU nếu có lỗi). Đã tự kiểm: notebook là JSON hợp lệ, dữ liệu nhúng parse đúng 139/139 đoạn, mọi cell code (trừ `!pip install` — cú pháp riêng Jupyter) biên dịch Python sạch. **CHƯA chạy thử thật trên Kaggle** (không có GPU 9B để tự kiểm) — khác với mọi phần code khác của dự án đến giờ, đã ghi rõ trong chính notebook.
+- [ ] User chạy notebook trên Kaggle, tải kết quả về đưa lại cho tôi
 - [ ] Lọc dữ liệu (trùng lặp, sai, quá ngắn/dài)
-- [ ] User duyệt ~30 mẫu ngẫu nhiên trước khi train
-- [ ] Fine-tune LoRA/QLoRA trên Kaggle, tải adapter về
-- [ ] Tích hợp adapter vào `ai/server/`, so sánh chất lượng trước/sau
+- [ ] User duyệt ~30 mẫu ngẫu nhiên trước khi train (hiện trong chat)
+- [ ] Viết notebook Kaggle fine-tune LoRA, user chạy, tải adapter về
+- [ ] Convert adapter sang GGUF, gắn vào Ollama qua Modelfile, tích hợp vào `ai/server/`
+- [ ] So sánh chất lượng trước/sau bằng 10 câu hỏi held-out, user quyết định có dùng bản mới không
 - [ ] Review chốt Milestone 7
 
 ## Milestone 8 — Chấm Writing/Speaking theo IELTS (chưa bắt đầu)

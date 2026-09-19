@@ -16,9 +16,15 @@ silent wrong behavior. Confirmed before writing this notebook (2026-09-19):
   - Unsloth explicitly supports Qwen3.5 fine-tuning (incl. the 4B size),
     recommends plain 16-bit LoRA over QLoRA 4-bit for this model family
     (matches the community guidance already in AI_CHATBOT_PLAN.md §5), and
-    measures ~10GB VRAM for Qwen3.5-4B bf16 LoRA — comfortably under a
+    measures ~10GB VRAM for Qwen3.5-4B 16-bit LoRA — comfortably under a
     Kaggle T4's 16GB, unlike the 9B data-generation notebook's ~14.33GB
     single-instance footprint (see build_kaggle_notebook.py's cell 2).
+  - REAL BUG (first Kaggle run, user-reported): hardcoding `bf16=True` in
+    SFTConfig raised `ValueError: Your setup doesn't support bf16/gpu`
+    immediately — Kaggle's free T4 is Turing, not Ampere+, so it has no
+    hardware bf16 support at all. Fixed by detecting it at runtime with
+    `torch.cuda.is_bf16_supported()` and falling back to `fp16=True`
+    instead of hardcoding either one.
   - The real max token length across all 58 approved examples, using the
     actual Qwen3.5-4B tokenizer + chat template (enable_thinking=False,
     matching Flash-mode inference): 4656 tokens (1 outlier — the "bảng màu
@@ -152,13 +158,22 @@ def build_notebook() -> dict:
             f"{example_count} mẫu.\n"
             "- `learning_rate=2e-4`, `optim=\"adamw_8bit\"` — mặc định chuẩn của Unsloth cho LoRA "
             "(khác PEFT/TRL thường dùng ~1e-4, Unsloth khuyến nghị cao hơn 1 chút vì chỉ train LoRA "
-            "adapter, không train full model)."
+            "adapter, không train full model).\n"
+            "- `bf16`/`fp16` chọn tự động theo GPU thật, không hardcode — **lỗi thật gặp ở lần chạy "
+            "trước**: hardcode `bf16=True` bị GPU T4 từ chối ngay từ bước tạo `SFTConfig` "
+            "(`ValueError: Your setup doesn't support bf16/gpu`) vì T4 là kiến trúc Turing, chỉ GPU "
+            "Ampere trở lên (A100, RTX 30xx+...) mới có nhân bf16 phần cứng. `torch.cuda.is_bf16_supported()` "
+            "tự phát hiện đúng phần cứng đang chạy, tương thích cả khi Kaggle đổi loại GPU sau này."
         ),
         code_cell(
+            "import torch\n"
             "from datasets import Dataset\n"
             "from trl import SFTConfig, SFTTrainer\n"
             "\n"
             "train_dataset = Dataset.from_list(TRAIN_EXAMPLES)\n"
+            "\n"
+            "bf16_supported = torch.cuda.is_bf16_supported()\n"
+            'print(f"bf16 duoc GPU nay ho tro: {bf16_supported} (T4 = False, se dung fp16 thay the)")\n'
             "\n"
             "sft_config = SFTConfig(\n"
             '    output_dir="lora_adapter_output",\n'
@@ -172,7 +187,8 @@ def build_notebook() -> dict:
             f"    max_length={MAX_SEQ_LENGTH},\n"
             "    assistant_only_loss=True,\n"
             "    packing=False,\n"
-            "    bf16=True,\n"
+            "    bf16=bf16_supported,\n"
+            "    fp16=not bf16_supported,\n"
             "    logging_steps=5,\n"
             '    save_strategy="epoch",\n'
             '    report_to="none",\n'

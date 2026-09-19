@@ -3,15 +3,28 @@ Milestone 7 step 6 (AI_CHATBOT_PLAN.md section 12.3): pure, offline-testable
 helpers for the LoRA fine-tuning step.
 
 TRL's SFTTrainer consumes the "conversational" dataset format directly (a
-"messages" column) and applies the model's own chat template internally
-(confirmed against TRL v1.13.0 docs — Qwen3.5 is one of the explicitly
-supported families for `assistant_only_loss`'s chat-template patching), so
-there is no hand-rolled prompt-formatting function here — only loading +
-shape validation, which is the part a typo or upstream schema drift could
-actually break silently. Kept separate from the notebook and pytest-covered
-so this logic isn't hand-typed straight into Kaggle — that exact anti-pattern
-caused 2 of the 3 real Kaggle bugs earlier in Milestone 7 (see
-kaggle_generation.py's docstring).
+"messages" column, or a "prompt"/"completion" pair) and applies the model's
+own chat template internally, so there is no hand-rolled prompt-formatting
+function here — only loading, shape validation, and the one small reshape
+`to_prompt_completion` needs (see below).
+
+REAL FINDING from an actual Kaggle run (2026-09-19): originally this used
+the "messages" format with `assistant_only_loss=True` (loss only on the
+assistant's tokens — Qwen3.5 is an explicitly TRL-supported family for the
+chat-template patching that needs). That raised `ValueError: Assistant-only
+loss is not yet supported for vision-language models` — Unsloth loads
+Qwen3.5-4B's `processing_class` as a `ProcessorMixin` (a multimodal
+processor), which TRL's SFTTrainer treats as "this is a VLM" regardless of
+whether any image is ever used, and assistant-only loss is blocked for that
+case. Switched to the "prompt-completion" dataset shape instead
+(`to_prompt_completion` below) + `completion_only_loss=True`, which TRL does
+NOT block for VLM-classified processors and in fact defaults to "on" for
+this shape — same effect (loss only on the answer), different mechanism.
+
+Kept separate from the notebook and pytest-covered so this logic isn't
+hand-typed straight into Kaggle — that exact anti-pattern caused 2 of the 3
+real Kaggle bugs earlier in Milestone 7 (see kaggle_generation.py's
+docstring).
 
 Run tests from ai/:  python -m pytest training/tests/test_lora_training_data.py
 """
@@ -65,6 +78,17 @@ def load_training_examples(path: Path) -> list[dict]:
             raise ValueError(f"{path}:{line_number}: {e}") from e
         examples.append(example)
     return examples
+
+
+def to_prompt_completion(example: dict) -> dict:
+    """Reshapes a validated {"messages": [system, user, assistant]} example
+    into TRL's "conversational prompt-completion" shape:
+    {"prompt": [system, user], "completion": [assistant]}. Only a reshape —
+    no content is added/removed/changed — needed because SFTConfig's
+    `completion_only_loss` (unlike `assistant_only_loss`) isn't blocked when
+    TRL classifies the processing_class as a VLM (see module docstring)."""
+    system, user, assistant = example["messages"]
+    return {"prompt": [system, user], "completion": [assistant]}
 
 
 def split_train_eval(examples: list[dict], eval_fraction: float, seed: int) -> tuple[list[dict], list[dict]]:

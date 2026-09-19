@@ -201,15 +201,24 @@ export function Spinner({ initialSkills, initialDecayExponent, initialRecentRoll
     }
   }
 
-  async function handleRoll() {
-    setPhase("rolling");
-    setErrorMessage(null);
+  // Clears everything the last roll's cascade left on screen (which skill/part/
+  // type cards show as selected, the accuracy-entry forms under them, etc.) —
+  // used both before starting a new roll and after a history entry is deleted,
+  // since a deleted roll's "selected" cards would otherwise keep showing as
+  // chosen even though that roll no longer exists.
+  function resetCascadeDisplay() {
     setOrderedSelectedSkillIds([]);
     setPartStatesBySkillId({});
     setTypeDrawStatesBySkillId({});
     setChosenTypeNamesBySkillId({});
     setResultIdBySkillId({});
     setSkillStates(Object.fromEntries(skills.map((s) => [s.id, "idle" as PickCardState])));
+  }
+
+  async function handleRoll() {
+    setPhase("rolling");
+    setErrorMessage(null);
+    resetCascadeDisplay();
 
     try {
       const rollResponse = await fetchJson<{ sessionId: string; results: RollResultItem[] }>("/api/roll", {
@@ -236,6 +245,11 @@ export function Spinner({ initialSkills, initialDecayExponent, initialRecentRoll
   }
 
   async function handleHistoryDeleted() {
+    // The deleted roll might be the one currently shown as "selected" up top —
+    // its cards/dạng bài/accuracy-entry forms would otherwise keep displaying a
+    // roll that no longer exists. Back to idle, same as before any roll ran.
+    setPhase("idle");
+    resetCascadeDisplay();
     await refreshSkillsAndHistory();
   }
 

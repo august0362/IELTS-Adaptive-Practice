@@ -185,6 +185,56 @@ describe("Spinner", () => {
     expect(screen.getAllByLabelText("Số câu đã làm")).toHaveLength(1);
   });
 
+  it("resets the cascade display (back to idle) after the just-rolled session is deleted from Lượt quay gần đây", async () => {
+    const user = userEvent.setup();
+    const skills = makeSkills();
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+
+    mockFetchSequence([
+      {
+        json: {
+          sessionId: "s1",
+          results: [
+            { id: "r1", skill: { id: "READING", code: "READING", name: "Reading" }, part: { id: "READING_A", code: "READING_A", name: "Part A" }, questionTypes: [] },
+            { id: "r2", skill: { id: "LISTENING", code: "LISTENING", name: "Listening" }, part: { id: "LISTENING_B", code: "LISTENING_B", name: "Part B" }, questionTypes: [] },
+          ],
+        },
+      },
+      { json: skills }, // /api/skills refresh after roll
+      {
+        json: {
+          items: [
+            {
+              id: "s1",
+              rolledAt: "2026-01-01T10:00:00.000Z",
+              source: "roll",
+              results: [
+                { id: "r1", skill: { id: "READING", code: "READING", name: "Reading" }, part: { id: "READING_A", code: "READING_A", name: "Part A" }, questionTypes: [], questionsAnswered: null, questionsCorrect: null },
+                { id: "r2", skill: { id: "LISTENING", code: "LISTENING", name: "Listening" }, part: { id: "LISTENING_B", code: "LISTENING_B", name: "Part B" }, questionTypes: [], questionsAnswered: null, questionsCorrect: null },
+              ],
+            },
+          ],
+        },
+      }, // /api/history refresh after roll
+      { json: { ok: true } }, // DELETE /api/history/s1
+      { json: skills }, // /api/skills refresh after delete
+      { json: { items: [] } }, // /api/history refresh after delete
+    ]);
+
+    render(<Spinner initialSkills={skills} initialDecayExponent={1} initialRecentRolls={[]} />);
+
+    await user.click(screen.getByRole("button", { name: "Quay" }));
+    expect(await screen.findByRole("button", { name: "Quay lại" })).toBeInTheDocument();
+    expect(screen.getByText("Reading — chọn part")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /Xóa lượt quay/ }));
+
+    // Back to idle: no "chọn part" section, button text reverts to "Quay".
+    await screen.findByRole("button", { name: "Quay" });
+    expect(screen.queryByText("Reading — chọn part")).not.toBeInTheDocument();
+    expect(screen.queryByText("Listening — chọn part")).not.toBeInTheDocument();
+  });
+
   it("shows an error and re-enables the button when the roll request fails", async () => {
     const user = userEvent.setup();
     const skills = makeSkills();

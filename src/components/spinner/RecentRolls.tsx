@@ -2,6 +2,9 @@
 
 import { useState } from "react";
 import type { HistorySession } from "@/lib/types";
+import { AccuracyEntry } from "./AccuracyEntry";
+
+const ACCURACY_SKILL_CODES = new Set(["READING", "LISTENING"]);
 
 function formatDateTime(iso: string): string {
   return new Date(iso).toLocaleString("vi-VN", {
@@ -21,6 +24,16 @@ interface RecentRollsProps {
 export function RecentRolls({ sessions, onDeleted }: RecentRollsProps) {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  // Which result's accuracy-entry form is expanded (at most one at a time).
+  const [expandedResultId, setExpandedResultId] = useState<string | null>(null);
+  // Results saved in this session but not yet reflected in `sessions` (the
+  // parent only refetches history on delete/roll, not after an accuracy save) —
+  // tracked locally, with the actual values, so both the "+ Nhập số câu đúng"
+  // prompt disappears AND the real numbers show immediately, without needing a
+  // full history refetch just to echo back what was just typed in.
+  const [savedAccuracy, setSavedAccuracy] = useState<Map<string, { questionsAnswered: number; questionsCorrect: number }>>(
+    new Map()
+  );
 
   if (sessions.length === 0) {
     return <p className="text-sm text-foreground/50">Chưa có lượt quay nào.</p>;
@@ -80,18 +93,53 @@ export function RecentRolls({ sessions, onDeleted }: RecentRollsProps) {
             </div>
 
             <div className="flex flex-col gap-1.5">
-              {session.results.map((r, i) => (
-                <div key={i}>
-                  <span className="font-medium text-surface-foreground">
-                    {r.skill.name} · {r.part.name}
-                  </span>
-                  {r.questionTypes.length > 0 && (
-                    <span className="block text-xs text-surface-foreground/50">
-                      Dạng bài: {r.questionTypes.map((t) => t.name).join(", ")}
+              {session.results.map((r) => {
+                const hasAccuracy = ACCURACY_SKILL_CODES.has(r.skill.code);
+                const justSaved = savedAccuracy.get(r.id);
+                const questionsAnswered = r.questionsAnswered ?? justSaved?.questionsAnswered ?? null;
+                const questionsCorrect = r.questionsCorrect ?? justSaved?.questionsCorrect ?? null;
+                const alreadyRecorded = questionsAnswered !== null;
+
+                return (
+                  <div key={r.id}>
+                    <span className="font-medium text-surface-foreground">
+                      {r.skill.name} · {r.part.name}
                     </span>
-                  )}
-                </div>
-              ))}
+                    {r.questionTypes.length > 0 && (
+                      <span className="block text-xs text-surface-foreground/50">
+                        Dạng bài: {r.questionTypes.map((t) => t.name).join(", ")}
+                      </span>
+                    )}
+
+                    {hasAccuracy && (
+                      <div className="mt-1">
+                        {alreadyRecorded ? (
+                          <span className="text-xs text-emerald-600">
+                            ✓ Đã ghi số câu đúng: {questionsCorrect}/{questionsAnswered}
+                          </span>
+                        ) : expandedResultId === r.id ? (
+                          <AccuracyEntry
+                            resultId={r.id}
+                            variant="surface"
+                            onSaved={(values) => {
+                              setSavedAccuracy((prev) => new Map(prev).set(r.id, values));
+                              setExpandedResultId(null);
+                            }}
+                          />
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setExpandedResultId(r.id)}
+                            className="text-xs font-medium text-primary hover:opacity-70"
+                          >
+                            + Nhập số câu đúng
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </li>
         ))}

@@ -735,3 +735,64 @@ DONE
     docs (see PENDING #4 below, now retitled).
   - Final state: 143/143 unit+component tests, 7/7 e2e specs, typecheck and
     lint all green. No open bugs.
+
+[2026-09-19] Post-launch: 3 issues found live while the user tried the app.
+  - (1) "background vẫn đen lắm" (still very dark), with a screenshot: the
+    Settings page's page background/card borders were dark even with
+    "Mặc định" (a light theme) active and confirmed selected — but each
+    theme swatch's own little color-preview blocks still showed correct,
+    undistorted colors. That specific pattern (flat backgrounds inverted,
+    saturated small blocks left alone) is the signature of a browser-level
+    "force dark mode for web content" feature repainting the page after
+    load, not a CSS bug — confirmed by grepping the whole src/ tree for
+    `prefers-color-scheme` and `dark:` (zero real hits, matching the
+    already-fixed state from the earlier Cốc Cốc report). Investigating
+    further found one real leftover bug though: ThemeProvider.tsx's
+    applyTheme() still set `documentElement.style.colorScheme` to "dark"
+    for a dark-classified theme (roles.isDark) — a leftover from before
+    the "tách giao diện" rework. color-scheme is a separate browser signal
+    from the page's own CSS: it controls NATIVE form-control rendering
+    (<select> dropdown popups, date pickers, number-input spinners,
+    scrollbars), independent of what background-color the page itself
+    paints. With it still "dark", opening any <select> (Kỹ năng/Part in
+    ManualPractice, etc.) would pop a dark-native dropdown regardless of
+    the correctly-light page around it. Fixed: color-scheme is now always
+    "light", since the page shell has no real dark mode left at all
+    (isDark only ever affects card surface tone now). No test asserted
+    the old per-theme value (grepped first to confirm before changing).
+  - (2) User: "khi tôi chạy quay thì nó ra 2 cái này, nhưng khi tôi nhấn
+    xóa, nó vẫn hiện 2 cái này vậy" — deleting a roll from "Lượt quay gần
+    đây" left the Spinner's own cascade display (which skill/part/dạng bài
+    cards show as "selected", their accuracy-entry forms, etc.) completely
+    unchanged, still showing the now-deleted roll's results as chosen.
+    Root cause: Spinner.tsx's handleHistoryDeleted only refetched
+    skills/history; it never touched skillStates/partStatesBySkillId/
+    typeDrawStatesBySkillId/etc., which are separate client-side display
+    state from the server data. Fixed by extracting resetCascadeDisplay()
+    (previously inlined at the top of handleRoll) and calling it — plus
+    setPhase("idle") — from handleHistoryDeleted too, so a delete now
+    genuinely resets the display back to its pre-roll state.
+  - (3) User: "với cả điền số câu thì phải có chỗ để điền, ví dụ nhấn vô
+    lượt quay gần đây thì sẽ có chỗ để điền số câu và nhấn lưu" — a real
+    gap in Milestone 5 mở rộng's accuracy-entry feature (5.12): the
+    AccuracyEntry form only ever appeared once, immediately after a
+    roll/manual-practice completed. If the user skipped it then (or
+    reloaded the page), there was no way back to enter it for that result
+    — RecentRolls.tsx just displayed the result with no accuracy affordance
+    at all. Fixed by adding a "+ Nhập số câu đúng" prompt to every
+    Reading/Listening result in Lượt quay gần đây that doesn't have
+    questionsAnswered yet, expanding into the same AccuracyEntry component
+    inline. Also improved AccuracyEntry's onSaved callback to pass back the
+    actual saved {questionsAnswered, questionsCorrect} (previously no
+    args) so RecentRolls can show the real numbers immediately rather than
+    a generic checkmark, without needing a full history refetch.
+  - Added tests for all 3: a regression test in Spinner.test.tsx for the
+    cascade-resets-after-delete fix; 4 new RecentRolls.test.tsx cases for
+    the "+ Nhập số câu đúng" flow (prompt shown/hidden correctly, expands
+    into the form, shows the real saved numbers immediately, none for a
+    skill with no accuracy component); a new e2e case in
+    accuracy-entry.spec.ts covering the "skip it now, fill it in later
+    from history" flow end to end. No color-scheme test existed to update
+    (grepped first).
+  - 148/148 unit+component tests, 8/8 e2e specs, typecheck and lint all
+    green.

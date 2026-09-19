@@ -80,4 +80,61 @@ describe("RecentRolls", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("Xóa lượt quay thất bại");
     expect(onDeleted).not.toHaveBeenCalled();
   });
+
+  it("offers a 'Nhập số câu đúng' prompt for a Reading/Listening result with no accuracy recorded yet", () => {
+    render(<RecentRolls sessions={[makeSession()]} />);
+    expect(screen.getByRole("button", { name: "+ Nhập số câu đúng" })).toBeInTheDocument();
+  });
+
+  it("expands into the accuracy-entry form when the prompt is clicked, and shows a saved confirmation after saving", async () => {
+    const user = userEvent.setup();
+    mockFetchSequence([{ json: { id: "r1", questionsAnswered: 20, questionsCorrect: 18 } }]);
+
+    render(<RecentRolls sessions={[makeSession()]} />);
+    await user.click(screen.getByRole("button", { name: "+ Nhập số câu đúng" }));
+
+    expect(screen.getByLabelText("Số câu đã làm")).toBeInTheDocument();
+
+    await user.type(screen.getByLabelText("Số câu đã làm"), "20");
+    await user.type(screen.getByLabelText("Số câu đúng"), "18");
+    await user.click(screen.getByRole("button", { name: "Lưu" }));
+
+    expect(await screen.findByText("✓ Đã ghi số câu đúng: 18/20")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "+ Nhập số câu đúng" })).not.toBeInTheDocument();
+  });
+
+  it("shows the already-recorded numbers instead of the prompt when the result already has accuracy data", () => {
+    const session = makeSession({
+      results: [
+        {
+          id: "r1",
+          skill: { id: "READING", code: "READING", name: "Reading" },
+          part: { id: "READING_A", code: "READING_A", name: "Block A" },
+          questionTypes: [],
+          questionsAnswered: 20,
+          questionsCorrect: 18,
+        },
+      ],
+    });
+    render(<RecentRolls sessions={[session]} />);
+    expect(screen.getByText("✓ Đã ghi số câu đúng: 18/20")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "+ Nhập số câu đúng" })).not.toBeInTheDocument();
+  });
+
+  it("does not offer accuracy entry for a skill with no accuracy component (e.g. Speaking)", () => {
+    const session = makeSession({
+      results: [
+        {
+          id: "r1",
+          skill: { id: "SPEAKING", code: "SPEAKING", name: "Speaking" },
+          part: { id: "SPEAKING_A", code: "SPEAKING_A", name: "Block A" },
+          questionTypes: [],
+          questionsAnswered: null,
+          questionsCorrect: null,
+        },
+      ],
+    });
+    render(<RecentRolls sessions={[session]} />);
+    expect(screen.queryByRole("button", { name: "+ Nhập số câu đúng" })).not.toBeInTheDocument();
+  });
 });

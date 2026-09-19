@@ -4,7 +4,7 @@ import { useState } from "react";
 
 interface AccuracyEntryProps {
   resultId: string;
-  onSaved?: () => void;
+  onSaved?: (values: { questionsAnswered: number; questionsCorrect: number }) => void;
   /**
    * This form renders in two different color contexts: directly on the page
    * (`Spinner.tsx`, under a skill's part-picker section — no `bg-surface`
@@ -53,7 +53,7 @@ export function AccuracyEntry({ resultId, onSaved, variant = "page" }: AccuracyE
       });
       if (!res.ok) throw new Error(`Request failed with ${res.status}`);
       setStatus("saved");
-      onSaved?.();
+      onSaved?.({ questionsAnswered, questionsCorrect });
     } catch {
       setStatus("error");
       setErrorMessage("Lưu số câu đúng thất bại. Kiểm tra kết nối rồi thử lại.");

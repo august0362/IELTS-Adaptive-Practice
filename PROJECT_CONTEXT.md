@@ -381,6 +381,12 @@ Chưa có UI chỉnh tỉ lệ dạng bài ở milestone này — giống các h
 
 `PATCH /api/results/:id/accuracy` — gắn `questionsAnswered`/`questionsCorrect` vào 1 `rollResult` đã tạo (từ 1 lượt quay hoặc tự học), điền **sau khi** luyện xong, không phải lúc quay. Chỉ áp dụng cho kết quả Reading/Listening (validate qua `skill.code`, trả 400 nếu không phải); `questionsAnswered > 0`, `0 <= questionsCorrect <= questionsAnswered`. Dữ liệu này nuôi `accuracyEwma_skill` trong Công thức 3 v2 (mục 5.4).
 
+**2 điểm vào (entry point) cho UI nhập số câu đúng** (`AccuracyEntry.tsx`, tái dùng cho cả 2):
+1. Ngay sau khi quay/tự học xong Reading/Listening (`Spinner.tsx`/`ManualPractice.tsx`) — tùy chọn, có thể bỏ qua lúc đó.
+2. **Sau này, từ "Lượt quay gần đây"** (`RecentRolls.tsx`) — mỗi kết quả Reading/Listening chưa có `questionsAnswered` hiện nút "+ Nhập số câu đúng"; bấm vào mở form ngay trong dòng lịch sử đó. Thêm ở đây vì nếu bỏ qua lúc (1), trước đó **không có cách nào khác để quay lại nhập** — đây là điểm vào duy nhất cho các lượt đã qua.
+
+`onSaved` của `AccuracyEntry` trả về `{ questionsAnswered, questionsCorrect }` vừa lưu, để nơi gọi (như `RecentRolls`) hiện lại đúng số ngay lập tức mà không cần tải lại toàn bộ lịch sử.
+
 ---
 
 ## 6. Hợp đồng API

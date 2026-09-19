@@ -35,6 +35,14 @@
 - [x] Sửa lỗi tự phát hiện qua e2e: `cambridge-prediction.spec.ts` hard-code giá trị Band tổng dự đoán chính xác theo công thức v1 (`"6.5"`) — vừa sai theo công thức v2 (EWMA/accuracy/tần suất khác v1), vừa giòn vì các spec e2e dùng chung 1 DB (`setupDb.ts` chỉ seed 1 lần, không phải mỗi spec) nên spec `accuracy-entry.spec.ts` chạy trước đã làm lệch tần suất Reading. Sửa thành kiểm tra "có hiện 1 số Band hợp lệ" thay vì giá trị cụ thể — phần số học chính xác đã có unit test riêng ở `bandPrediction.test.ts`
 - [x] `npm run test:e2e` chạy đầy đủ 7 spec, xanh hết
 
+### Sửa lỗi sau khi chốt Milestone 5 mở rộng (user báo trực tiếp khi dùng app)
+
+- [x] `color-scheme` vẫn theo `isDark` (sót lại, khiến `<select>`/input native vẫn tối) — không có test nào giữ hành vi cũ (đã grep để xác nhận trước khi sửa)
+- [x] Unit/Component: `Spinner.test.tsx` — thêm test "reset khung cascade về idle sau khi xóa lượt quay vừa tạo"
+- [x] Component: `RecentRolls.test.tsx` — thêm 4 test cho nút "+ Nhập số câu đúng" (hiện khi chưa có dữ liệu, mở form đúng, hiện lại đúng số vừa lưu ngay không cần tải lại, không hiện cho Speaking)
+- [x] E2E: thêm 1 kịch bản vào `accuracy-entry.spec.ts` — ghi nhận tự học nhưng bỏ qua form ngay lúc đó, quay lại nhập từ "Lượt quay gần đây"
+- [x] `npm run test:e2e` chạy đầy đủ 8 spec, xanh hết
+
 ## Việc còn chờ / chưa làm
 
 - [ ] `TESTING_GUIDE.md` (Milestone 4 Bước 2 — cách chạy/mở rộng bộ test, quy ước viết test)

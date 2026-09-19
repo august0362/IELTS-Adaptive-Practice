@@ -61,13 +61,14 @@ def build_notebook() -> dict:
         ),
         code_cell("import json\n\nCHUNKS = json.loads(r'''" + chunks_json + "''')\nprint(f\"Loaded {len(CHUNKS)} chunks\")\n"),
         markdown_cell(
-            "## 2. Tải model (4-bit, mỗi GPU 1 bản riêng)\n"
+            "## 2. Tải model (4-bit, 1 GPU)\n"
             "\n"
-            "9B ở 4-bit chỉ ~5-6GB, vừa dư trong 1 GPU T4 16GB — nên **tăng tốc bằng cách chạy song song "
-            "2 GPU** (mỗi GPU 1 bản model riêng, chia đôi số đoạn cho 2 GPU xử lý cùng lúc) chứ không phải "
-            "vì model không vừa 1 GPU. Cần chọn **GPU T4 x2** ở `Settings → Accelerator` (không phải P100 "
-            "hay T4 đơn) thì mới có 2 GPU thật. Nếu Kaggle chỉ cấp 1 GPU (hoặc 0), cell dưới tự động chạy "
-            "với 1 GPU (hoặc CPU) — chậm hơn nhưng vẫn chạy được, không lỗi."
+            "**Đã bỏ chạy song song 2 GPU** — thử thật trên Kaggle phát hiện Qwen3.5-9B kèm sẵn 1 "
+            "vision encoder + module multi-token-prediction (không dùng tới, nhưng vẫn bị đọc vào bộ nhớ "
+            "GPU lúc nạp trước khi bị bỏ đi) khiến **1 bản model đã chiếm gần hết 1 GPU T4 (14.56GB)** — "
+            "2 bản riêng trên 2 GPU không đủ chỗ, đã gặp lỗi *CUDA out of memory* thật khi thử. Với chỉ "
+            "vài chục đoạn, 1 GPU vẫn chạy xong trong thời gian hợp lý nên không cần thiết phải ép chạy "
+            "song song 2 bản."
         ),
         code_cell(
             "import torch\n"
@@ -82,38 +83,31 @@ def build_notebook() -> dict:
             '    bnb_4bit_quant_type="nf4",\n'
             ")\n"
             "\n"
-            "NUM_GPUS = torch.cuda.device_count()\n"
-            'print(f"So GPU thay duoc: {NUM_GPUS}")\n'
-            "if NUM_GPUS < 2:\n"
-            '    print("CANH BAO: khong thay du 2 GPU. Vao Settings -> Accelerator -> chon \'GPU T4 x2\'"\n'
-            '          " de chay song song that. Notebook van chay duoc voi so GPU hien co, chi khong nhanh gap doi.")\n'
+            'DEVICE = "cuda:0" if torch.cuda.is_available() else "cpu"\n'
+            'print(f"Dang dung: {DEVICE}")\n'
             "\n"
             "tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)\n"
-            "\n"
-            "# 1 model rieng cho moi GPU (khong chia se — moi ban doc lap de 2 luong chay that su song song,\n"
-            "# khac voi device_map=\"auto\" tren 1 model duy nhat, cai do KHONG chay song song duoc).\n"
-            "MODELS = {}\n"
-            "device_ids = range(NUM_GPUS) if NUM_GPUS > 0 else [None]  # None = chay CPU neu khong co GPU nao\n"
-            "for gpu_id in device_ids:\n"
-            '    device = f"cuda:{gpu_id}" if gpu_id is not None else "cpu"\n'
-            '    print(f"Dang tai model len {device}...")\n'
-            "    MODELS[gpu_id] = AutoModelForCausalLM.from_pretrained(\n"
-            "        MODEL_NAME,\n"
-            "        quantization_config=bnb_config if gpu_id is not None else None,\n"
-            '        device_map={"": device},\n'
-            "    )\n"
-            'print(f"Da tai xong {len(MODELS)} ban model.")\n'
+            "model = AutoModelForCausalLM.from_pretrained(\n"
+            "    MODEL_NAME,\n"
+            "    quantization_config=bnb_config if DEVICE != \"cpu\" else None,\n"
+            '    device_map={"": DEVICE},\n'
+            ")\n"
+            "# Giu nguyen ten MODELS/GPU_IDS o cell duoi (chi con dung 1 \"worker\") de khong phai sua lai\n"
+            "# ham sinh cau hoi-dap va vong lap chay song song ben duoi — chi khac la gio chi co 1 GPU.\n"
+            "MODELS = {0: model}\n"
+            'print("Da tai xong model.")\n'
         ),
         markdown_cell(
-            "## 3. Hàm sinh câu hỏi–đáp cho 1 đoạn + chạy song song nhiều GPU\n"
+            "## 3. Hàm sinh câu hỏi–đáp cho 1 đoạn\n"
             "\n"
             "`enable_thinking=False` quan trọng — đo thật ở Milestone 6: cùng 1 prompt mất 73.7s "
             "(thinking bật) so với 1.1s (tắt) trên Qwen3.5-4B. 9B chắc chắn cũng chậm tương tự nếu bật, "
             "sẽ tốn quota GPU Kaggle vô ích cho phần \"suy nghĩ\" mà ta không cần tới.\n"
             "\n"
-            "Chạy song song bằng `ThreadPoolExecutor` (mỗi luồng dùng đúng 1 GPU/1 bản model riêng ở "
-            "cell trên) — các đoạn hoàn toàn độc lập với nhau (không đoạn nào cần kết quả của đoạn khác) "
-            "nên chia đều cho các GPU xử lý cùng lúc là an toàn, không có rủi ro tranh chấp dữ liệu."
+            "Dùng `ThreadPoolExecutor` với đúng 1 worker (1 GPU — xem mục 2) — giữ lại cấu trúc \"chạy "
+            "theo hàng đợi\" này thay vì vòng lặp trần trụi, để nếu sau này Kaggle cấp đủ bộ nhớ cho 2 GPU "
+            "hoặc đổi sang model nhỏ hơn, chỉ cần thêm lại 1 dòng nạp model thứ 2 vào `MODELS` là chạy "
+            "song song được ngay, không phải viết lại phần này."
         ),
         code_cell(
             "import re\n"
@@ -219,8 +213,7 @@ def build_notebook() -> dict:
             f"bộ {chunk_count} đoạn. Nếu lỗi, gửi lại thông báo lỗi để debug."
         ),
         markdown_cell(
-            f"## 5. Chạy toàn bộ {chunk_count} đoạn (song song trên các GPU đang có — ước tính vài phút "
-            "với 2 GPU, gấp đôi nếu chỉ có 1)"
+            f"## 5. Chạy toàn bộ {chunk_count} đoạn (1 GPU — ước tính 10–20 phút)"
         ),
         code_cell(
             "results = []\n"

@@ -83,7 +83,7 @@ def build_notebook() -> dict:
             "\"vài trăm mẫu\" lúc lập kế hoạch), tải file `lora_adapter.zip` về (link tải ở cell cuối) "
             "rồi gửi lại cho Claude.\n"
         ),
-        code_cell("!pip install -q -U unsloth\n"),
+        code_cell("!pip install -q -U unsloth unsloth_zoo\n"),
         markdown_cell(
             "## 1. Dữ liệu train (đã nhúng sẵn, đã được bạn duyệt toàn bộ — không cần upload)\n"
             "\n"
@@ -114,9 +114,24 @@ def build_notebook() -> dict:
             "58 mẫu đã duyệt: dài nhất 4656 token (1 câu trả lời ngoại lệ về bảng màu giao diện; 95% còn "
             "lại dưới 1521 token). Đặt dư ra để không bao giờ bị cắt mất phần cuối câu trả lời — "
             "`SFTConfig` cắt bớt từ *cuối* chuỗi khi vượt `max_length`, mà câu trả lời (thứ đang được "
-            "train) luôn nằm ở cuối chuỗi."
+            "train) luôn nằm ở cuối chuỗi.\n"
+            "\n"
+            "`UNSLOTH_FORCE_FLOAT32=1` (đặt trước khi `import unsloth`) — **lỗi thật gặp ở lần chạy "
+            "trước, đã có báo cáo công khai trùng khớp** ([unslothai/unsloth #4970]"
+            "(https://github.com/unslothai/unsloth/issues/4970)): `RuntimeError: expected mat1 and mat2 "
+            "to have the same dtype, but got: c10::BFloat16 != c10::Half`, sập ở layer "
+            "`Qwen3_5GatedDeltaNet` (1 kiểu layer \"linear attention\" mới của Qwen3.5, xen giữa các "
+            "layer attention thường — không phải lỗi ở dữ liệu/cấu hình train của mình). Nguyên nhân "
+            "(theo chính báo cáo trên): trên GPU không có bf16 phần cứng như T4, Unsloth nạp model ở "
+            "bf16 (đúng gốc checkpoint) rồi hạ 1 phần trọng số xuống fp16, nhưng activation truyền qua "
+            "vẫn còn bf16 ở vài layer — lệch dtype ngay tại phép nhân ma trận. Fix chính thức: biến môi "
+            "trường này bật các lớp bọc dtype-safety cho đúng layer `Qwen3_5GatedDeltaNet`/`Attention`/"
+            "`MLP` (đã có sẵn trong bản Unsloth mới nhất, chỉ cần bật, không cần code thêm)."
         ),
         code_cell(
+            "import os\n"
+            'os.environ["UNSLOTH_FORCE_FLOAT32"] = "1"  # xem markdown tren — fix that cho loi dtype tren T4\n'
+            "\n"
             "from unsloth import FastLanguageModel\n"
             "\n"
             'MODEL_NAME = "Qwen/Qwen3.5-4B"\n'

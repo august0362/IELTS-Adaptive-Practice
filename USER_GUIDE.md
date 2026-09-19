@@ -8,7 +8,7 @@
 
 **Cách nhanh nhất**: bấm đúp vào file **`start-app.bat`** ở thư mục gốc dự án. Script sẽ tự kiểm tra và cài dependencies nếu thiếu, tự tạo database nếu chưa có, khởi động server, và tự mở trình duyệt vào `http://localhost:3000` sau vài giây. Đóng cửa sổ đen (hoặc bấm Ctrl+C) để tắt ứng dụng.
 
-**Cách thủ công**: trong thư mục dự án, chạy:
+**Cách thủ công**: trong thư mục `web/` của dự án (app Next.js nằm ở đây từ Milestone 6, tách riêng khỏi chatbot AI ở `ai/`), chạy:
 
 ```bash
 npm run dev
@@ -16,7 +16,7 @@ npm run dev
 
 Rồi mở trình duyệt vào `http://localhost:3000`.
 
-Toàn bộ dữ liệu (lịch sử quay, ghi chú, điểm thi thử) được lưu trong 1 file duy nhất: `dev.db` ở thư mục gốc dự án. Muốn sao lưu dữ liệu, chỉ cần copy file này ra chỗ khác. Muốn làm lại từ đầu (xóa sạch dữ liệu), xóa file `dev.db` rồi chạy `npm run db:migrate && npm run db:seed`.
+Toàn bộ dữ liệu (lịch sử quay, ghi chú, điểm thi thử) được lưu trong 1 file duy nhất: `dev.db` ở thư mục `web/`. Muốn sao lưu dữ liệu, chỉ cần copy file này ra chỗ khác. Muốn làm lại từ đầu (xóa sạch dữ liệu), xóa file `dev.db` rồi chạy `npm run db:migrate && npm run db:seed` (trong thư mục `web/`).
 
 ---
 
@@ -83,4 +83,4 @@ Chỉ theo **số lần xuất hiện**, không theo thời gian — trừ ràng
 Dự đoán tính trung bình 30 bài gần nhất, nên nếu bạn đã có nhiều dữ liệu, 1 điểm mới sẽ chỉ ảnh hưởng nhẹ tới trung bình chung.
 
 **Đổi máy tính khác thì dữ liệu có mất không?**
-Có — dữ liệu lưu trong file `dev.db` trên máy hiện tại, và bảng màu đã chọn lưu trên trình duyệt hiện tại. Muốn mang sang máy khác, copy file `dev.db` sang.
+Có — dữ liệu lưu trong file `web/dev.db` trên máy hiện tại, và bảng màu đã chọn lưu trên trình duyệt hiện tại. Muốn mang sang máy khác, copy file `web/dev.db` sang.

@@ -1,8 +1,9 @@
 @echo off
 setlocal
 
-rem Always run from this script's own folder, no matter where it's double-clicked from.
-cd /d "%~dp0"
+rem Always run from the web/ app folder (Milestone 6: app was moved into web/,
+rem chatbot code lives separately in ai/), no matter where this is double-clicked from.
+cd /d "%~dp0web"
 
 echo ================================================
 echo   IELTS Adaptive Practice - dang khoi dong...

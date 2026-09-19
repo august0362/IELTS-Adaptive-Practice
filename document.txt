@@ -65,6 +65,25 @@ PENDING
    Trigger to build: if the user wants to tune engine constants without editing the
    DB/API directly.
 
+8. [IN PROGRESS, not deferred — tracked here only until it graduates to its own
+   DONE entry] Milestone 6/7/8 — Chatbot AI. Full scope/decisions log lives in
+   AI_CHATBOT_PLAN.md (repo root) — read that first, it is the source of truth,
+   not this bullet. Summary: user wants a project-specific chatbot (Q&A about
+   the app + general IELTS tutoring + advice from the user's own DB data), plus
+   a separate Writing/Speaking scorer against official IELTS band criteria.
+   Repo restructured Milestone 6 Step 1: whole app moved into web/, new ai/
+   module added (models/, data/raw+processed/, training/, server/), new AI/ML
+   role + `.claude/agents/ai-engineer.md` added to CLAUDE.md. Model choice:
+   Qwen3.5-4B-Instruct (GGUF 4-bit, local inference) + Qwen3.5-9B (Kaggle-only,
+   synthetic training-data generation) + faster-whisper (Milestone 8 STT) —
+   all open models, deliberately NOT Claude: checked anthropic.com/legal/aup
+   directly, which prohibits using Claude input/output to train any AI model
+   without prior authorization, no carve-out found for non-competing/personal
+   use — this overturned an earlier in-conversation choice by the user before
+   any data was actually generated. See AI_CHATBOT_PLAN.md for the full
+   reasoning trail and all other decisions (data-gen method, milestone split,
+   language behavior, why Writing/Speaking scoring doesn't touch the DB yet).
+
 
 DONE
 ----

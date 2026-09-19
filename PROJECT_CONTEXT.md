@@ -4,7 +4,9 @@
 >
 > **Quy tắc cập nhật**: bất kỳ thay đổi nào về schema DB, 1 công thức, 1 hợp đồng API, hay quy ước thư mục đều PHẢI được cập nhật vào file này ngay trong cùng bước/commit thực hiện thay đổi đó. File này mà lỗi thời thì coi như là 1 lỗi (bug).
 
-Cập nhật lần cuối: 2026-09-18 (cả 4 milestone theo kế hoạch ban đầu đã xong — backend/engine/API, frontend, test, và Milestone 4 gồm hệ thống theme + review toàn bộ + `TESTING_GUIDE.md`/`USER_GUIDE.md`. Xem `PROGRESS.md` để biết trạng thái hiện tại, mục 2.1 để biết 1 thay đổi công nghệ quan trọng từ Milestone 1, mục 9 để biết về hệ thống theme).
+Cập nhật lần cuối: 2026-09-19 (Milestone 6 — dời toàn bộ app Next.js vào `web/`, thêm module `ai/` cho chatbot; xem mục 3 và mục 11 mới). Trước đó: cả 4 milestone theo kế hoạch ban đầu đã xong — backend/engine/API, frontend, test, và Milestone 4 gồm hệ thống theme + review toàn bộ + `TESTING_GUIDE.md`/`USER_GUIDE.md`. Xem `PROGRESS.md` để biết trạng thái hiện tại, mục 2.1 để biết 1 thay đổi công nghệ quan trọng từ Milestone 1, mục 9 để biết về hệ thống theme.
+
+> **Quy ước đường dẫn từ Milestone 6:** mọi đường dẫn `src/...`, `drizzle/...`, `dev.db`, và mọi lệnh `npm run ...` trong các mục **1–9** dưới đây (viết trước khi dời file) đều thực hiện **bên trong thư mục `web/`** — ví dụ `src/lib/engine/ewma.ts` nay là `web/src/lib/engine/ewma.ts`, `npm run dev` nay chạy với cwd = `web/`. Giữ nguyên đường dẫn ngắn trong các mục đó cho dễ đọc/dễ so khớp với lịch sử; chỉ mục 3 (sơ đồ thư mục) và mục 11 (chatbot) dùng đường dẫn đầy đủ có `web/`/`ai/`.
 
 ---
 
@@ -48,11 +50,24 @@ Không cái nào trong số đó phù hợp với 1 app chỉ chạy local, dùn
 
 ## 3. Cấu trúc thư mục
 
+Từ Milestone 6, dự án là 1 monorepo 2 module độc lập — `web/` (app Next.js, không đổi gì bên trong ngoài vị trí) và `ai/` (chatbot, xem mục 11) — cộng các tài liệu dùng chung ở gốc:
+
 ```
-drizzle.config.ts              # config của drizzle-kit (dialect: sqlite, đường dẫn schema, thư mục migration)
-/drizzle
+/ (gốc project)
+  CLAUDE.md, PROGRESS.md, PROJECT_CONTEXT.md, document.txt   # tài liệu dùng chung cho cả 2 module
+  AI_CHATBOT_PLAN.md           # log quyết định/phạm vi đầy đủ của chatbot (Milestone 6/7/8)
+  push-to-github.bat, pull-from-github.bat, start-app.bat    # script tiện ích, thao tác cả repo
+  /web                         # === App Next.js (Milestone 1-5) — mọi thứ dưới đây y hệt trước khi dời ===
+  /ai                          # === Chatbot AI (Milestone 6/7/8) — xem mục 11 ===
+```
+
+Chi tiết bên trong `/web`:
+
+```
+web/drizzle.config.ts          # config của drizzle-kit (dialect: sqlite, đường dẫn schema, thư mục migration)
+web/drizzle
   /migrations                  # file SQL migration được sinh ra bởi `npm run db:generate`
-/src
+web/src
   /app
     /api
       /roll/route.ts           # POST: thực hiện 1 lượt quay (kỹ năng + part + random thêm dạng bài, mục 5.7)
@@ -125,15 +140,15 @@ drizzle.config.ts              # config của drizzle-kit (dialect: sqlite, đư
     /component                 # project "component" của Vitest (môi trường jsdom): test RTL cho từng component tương tác
     /e2e                       # file test Playwright + testDbPath.ts (hằng số dùng chung) + setupDb.ts (xóa/migrate/seed
                                 # DB e2e dùng-rồi-bỏ, nối vào lệnh webServer trong playwright.config.ts)
-playwright.config.ts
-document.txt
-PROJECT_CONTEXT.md
-CLAUDE.md
-TESTING_GUIDE.md               # cách chạy/mở rộng bộ test, các bẫy về môi trường
-USER_GUIDE.md                  # hướng dẫn sử dụng (tiếng Việt) cho người dùng cuối, về 4 trang chính
-package.json
-tsconfig.json
+web/playwright.config.ts
+web/package.json
+web/tsconfig.json
+web/README.md                  # README gốc của create-next-app (Milestone 6: dời từ gốc project vào đây)
 ```
+
+`document.txt`, `PROJECT_CONTEXT.md`, `CLAUDE.md`, `TESTING_GUIDE.md`, `USER_GUIDE.md` **ở gốc project**, không nằm trong `web/` (dùng chung cho cả `web/` và `ai/`, xem mục 3 phần đầu).
+
+Chi tiết bên trong `/ai` — xem mục 11.
 
 ---
 
@@ -477,3 +492,38 @@ Các màu trạng thái/ý nghĩa cố định (xóa = đỏ, trạng thái "đa
 ## 10. Framework nhiều vai trò (multi-agent)
 
 Xem [`CLAUDE.md`](./CLAUDE.md) để biết vai trò từng bên, quy trình review, và kế hoạch thực hiện theo milestone.
+
+---
+
+## 11. Chatbot AI (Milestone 6/7/8)
+
+> Phạm vi/quyết định đầy đủ (vì sao chọn model này, vì sao không dùng Claude sinh dữ liệu train, các câu hỏi đã hỏi user...) nằm ở [`AI_CHATBOT_PLAN.md`](./AI_CHATBOT_PLAN.md). Mục này chỉ tóm tắt kiến trúc hiện có — cập nhật dần khi Milestone 6/7/8 tiến triển, đúng quy tắc "đổi kiến trúc/API thì sửa doc cùng bước" ở đầu file.
+
+### 11.1 Vì sao tách hẳn thành module `ai/` riêng
+
+Chatbot có bộ dependency hoàn toàn khác `web/` (chạy model AI, không phải Next.js) và có thể lỗi/chậm mà không được phép kéo app luyện thi IELTS đang chạy tốt xuống theo. Ranh giới module: `ai/` không import gì từ `web/src/` và ngược lại — 2 bên chỉ nói chuyện qua HTTP (route API mỏng ở `web/src/app/api/chat/` gọi sang server suy luận của `ai/server/`).
+
+### 11.2 Model đang dùng
+
+| Việc | Model | Ghi chú |
+|---|---|---|
+| Chatbot chạy local | Qwen3.5-4B-Instruct, GGUF 4-bit | Apache 2.0. Xem `AI_CHATBOT_PLAN.md` mục 5 để biết lý do chọn và các model đã cân nhắc. |
+| Sinh dữ liệu train (chỉ chạy Kaggle, Milestone 7) | Qwen3.5-9B-Instruct | Không dùng Claude — lý do pháp lý ở `AI_CHATBOT_PLAN.md` mục 6. |
+| Chấm Speaking — chuyển giọng nói thành chữ (Milestone 8) | faster-whisper (small/medium) | Chạy CPU để không giành VRAM với Qwen4B. |
+
+### 11.3 Cấu trúc `ai/`
+
+```
+ai/
+  models/           # file model đã tải (.gguf...) — gitignore, không track, quá nặng
+  data/
+    raw/            # tài liệu nguồn cho RAG/train — gitignore
+    processed/      # dữ liệu đã xử lý (chunk cho RAG, cặp hỏi-đáp cho train) — gitignore
+  training/         # script/notebook fine-tune (chạy trên Kaggle)
+  server/           # server suy luận nội bộ, web/ gọi vào đây qua HTTP
+  AI_TASKS.md        # checklist chi tiết, cập nhật theo từng bước
+```
+
+### 11.4 Hợp đồng API (nối vào `web/`)
+
+*(điền khi route thật được tạo ở Milestone 6 — giữ đúng tinh thần mục 6 "Hợp đồng API" của app chính: method, path, request/response shape).*

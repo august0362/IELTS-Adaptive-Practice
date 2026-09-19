@@ -1,6 +1,8 @@
 # TESTING_GUIDE.md — Cách chạy và mở rộng bộ test
 
 > Đây là hướng dẫn thao tác cho bộ test đã mô tả ở `PROJECT_CONTEXT.md` mục 7. Đọc mục đó trước để biết *bộ test bao phủ những gì* và *tại sao lại chia như vậy*; file này chỉ nói *cách làm* — lệnh chạy, quy ước, và cần thêm gì khi bạn sửa code.
+>
+> **Từ Milestone 6:** app đã dời vào `web/` — mọi lệnh `npm run ...` dưới đây chạy với cwd = `web/`, và mọi đường dẫn `src/...` nghĩa là `web/src/...`. File này chỉ nói về bộ test của `web/`; module `ai/` (chatbot) có cách tự-kiểm riêng, xem `ai/AI_TASKS.md`.
 
 ---
 

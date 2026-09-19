@@ -1,7 +1,7 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
 # dependencies
-/node_modules
+/web/node_modules
 /.pnp
 .pnp.*
 .yarn/*
@@ -11,14 +11,14 @@
 !.yarn/versions
 
 # testing
-/coverage
+/web/coverage
 
 # next.js
-/.next/
-/out/
+/web/.next/
+/web/out/
 
 # production
-/build
+/web/build
 
 # misc
 .DS_Store
@@ -40,7 +40,7 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# local SQLite database (regenerate via: npm run db:migrate && npm run db:seed)
+# local SQLite database (regenerate via: npm run db:migrate && npm run db:seed, chạy trong thư mục web/)
 *.db
 *.db-journal
 *.db-wal
@@ -51,3 +51,12 @@ e2e-test.db*
 
 # quarantined/local-only content the user explicitly asked not to commit
 note.txt
+
+# AI chatbot (Milestone 6/7/8, xem AI_CHATBOT_PLAN.md) — model nén và dữ liệu thô/train
+# không đưa lên GitHub (quá nặng, và data/raw có thể chứa tài liệu không có quyền phát tán)
+/ai/models/
+/ai/data/raw/
+/ai/data/processed/
+*.gguf
+*.safetensors
+*.bin

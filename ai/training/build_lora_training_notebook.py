@@ -125,7 +125,11 @@ def build_notebook() -> dict:
             "\"vài trăm mẫu\" lúc lập kế hoạch), tải file `lora_adapter.zip` về (link tải ở cell cuối) "
             "rồi gửi lại cho Claude.\n"
         ),
-        code_cell("!pip install -q -U transformers accelerate peft trl bitsandbytes\n"),
+        # torchao: PEFT (nang cap qua -U) doi ban torchao >= 0.16.0, nhung Kaggle
+        # co san ban cu hon (0.10.0) - loi that gap: ImportError khi get_peft_model()
+        # quet qua dispatcher torchao (khong lien quan gi den lua chon model/GPU/du
+        # lieu cua minh, thuan tuy goi co san tren Kaggle cu hon yeu cau moi cua PEFT).
+        code_cell("!pip install -q -U transformers accelerate peft trl bitsandbytes torchao\n"),
         markdown_cell(
             "## 1. Dữ liệu train (đã nhúng sẵn, đã được bạn duyệt toàn bộ — không cần upload)\n"
             "\n"

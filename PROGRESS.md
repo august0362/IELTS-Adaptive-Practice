@@ -12,7 +12,7 @@
 
 **Cách dùng chatbot ngay bây giờ:** chạy `start-app.bat` (gốc project) **và** `ai/start-server.bat` **cùng lúc** (2 cửa sổ riêng) — thiếu 1 trong 2 thì trang `/chat` báo "chưa sẵn sàng". Lần đầu chạy `ai/start-server.bat` sẽ tự tải model (~3.7GB, cần internet), các lần sau thì nhanh. Cần cài [Ollama](https://ollama.com) trước.
 
-**Việc kế tiếp:** Milestone 7 (fine-tune chatbot bằng dữ liệu train sinh từ template + Qwen3.5-9B trên Kaggle — **không dùng Claude**, xem lý do pháp lý ở `AI_CHATBOT_PLAN.md` mục 6) hoặc Milestone 8 (chấm Writing/Speaking theo tiêu chí IELTS) — cả 2 chưa bắt đầu, không mục nào bắt buộc phải làm ngay, chatbot đã dùng được ở dạng RAG + model gốc (chưa fine-tune). Chi tiết đầy đủ ở `AI_CHATBOT_PLAN.md` mục 9.
+**Việc kế tiếp:** Milestone 7 (fine-tune) đã có **kế hoạch thực thi chi tiết** ở `AI_CHATBOT_PLAN.md` mục 12 — **đang chờ user duyệt (đọc + trả lời 4 câu hỏi ở mục 12.6), chưa được thực thi**, không tự ý bắt đầu tải/chạy gì cho Milestone 7 cho tới khi có xác nhận rõ ràng. Milestone 8 (chấm Writing/Speaking) chưa có kế hoạch chi tiết, chưa bắt đầu. Không milestone nào bắt buộc — chatbot đã dùng được ở dạng RAG + model gốc (Milestone 6).
 
 **Nếu không liên quan chatbot:** việc khác (nếu có) là bất cứ gì user yêu cầu, hoặc 1 mục trong danh sách CHỜ LÀM của `document.txt` (đăng nhập, deploy cloud, Dự đoán Band v3 — OLS hồi quy, cơ chế đảm bảo tần suất tối thiểu ở cấp part, tinh chỉnh ngưỡng soft-reset, UI chỉnh `baseRatio` cho Writing/Listening, UI cấu hình các hằng số của engine, UI chỉnh tỉ lệ dạng bài, gắn Chủ đề vào vòng quay) — không mục nào cản trở việc dùng app bình thường như hiện tại.
 

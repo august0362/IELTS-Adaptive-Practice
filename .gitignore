@@ -67,8 +67,9 @@ note.txt
 __pycache__/
 *.pyc
 
-# Milestone 7: notebook Kaggle sinh ra tự động bởi ai/training/build_*.py
-# (nhúng nội dung ai/data/processed/, cũng gitignore) — chạy lại script đó để
-# tái tạo, không cần track file .ipynb. ai/kaggle/ chỉ chứa các notebook
-# sinh ra kiểu này (notebook sinh dữ liệu, sau này thêm notebook train LoRA).
-/ai/kaggle/*.ipynb
+# Milestone 7: ai/kaggle/ chứa 2 loại file, cả 2 đều không track:
+# - notebook .ipynb sinh ra tự động bởi ai/training/build_*.py (chạy lại
+#   script đó để tái tạo)
+# - kết quả user tải về từ Kaggle sau khi chạy (generated_qa.jsonl,
+#   generation_errors.json...) — dữ liệu trung gian, giống ai/data/processed/
+/ai/kaggle/

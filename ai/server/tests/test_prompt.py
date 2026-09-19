@@ -27,3 +27,21 @@ def test_prompt_ignores_whitespace_only_db_context():
     # appended at all" — i.e. identical to the empty-string case — not a bare
     # substring check, which that mention would trivially satisfy either way.
     assert build_system_prompt([], "   \n  ") == build_system_prompt([], "")
+
+
+def test_flash_and_thinking_modes_use_the_exact_same_instruction():
+    # flash/thinking only differ in reasoning depth (main.py's think=True),
+    # never in wording — only "pro" gets an added instruction.
+    assert build_system_prompt([], "", mode="flash") == build_system_prompt([], "", mode="thinking")
+
+
+def test_pro_mode_appends_the_pro_instruction():
+    flash_prompt = build_system_prompt([], "", mode="flash")
+    pro_prompt = build_system_prompt([], "", mode="pro")
+    assert pro_prompt.startswith(flash_prompt)
+    assert pro_prompt != flash_prompt
+    assert "Pro" in pro_prompt
+
+
+def test_mode_defaults_to_flash():
+    assert build_system_prompt([], "") == build_system_prompt([], "", mode="flash")

@@ -187,6 +187,15 @@ config               (id, key duy nhất, value [dạng chuỗi; engine tự par
 topics               (id, name, createdAt mặc định là thời điểm hiện tại)
                        // Chủ đề tự thêm của user (nút "+" ở Cài đặt) — hiện chỉ có tên, CHƯA gắn vào
                        // vòng quay. Sẽ mở rộng thêm trường sau. Xem mục 5.9.
+chatConversations    (id, title mặc định "Cuộc trò chuyện mới" [tự đổi thành ~60 ký tự đầu của
+                       tin nhắn đầu tiên], mode mặc định "flash" ["flash"|"thinking"|"pro" — nhớ theo
+                       từng cuộc hội thoại, xem mục 11], createdAt/updatedAt mặc định thời điểm hiện tại)
+                       // Chatbot "Navita" (Milestone 6) — 1 user có nhiều cuộc hội thoại riêng biệt.
+chatMessages         (id, conversationId -> chatConversations.id, role ["user"|"assistant"],
+                       content, createdAt mặc định thời điểm hiện tại)
+                       // Không khai báo onDelete cascade (giống mọi cặp bảng cha/con khác ở đây) —
+                       // xóa 1 cuộc hội thoại thì DELETE /api/chat/conversations/:id tự xóa messages
+                       // trước, cùng kiểu thủ công như DELETE /api/history/:id.
 ```
 
 Mọi khóa chính đều là `text` (sinh bằng `crypto.randomUUID()`), mọi cột thời gian đều lưu dạng số nguyên SQLite ở chế độ `{ mode: "timestamp" }` (tức là ra vào Drizzle dưới dạng `Date` của JS). Khóa ngoại dùng `.references()`; quan hệ để dùng query-builder (ví dụ `db.query.skills.findMany({ with: { parts: true } })`) được khai báo cùng mỗi bảng bằng helper `relations()` của Drizzle.
@@ -426,7 +435,9 @@ Chưa có UI chỉnh tỉ lệ dạng bài ở milestone này — giống các h
 | GET/PATCH | `/api/config` | body PATCH: `{ key, value }` | bảng config hiện tại (có `cambridge_ewma_alpha`, `accuracy_ewma_alpha` mới — mục 5.4) |
 | GET/POST | `/api/topics` | POST body: `{ name }` | danh sách/tạo chủ đề (mục 5.11) |
 | DELETE | `/api/topics/:id` | — | `{ ok: true }` |
-| POST | `/api/chat` | `{ message: string, history?: {role: "user"\|"assistant", content: string}[] }` | `{ reply: string }` — route mỏng của AI/ML (Milestone 6), đọc DB qua `getChatContextSummary()` rồi gọi sang `ai/server/`; 503 nếu `ai/server/` chưa chạy, 502 nếu nó lỗi. Xem mục 11.4. |
+| GET/POST | `/api/chat/conversations` | POST không cần body | GET: `[{id, title, mode, createdAt, updatedAt, lastMessagePreview}]`, mới nhất trước. POST: tạo cuộc hội thoại rỗng, trả về `{id, title, mode, createdAt, updatedAt}` (201). |
+| GET/PATCH/DELETE | `/api/chat/conversations/:id` | PATCH body: `{title?, mode?}` | GET: `{..., messages: [{id, role, content, createdAt}]}`, 404 nếu không có. PATCH: cập nhật title/mode, trả về conversation đã sửa. DELETE: xóa cuộc hội thoại + toàn bộ tin nhắn, `{ok:true}`. |
+| POST | `/api/chat` | `{ conversationId: string, message: string, mode?: "flash"\|"thinking"\|"pro" }` | `{ reply: string, conversationId: string }` — route mỏng của AI/ML (Milestone 6), tự load lịch sử từ DB (không nhận `history` từ client nữa), ghi cả 2 tin nhắn (user + assistant) vào `chatMessages`, đọc `getChatContextSummary()` rồi gọi sang `ai/server/`; 404 nếu conversationId sai, 503 nếu `ai/server/` chưa chạy, 502 nếu nó lỗi. Xem mục 11.4. |
 
 ---
 
@@ -496,13 +507,32 @@ Xem [`CLAUDE.md`](./CLAUDE.md) để biết vai trò từng bên, quy trình rev
 
 ---
 
-## 11. Chatbot AI (Milestone 6/7/8)
+## 11. Chatbot AI "Navita" (Milestone 6/7/8)
 
 > Phạm vi/quyết định đầy đủ (vì sao chọn model này, vì sao không dùng Claude sinh dữ liệu train, các câu hỏi đã hỏi user...) nằm ở [`AI_CHATBOT_PLAN.md`](./AI_CHATBOT_PLAN.md). Mục này chỉ tóm tắt kiến trúc hiện có — cập nhật dần khi Milestone 6/7/8 tiến triển, đúng quy tắc "đổi kiến trúc/API thì sửa doc cùng bước" ở đầu file.
+>
+> Chatbot tên **Navita** (đổi tên sau khi Milestone 6 đã review chốt lần đầu — user quay lại yêu cầu thêm bình chat nổi + đổi tên + 3 chế độ + lịch sử nhiều cuộc hội thoại; tính là phần mở rộng của Milestone 6, không phải milestone riêng).
 
 ### 11.1 Vì sao tách hẳn thành module `ai/` riêng
 
 Chatbot có bộ dependency hoàn toàn khác `web/` (chạy model AI, không phải Next.js) và có thể lỗi/chậm mà không được phép kéo app luyện thi IELTS đang chạy tốt xuống theo. Ranh giới module: `ai/` không import gì từ `web/src/` và ngược lại — 2 bên chỉ nói chuyện qua HTTP (route API mỏng ở `web/src/app/api/chat/` gọi sang server suy luận của `ai/server/`).
+
+### 11.1.1 2 nơi xuất hiện trên giao diện
+
+- **Trang `/chat`** đầy đủ (`web/src/app/chat/page.tsx`) — dùng `ChatWindow`.
+- **Bình chat nổi** (`web/src/components/chat/ChatBubble.tsx`, gắn vào `web/src/app/layout.tsx` nên hiện trên **mọi trang trừ `/chat`** — tự ẩn ở đó vì trang đầy đủ đã hiện sẵn, tránh trùng lặp gây rối). Bấm vào mở popup nhỏ chứa cùng `ChatWindow` (prop `compact`) — **dùng chung state/API**, không phải bản sao riêng, nên gửi tin từ bình nổi rồi mở `/chat` sau vẫn thấy đúng cuộc hội thoại đó (cả 2 đều tự chọn cuộc hội thoại **cập nhật gần nhất** khi mount).
+
+### 11.1.2 3 chế độ (Flash/Thinking/Pro)
+
+Cả 3 dùng chung 1 model `qwen3.5:4b` — không tải thêm, không đổi model theo chế độ (xem lý do chọn phương án này thay vì model lớn hơn ở `AI_CHATBOT_PLAN.md` mục 12 phần "Pro mode"). Khác nhau ở tham số gọi Ollama + hệ dẫn:
+
+| Chế độ | `think` (Ollama) | `top_k` (RAG) | Khác biệt hệ dẫn |
+|---|---|---|---|
+| **Flash** (mặc định) | `false` | 4 | Không — hệ dẫn gốc |
+| **Thinking** | `true` | 4 | Không — chỉ khác Flash ở việc model được "suy nghĩ" trước khi trả lời (chậm hơn hẳn, xem mục 11.4) |
+| **Pro** | `true` | 6 | Có — cộng thêm đoạn yêu cầu trả lời chi tiết/có cấu trúc/trang trọng hơn (`ai/server/prompt.py`'s `PRO_INSTRUCTION_SUFFIX`) |
+
+Chế độ được lưu **theo từng cuộc hội thoại** (cột `mode` của `chatConversations`, mục 4) — đổi chế độ ở 1 cuộc không ảnh hưởng cuộc khác, cuộc mới luôn bắt đầu ở Flash.
 
 ### 11.2 Model đang dùng
 
@@ -527,14 +557,18 @@ ai/
 
 ### 11.4 Hợp đồng API (nối vào `web/`)
 
+**Quản lý cuộc hội thoại** (`web/src/app/api/chat/conversations/`) — CRUD thuần trên DB của `web/`, không đụng `ai/server/`: xem bảng mục 6 (`GET/POST /api/chat/conversations`, `GET/PATCH/DELETE /api/chat/conversations/:id`). `deriveChatTitle()` (`web/src/lib/db/queries.ts`) tự đặt tên cuộc hội thoại từ ~60 ký tự đầu của tin nhắn đầu tiên, gọi ngay trong `POST /api/chat` (bên dưới) khi phát hiện đây là tin nhắn đầu tiên của cuộc đó.
+
 **`POST web/src/app/api/chat/route.ts`** — cũng có ở bảng mục 6. Chi tiết luồng xử lý:
 
-1. Validate `message` (string không rỗng) và `history` (mảng `{role, content}`, tùy chọn) — 400 nếu sai.
-2. Gọi `getChatContextSummary()` (`web/src/lib/db/queries.ts`) — đọc DB của `web/` (10 lượt luyện gần nhất, 5 kết quả Cambridge gần nhất, 5 ghi chú gần nhất), gói thành 1 đoạn text ngắn. Đây là **lần đọc DB duy nhất** ở phía `web/` cho tính năng chat — `ai/` không bao giờ tự đọc `dev.db`.
-3. `fetch` sang `ai/server/` (`POST {AI_SERVER_URL:-http://127.0.0.1:8787}/chat`) với `{ message, history, dbContext }`, timeout 120s (đo thật trên máy dev: ~46s/câu có RAG, kể cả đã tắt thinking mode — xem `ai/AI_TASKS.md`).
-4. `ai/server/` trả `{ reply: string }` — route chuyển tiếp nguyên văn. Không tới được / lỗi / timeout → 503; `ai/server/` trả lỗi → 502; response thiếu `reply` string → 502.
+1. Validate `conversationId` (string không rỗng), `message` (string không rỗng), `mode` (tùy chọn, phải thuộc `flash`/`thinking`/`pro` nếu có) — 400 nếu sai.
+2. Load cuộc hội thoại + toàn bộ tin nhắn cũ từ DB qua `getChatConversationWithMessages()` — 404 nếu không có. **Lịch sử luôn lấy từ DB, không còn nhận `history` từ client** (khác Milestone 6 bản đầu) — tránh lệch dữ liệu khi user chuyển qua lại giữa trang `/chat` và bình chat nổi hoặc tải lại trang.
+3. Ghi tin nhắn `user` vào `chatMessages` ngay (`addChatMessage`) — nên tin nhắn không mất kể cả khi bước gọi `ai/server/` bên dưới thất bại. Nếu đây là tin nhắn đầu tiên của cuộc, tự đặt tên cuộc hội thoại.
+4. Gọi `getChatContextSummary()` (`web/src/lib/db/queries.ts`) — đọc thêm 10 lượt luyện gần nhất, 5 kết quả Cambridge gần nhất, 5 ghi chú gần nhất, gói thành 1 đoạn text ngắn. Đây là **lần đọc DB duy nhất khác** ở phía `web/` cho tính năng chat — `ai/` không bao giờ tự đọc `dev.db`.
+5. `fetch` sang `ai/server/` (`POST {AI_SERVER_URL:-http://127.0.0.1:8787}/chat`) với `{ message, history, dbContext, mode }`, timeout 120s (đo thật trên máy dev: ~30–46s/câu ở Flash có RAG; Thinking/Pro chậm hơn hẳn vì bật suy luận — xem `ai/AI_TASKS.md`).
+6. `ai/server/` trả `{ reply: string }` — route ghi tiếp tin nhắn `assistant` vào `chatMessages` rồi trả `{ reply, conversationId }`. Không tới được / lỗi / timeout → 503 (tin nhắn user vẫn đã lưu, không mất); `ai/server/` trả lỗi → 502; response thiếu `reply` string → 502.
 
-**`POST ai/server/` `/chat`** (nội bộ, không public, chỉ `web/` gọi tới) — request `{ message, history, dbContext }`, response `{ reply: string }`. Bên trong: embed `message` (`nomic-embed-text` qua Ollama) → tìm top-k=4 đoạn tài liệu liên quan (cosine similarity thuần, RAG trên `PROJECT_CONTEXT.md`/`USER_GUIDE.md`/`document.txt`, đã chunk+embed sẵn vào `ai/data/processed/doc_index.json` — 139 đoạn) → ghép prompt (chỉ dẫn hệ thống + đoạn tài liệu liên quan + `dbContext` + `history` + `message`) → gọi Ollama (`qwen3.5:4b`, `think: false`) sinh câu trả lời. `GET /health` trả `{ ok, indexed_chunks }`.
+**`POST ai/server/` `/chat`** (nội bộ, không public, chỉ `web/` gọi tới) — request `{ message, history, dbContext, mode }` (`mode` mặc định `"flash"` nếu thiếu — xem `ai/server/main.py`'s `ChatRequest`), response `{ reply: string }`. Bên trong: tra `MODE_SETTINGS[mode]` lấy `think`/`top_k` (mục 11.1.2) → embed `message` (`nomic-embed-text` qua Ollama) → tìm top-k đoạn tài liệu liên quan (cosine similarity thuần, RAG trên `PROJECT_CONTEXT.md`/`USER_GUIDE.md`/`document.txt`, đã chunk+embed sẵn vào `ai/data/processed/doc_index.json` — 139 đoạn) → ghép prompt theo `mode` (`build_system_prompt(..., mode=mode)`) → gọi Ollama (`qwen3.5:4b`, `think` theo mode) sinh câu trả lời. `GET /health` trả `{ ok, indexed_chunks }`.
 
 **Đã xong (Milestone 6, xác nhận chạy thật trên máy user, không phải mock):** toàn bộ luồng trên — Ollama cài qua winget, `qwen3.5:4b` + `nomic-embed-text` đã pull, index đã build, `web/`↔`ai/server/` nối thông, thử với câu hỏi tiếng Việt thật ("Công thức tính Band điểm của app này hoạt động thế nào?") ra câu trả lời đúng, có trích đúng nội dung mục 5.4. Chi tiết đầy đủ + 3 phát hiện quan trọng (thinking mode, độ trễ thật ~46s, lỗi chunk oversized-paragraph đã sửa) ở `ai/AI_TASKS.md`.
 

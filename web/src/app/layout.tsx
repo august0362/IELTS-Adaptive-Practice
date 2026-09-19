@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Nav } from "@/components/layout/Nav";
+import { ChatBubble } from "@/components/chat/ChatBubble";
 import { ThemeProvider } from "@/components/theme/ThemeProvider";
 import "./globals.css";
 
@@ -41,6 +42,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <ThemeProvider>
           <Nav />
           <div className="flex flex-1 flex-col">{children}</div>
+          <ChatBubble />
         </ThemeProvider>
       </body>
     </html>

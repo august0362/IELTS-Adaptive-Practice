@@ -1,5 +1,9 @@
 import { ChatWindow } from "@/components/chat/ChatWindow";
 
 export default function ChatPage() {
-  return <ChatWindow />;
+  return (
+    <main className="flex flex-1 flex-col">
+      <ChatWindow />
+    </main>
+  );
 }

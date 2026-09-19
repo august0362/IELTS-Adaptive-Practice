@@ -10,7 +10,10 @@ import {
   questionTypes,
   rollResultQuestionTypes,
   topics,
+  chatConversations,
+  chatMessages,
 } from "./schema";
+import type { ChatMode } from "@/lib/types";
 import { loadEngineConfig } from "./configHelpers";
 import { predictAllSkillBands, type SkillPredictionInput } from "@/lib/engine/bandPrediction";
 
@@ -261,4 +264,73 @@ export async function getSkillStats(skillCode: string) {
     practiceLog,
     questionTypeStats,
   };
+}
+
+const CHAT_TITLE_MAX_LENGTH = 60;
+const DEFAULT_CHAT_TITLE = "Cuộc trò chuyện mới";
+
+/** First ~60 chars of the opening message, used to auto-title a conversation. */
+export function deriveChatTitle(firstMessage: string): string {
+  const trimmed = firstMessage.trim();
+  return trimmed.length > CHAT_TITLE_MAX_LENGTH ? trimmed.slice(0, CHAT_TITLE_MAX_LENGTH) + "…" : trimmed || DEFAULT_CHAT_TITLE;
+}
+
+export async function createChatConversation() {
+  const [created] = await db.insert(chatConversations).values({}).returning();
+  return created;
+}
+
+/** List item shape: 1 extra query per conversation for its last message preview —
+ * fine at this app's scale (1 user, a handful of conversations), not worth a
+ * window-function join for. */
+export async function getChatConversations() {
+  const conversations = await db.select().from(chatConversations).orderBy(desc(chatConversations.updatedAt));
+
+  return Promise.all(
+    conversations.map(async (conversation) => {
+      const [last] = await db
+        .select({ content: chatMessages.content })
+        .from(chatMessages)
+        .where(eq(chatMessages.conversationId, conversation.id))
+        .orderBy(desc(chatMessages.createdAt))
+        .limit(1);
+      return { ...conversation, lastMessagePreview: last?.content ?? null };
+    })
+  );
+}
+
+export async function getChatConversationWithMessages(id: string) {
+  const [conversation] = await db.select().from(chatConversations).where(eq(chatConversations.id, id));
+  if (!conversation) return null;
+
+  const messages = await db
+    .select()
+    .from(chatMessages)
+    .where(eq(chatMessages.conversationId, id))
+    .orderBy(chatMessages.createdAt);
+
+  return { ...conversation, messages };
+}
+
+/** Also bumps updatedAt so the conversation list re-sorts to the top, same
+ * as any "last touched" ordering elsewhere in this app. */
+export async function addChatMessage(conversationId: string, role: "user" | "assistant", content: string) {
+  const [message] = await db.insert(chatMessages).values({ conversationId, role, content }).returning();
+  await db.update(chatConversations).set({ updatedAt: new Date() }).where(eq(chatConversations.id, conversationId));
+  return message;
+}
+
+export async function updateChatConversation(id: string, patch: { title?: string; mode?: ChatMode }) {
+  const [updated] = await db.update(chatConversations).set(patch).where(eq(chatConversations.id, id)).returning();
+  return updated;
+}
+
+/** No onDelete cascade declared on chatMessages.conversationId (see schema.ts
+ * comment) — delete messages first, same manual-cascade pattern as
+ * DELETE /api/history/:id. Returns false (caller should 404) if the
+ * conversation didn't exist. */
+export async function deleteChatConversation(id: string) {
+  await db.delete(chatMessages).where(eq(chatMessages.conversationId, id));
+  const deleted = await db.delete(chatConversations).where(eq(chatConversations.id, id)).returning();
+  return deleted.length > 0;
 }

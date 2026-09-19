@@ -172,19 +172,45 @@ export interface PredictionResponseDTO {
   hasEnoughData: boolean;
 }
 
-export interface ChatMessage {
+/** flash = nhanh (mặc định, thinking tắt); thinking = suy nghĩ sâu hơn, cùng
+ * giọng văn; pro = suy nghĩ sâu + trả lời chi tiết/trang trọng hơn, nhiều
+ * ngữ cảnh RAG hơn. Vẫn cùng 1 model Qwen3.5-4B ở cả 3 chế độ — xem
+ * PROJECT_CONTEXT.md mục 11. */
+export type ChatMode = "flash" | "thinking" | "pro";
+
+export interface ChatMessageDTO {
+  id: string;
   role: "user" | "assistant";
   content: string;
+  createdAt: string;
 }
 
-export interface ChatRequest {
+export interface ChatConversationDTO {
+  id: string;
+  title: string;
+  mode: ChatMode;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ChatConversationListItemDTO extends ChatConversationDTO {
+  lastMessagePreview: string | null;
+}
+
+export interface ChatConversationDetailDTO extends ChatConversationDTO {
+  messages: ChatMessageDTO[];
+}
+
+export interface ChatSendRequest {
+  conversationId: string;
   message: string;
-  /** Prior turns of the same conversation, oldest first. Empty/omitted for the first message. */
-  history?: ChatMessage[];
+  /** Falls back to the conversation's own stored mode when omitted. */
+  mode?: ChatMode;
 }
 
-export interface ChatResponse {
+export interface ChatSendResponse {
   reply: string;
+  conversationId: string;
 }
 
 export interface EngineConfigDTO {

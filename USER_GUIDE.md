@@ -1,6 +1,6 @@
 # Hướng dẫn sử dụng — IELTS Adaptive Practice
 
-Ứng dụng luyện thi IELTS cá nhân, chạy hoàn toàn trên máy của bạn (không cần đăng nhập, không cần internet sau khi đã cài đặt). Có 5 trang chính: **Vòng quay**, **Nhật ký**, **Dự đoán**, **Chatbot**, **Cài đặt**.
+Ứng dụng luyện thi IELTS cá nhân, chạy hoàn toàn trên máy của bạn (không cần đăng nhập, không cần internet sau khi đã cài đặt). Có 5 trang chính: **Vòng quay**, **Nhật ký**, **Dự đoán**, **Navita** (chatbot), **Cài đặt** — Navita còn có 1 bình chat nổi ở góc màn hình, dùng được trên mọi trang khác.
 
 ---
 
@@ -68,12 +68,18 @@ Trang này gồm 2 phần: **nhập điểm thi thử Cambridge** và **xem dự
 
 ---
 
-## 4. Chatbot (`/chat`)
+## 4. Navita — chatbot (`/chat` hoặc bình chat nổi 💬 góc màn hình)
 
 Hỏi đáp về cách dùng app, kiến thức IELTS chung, hoặc nhờ tư vấn dựa trên lịch sử luyện tập/điểm Cambridge/ghi chú của chính bạn. Trả lời bằng đúng ngôn ngữ bạn dùng để hỏi.
 
-- **Cần cài [Ollama](https://ollama.com) trước 1 lần**, sau đó bấm đúp **`ai/start-server.bat`** mỗi lần muốn dùng chatbot — lần đầu chạy sẽ tự tải model (~3.7GB) + dựng chỉ mục, có thể mất vài phút. Server này phải chạy **song song** với `start-app.bat` — chatbot sẽ báo "chưa sẵn sàng" nếu bạn quên chạy nó.
-- Model chạy hoàn toàn trên máy bạn (không gửi dữ liệu ra ngoài), nên câu trả lời có thể mất **khoảng 1 phút** tùy độ dài câu hỏi — đây là đặc điểm bình thường của việc chạy AI cục bộ, không phải bị treo.
+- **Cần cài [Ollama](https://ollama.com) trước 1 lần**, sau đó bấm đúp **`ai/start-server.bat`** mỗi lần muốn dùng chatbot — lần đầu chạy sẽ tự tải model (~3.7GB) + dựng chỉ mục, có thể mất vài phút. Server này phải chạy **song song** với `start-app.bat` — Navita sẽ báo "chưa sẵn sàng" nếu bạn quên chạy nó.
+- **2 nơi dùng được**: trang **Navita** riêng (đầy đủ), hoặc bấm bình 💬 nổi ở góc dưới bên phải trên bất kỳ trang nào khác (không cần rời trang đang xem). Cả 2 dùng chung 1 cuộc trò chuyện — nhắn ở bình nổi rồi mở trang Navita vẫn thấy tiếp.
+- **Nhiều cuộc trò chuyện riêng biệt**: bấm **"+"** để bắt đầu cuộc mới, chọn lại cuộc cũ trong ô thả xuống ở đầu khung chat, bấm **🗑** để xóa cuộc đang xem. Tên cuộc trò chuyện tự đặt theo câu hỏi đầu tiên bạn gõ.
+- **3 chế độ trả lời** (chọn ở hàng nút dưới khung tin nhắn, nhớ riêng theo từng cuộc trò chuyện):
+  - **⚡ Flash** (mặc định) — trả lời nhanh nhất.
+  - **🧠 Thinking** — model suy nghĩ kỹ hơn trước khi trả lời, chậm hơn Flash rõ rệt.
+  - **✨ Pro** — vừa suy nghĩ kỹ vừa trả lời chi tiết, có cấu trúc, giọng trang trọng hơn — chậm nhất trong 3 chế độ.
+- Model chạy hoàn toàn trên máy bạn (không gửi dữ liệu ra ngoài), nên câu trả lời có thể mất **khoảng 30 giây đến vài phút** tùy chế độ và độ dài câu hỏi — đây là đặc điểm bình thường của việc chạy AI cục bộ, không phải bị treo.
 - Gõ Enter để gửi, Shift+Enter để xuống dòng.
 
 ---

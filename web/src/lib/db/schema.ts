@@ -163,6 +163,44 @@ export const dailyNotes = sqliteTable("daily_notes", {
     .$defaultFn(() => new Date()),
 });
 
+// Chatbot ("Navita", Milestone 6) — 1 user can have many conversations, each
+// with its own message history and its own last-used mode (flash/thinking/pro,
+// see PROJECT_CONTEXT.md section 11). No onDelete cascade declared here,
+// matching every other parent/child pair in this schema (e.g. rollSessions /
+// rollResults) — deleting a conversation manually deletes its messages first
+// in the route handler, same pattern as DELETE /api/history/:id.
+export const chatConversations = sqliteTable("chat_conversations", {
+  id: id(),
+  title: text("title").notNull().default("Cuộc trò chuyện mới"), // auto-set from the first user message
+  mode: text("mode").notNull().default("flash").$type<"flash" | "thinking" | "pro">(),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+  updatedAt: integer("updated_at", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+});
+
+export const chatConversationsRelations = relations(chatConversations, ({ many }) => ({
+  messages: many(chatMessages),
+}));
+
+export const chatMessages = sqliteTable("chat_messages", {
+  id: id(),
+  conversationId: text("conversation_id")
+    .notNull()
+    .references(() => chatConversations.id),
+  role: text("role").notNull().$type<"user" | "assistant">(),
+  content: text("content").notNull(),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+});
+
+export const chatMessagesRelations = relations(chatMessages, ({ one }) => ({
+  conversation: one(chatConversations, { fields: [chatMessages.conversationId], references: [chatConversations.id] }),
+}));
+
 // Key-value store for tunable engine parameters (decay_exponent, weekly_threshold_days, etc.)
 export const config = sqliteTable("config", {
   id: id(),

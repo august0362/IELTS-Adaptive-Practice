@@ -15,13 +15,23 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 
 from . import ollama_client
-from .prompt import build_system_prompt
+from .prompt import ChatMode, build_system_prompt
 from .retrieval import top_k
 
 app = FastAPI()
 
 INDEX_PATH = Path(__file__).resolve().parents[1] / "data" / "processed" / "doc_index.json"
-TOP_K = 4
+
+# flash = fast (thinking off, default retrieval depth) — thinking = same voice,
+# extended reasoning on — pro = extended reasoning + more retrieved context +
+# a more thorough/formal instruction (prompt.py's PRO_INSTRUCTION_SUFFIX).
+# Still the same qwen3.5:4b model in all 3 (see AI_CHATBOT_PLAN.md §12's
+# "Pro" decision) — no extra download, no extra VRAM.
+MODE_SETTINGS: dict[ChatMode, dict] = {
+    "flash": {"think": False, "top_k": 4},
+    "thinking": {"think": True, "top_k": 4},
+    "pro": {"think": True, "top_k": 6},
+}
 
 
 class ChatMessage(BaseModel):
@@ -33,6 +43,7 @@ class ChatRequest(BaseModel):
     message: str
     history: list[ChatMessage] = []
     dbContext: str = ""
+    mode: ChatMode = "flash"
 
 
 class ChatResponseBody(BaseModel):
@@ -49,16 +60,17 @@ def load_index() -> list[dict]:
 
 @app.post("/chat", response_model=ChatResponseBody)
 async def chat(req: ChatRequest) -> ChatResponseBody:
+    settings = MODE_SETTINGS[req.mode]
     index = load_index()
 
     retrieved = []
     if index:
         query_embedding = await ollama_client.embed(req.message)
-        retrieved = top_k(np.array(query_embedding), index, k=TOP_K)
+        retrieved = top_k(np.array(query_embedding), index, k=settings["top_k"])
 
-    system_prompt = build_system_prompt(retrieved, req.dbContext)
+    system_prompt = build_system_prompt(retrieved, req.dbContext, mode=req.mode)
     history = [m.model_dump() for m in req.history]
-    reply = await ollama_client.chat(system_prompt, history, req.message)
+    reply = await ollama_client.chat(system_prompt, history, req.message, think=settings["think"])
 
     return ChatResponseBody(reply=reply)
 

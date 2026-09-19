@@ -24,6 +24,25 @@
 2. **Độ trễ thật với RAG:** 1 câu hỏi thật về công thức Band (có kèm 4 đoạn tài liệu RAG trong prompt) mất **~46 giây** kể cả khi đã tắt thinking — do model 4B chạy trên GPU 4GB + phải xử lý prompt dài hơn. Timeout đã đặt 120s ở cả `web/`'s route và `ai/server/ollama_client.py` để có biên an toàn. Đây là đặc điểm thật của phần cứng, không phải lỗi — đã ghi UI (mục "đang trả lời...") để user không tưởng bị treo.
 3. **`chunk_markdown` có 1 lỗi thật đã sửa:** đoạn văn đơn lẻ dài hơn `max_chars` (không có dòng trống bên trong) từng bị bỏ qua không tách nhỏ, khiến `nomic-embed-text` từ chối với lỗi "input length exceeds the context length" khi build index thật (gặp ở 1 đoạn trong mục 9 `PROJECT_CONTEXT.md`). Đã sửa + thêm test (`test_splits_a_single_oversized_paragraph_on_sentence_boundaries` và 2 test liên quan).
 
+## Milestone 6 mở rộng — Đổi tên "Navita" + bình chat nổi + 3 chế độ + lịch sử nhiều cuộc hội thoại (đang làm)
+
+> User quay lại sau khi Milestone 6 đã review chốt, yêu cầu thêm 4 việc. Tính là phần mở rộng của Milestone 6 (không phải milestone số riêng) vì cùng phạm vi `ai/server/` + `web/`'s chat route/UI.
+
+- [x] Đổi tên chatbot thành **Navita** — hệ dẫn (`ai/server/prompt.py`), welcome message, tiêu đề trang, Nav, `USER_GUIDE.md`
+- [x] Schema DB mới: `chatConversations` (title tự đặt, mode lưu riêng từng cuộc) + `chatMessages` — migration `0003_rich_night_thrasher.sql`. Cập nhật `PROJECT_CONTEXT.md` mục 4.
+- [x] API mới: `GET/POST /api/chat/conversations`, `GET/PATCH/DELETE /api/chat/conversations/:id`. Viết lại `POST /api/chat` để lấy lịch sử từ DB (không nhận `history` từ client nữa — tránh lệch dữ liệu giữa bình nổi/trang /chat/tải lại trang). Cập nhật `PROJECT_CONTEXT.md` mục 6 + 11.4.
+- [x] 3 chế độ **Flash/Thinking/Pro** — vẫn 1 model Qwen3.5-4B, khác `think`/`top_k`/hệ dẫn (`ai/server/main.py`'s `MODE_SETTINGS`, `ai/server/prompt.py`'s `PRO_INSTRUCTION_SUFFIX`). Lưu theo từng cuộc hội thoại.
+- [x] `ChatWindow.tsx` viết lại: chọn/tạo/xóa cuộc hội thoại (dropdown + nút), nút chọn chế độ, dùng chung được cho cả trang đầy đủ và bình nổi (`compact` prop)
+- [x] `ChatBubble.tsx` mới — bình 💬 nổi góc màn hình, gắn vào `layout.tsx` nên hiện mọi trang trừ `/chat` (tránh trùng lặp); dùng chung `ChatWindow`/API nên đồng bộ với trang đầy đủ
+- [x] Sửa 2 lỗi thật phát hiện khi làm/test kỹ:
+  1. **Race condition**: tạo cuộc hội thoại mới rồi gửi tin ngay → set `activeId` kích hoạt effect tải tin nhắn (rỗng, vì cuộc mới) → ghi đè mất tin nhắn vừa gửi lạc quan trên UI. Sửa bằng `skipNextMessageFetchForIdRef` — bỏ qua đúng 1 lần fetch cho cuộc vừa tự tạo cục bộ.
+  2. **Timeout quá ngắn cho Thinking/Pro**: test thật chế độ Pro (think bật + top_k=6, tổ hợp chậm nhất) gặp `httpx.ReadTimeout` ở ~122s vì `ollama_client.py` đặt timeout 120s chung cho cả chat lẫn embed. Tách riêng `EMBED_TIMEOUT=30s` (embedding luôn nhanh) và `CHAT_TIMEOUT=300s`; nâng `AI_SERVER_TIMEOUT_MS` phía `web/` lên 300s cho khớp.
+- [x] Sửa lint `react-hooks/set-state-in-effect` (React Compiler) — hiệu ứng tải danh sách/tin nhắn ban đầu phải tự chứa logic `setState` trong `.then()` ngay trong thân effect, không được gọi ra 1 hàm `useCallback` riêng rồi hàm đó mới `setState` (dù hàm đó là async) — linter coi đó là "effect gián tiếp gây setState đồng bộ".
+- [x] Xác nhận Flash (30.5s) + Pro (244s, có bật thinking + top_k=6) chạy được thật với model thật (không phải mock), cả 2 đều tự giới thiệu đúng là "Navita", Pro đúng phong cách trang trọng/có cấu trúc như thiết kế
+- [x] Tự kiểm cuối: `typecheck`/`lint` sạch, `test` 156/156, `test:e2e` 9/9 xanh trong `web/`; `pytest` 22/22 xanh trong `ai/`
+- [x] Xem lại giao diện thật bằng Playwright (script tạm, đã xóa sau khi dùng) — chụp màn hình trang chủ (bình nổi đúng vị trí), bình nổi mở ra (welcome message + 3 nút chế độ + dropdown hội thoại), trang `/chat` đầy đủ (không hiện bình nổi trùng lặp, đúng như thiết kế mục 11.1.1) — không có lỗi console
+- [ ] Review chốt (Supervisor) phần mở rộng này
+
 ## Milestone 7 — Fine-tune (chưa bắt đầu)
 
 - [ ] Soạn template câu hỏi tự động điền số liệu từ tài liệu dự án

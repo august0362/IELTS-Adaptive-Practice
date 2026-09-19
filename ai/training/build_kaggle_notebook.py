@@ -13,6 +13,11 @@ import json
 from pathlib import Path
 
 CHUNKS_PATH = Path(__file__).resolve().parents[1] / "data" / "processed" / "doc_chunks_for_kaggle.json"
+# The pure, pytest-covered part of the generation logic (build_prompt,
+# extract_json_array, process_one, run_parallel) — embedded verbatim below
+# rather than re-typed as a notebook-only string, so the notebook always runs
+# exactly the tested code, never a hand-copied (and possibly drifted) version.
+KAGGLE_GENERATION_SOURCE_PATH = Path(__file__).resolve().parent / "kaggle_generation.py"
 # ai/kaggle/ — a dedicated, obvious place for notebooks meant to be uploaded
 # to Kaggle (this one, and the LoRA-training one to come later in Milestone
 # 7) — separate from ai/training/'s own Python source that builds them.
@@ -30,22 +35,25 @@ def markdown_cell(source: str) -> dict:
 def build_notebook() -> dict:
     chunks_json = CHUNKS_PATH.read_text(encoding="utf-8")
     chunk_count = len(json.loads(chunks_json))
+    kaggle_generation_source = KAGGLE_GENERATION_SOURCE_PATH.read_text(encoding="utf-8")
 
     cells = [
         markdown_cell(
             "# Milestone 7 — Sinh dữ liệu train bằng Qwen3.5-9B\n"
             "\n"
             "**Trước khi Run All:** bật GPU — `Settings` (bảng bên phải) → `Accelerator` → chọn "
-            "**GPU T4 x2** (hoặc P100). Không bật GPU thì cell load model sẽ rất chậm hoặc lỗi hết bộ nhớ.\n"
+            "**GPU T4** (1 GPU là đủ — xem mục 2 để biết vì sao không dùng 2 GPU). Không bật GPU thì cell "
+            "load model sẽ rất chậm hoặc lỗi hết bộ nhớ.\n"
             "\n"
             f"Notebook này **không cần bạn upload thêm gì** — {chunk_count} đoạn tài liệu của dự án đã được nhúng "
             "sẵn ở cell dưới. Chạy xong, tải file `generated_qa.jsonl` về (link tải hiện ở cell cuối) rồi "
             "gửi lại cho Claude.\n"
             "\n"
-            "**Lưu ý:** notebook này được viết dựa trên tài liệu API chính thức của `transformers`/"
-            "`bitsandbytes`, nhưng CHƯA được chạy thử thật (không có GPU 9B model để tự kiểm trước khi "
-            "đưa cho bạn) — khác với mọi phần code khác của dự án. Nếu gặp lỗi khi chạy, gửi lại thông "
-            "báo lỗi để debug tiếp.\n"
+            "**Lưu ý:** đã qua 2 vòng chạy thật trên Kaggle + sửa lỗi thật (OOM do model kèm vision "
+            "encoder, và 1 lỗi hình dạng JSON làm sập giữa chừng ở đoạn 21/37 — cả 2 đã sửa và có test "
+            "pytest cho phần logic thuần, xem `ai/training/kaggle_generation.py`). Riêng phần gọi model "
+            "thật (`generate_qa_for_chunk`, mục 4) vẫn chưa tự kiểm lại được sau lần sửa mới nhất — nếu "
+            "gặp lỗi khi chạy, gửi lại thông báo lỗi để debug tiếp.\n"
         ),
         code_cell(
             "!pip install -q -U transformers accelerate bitsandbytes\n"
@@ -98,52 +106,18 @@ def build_notebook() -> dict:
             'print("Da tai xong model.")\n'
         ),
         markdown_cell(
-            "## 3. Hàm sinh câu hỏi–đáp cho 1 đoạn\n"
+            "## 3. Hàm sinh câu hỏi–đáp (đã kiểm bằng 15 test pytest thật trên máy — không gõ tay lại "
+            "ở đây, nhúng nguyên văn `ai/training/kaggle_generation.py`)\n"
             "\n"
-            "`enable_thinking=False` quan trọng — đo thật ở Milestone 6: cùng 1 prompt mất 73.7s "
-            "(thinking bật) so với 1.1s (tắt) trên Qwen3.5-4B. 9B chắc chắn cũng chậm tương tự nếu bật, "
-            "sẽ tốn quota GPU Kaggle vô ích cho phần \"suy nghĩ\" mà ta không cần tới.\n"
-            "\n"
-            "Dùng `ThreadPoolExecutor` với đúng 1 worker (1 GPU — xem mục 2) — giữ lại cấu trúc \"chạy "
-            "theo hàng đợi\" này thay vì vòng lặp trần trụi, để nếu sau này Kaggle cấp đủ bộ nhớ cho 2 GPU "
-            "hoặc đổi sang model nhỏ hơn, chỉ cần thêm lại 1 dòng nạp model thứ 2 vào `MODELS` là chạy "
-            "song song được ngay, không phải viết lại phần này."
+            "`enable_thinking=False` (cell dưới) quan trọng — đo thật ở Milestone 6: cùng 1 prompt mất "
+            "73.7s (thinking bật) so với 1.1s (tắt) trên Qwen3.5-4B."
+        ),
+        code_cell(kaggle_generation_source),
+        markdown_cell(
+            "## 4. Nối vào model thật + Smoke test — chỉ 2 đoạn trước (kiểm tra pipeline trước khi tốn "
+            "cả phiên GPU)"
         ),
         code_cell(
-            "import re\n"
-            "from concurrent.futures import ThreadPoolExecutor, as_completed\n"
-            "\n"
-            "GENERATION_SYSTEM_PROMPT = (\n"
-            '    "Bạn là trợ lý giúp tạo dữ liệu huấn luyện cho 1 chatbot hỏi đáp về ứng dụng luyện thi "\n'
-            '    "IELTS. Nhiệm vụ: đọc 1 đoạn tài liệu, đặt 1-2 câu hỏi TỰ NHIÊN mà 1 người dùng thật sự "\n'
-            '    "có thể hỏi (không phải câu hỏi kiểu bài kiểm tra), và viết đáp án NGẮN GỌN dựa ĐÚNG "\n'
-            '    "nội dung đoạn — không thêm thông tin ngoài đoạn, không bịa. Trả lời DUY NHẤT bằng JSON "\n'
-            '    \'dạng [{"question": "...", "answer": "..."}, ...], không thêm chữ nào khác ngoài JSON.\'\n'
-            ")\n"
-            "\n"
-            "\n"
-            "def build_prompt(chunk: dict) -> str:\n"
-            '    return (\n'
-            f'        f"Đoạn tài liệu (nguồn: {{chunk[\'source\']}} — {{chunk[\'heading\']}}):\\n\\n"\n'
-            f'        f"{{chunk[\'text\']}}\\n\\n"\n'
-            '        "Đặt 1-2 câu hỏi + đáp án dựa đúng đoạn trên, trả lời bằng JSON."\n'
-            "    )\n"
-            "\n"
-            "\n"
-            "def extract_json_array(text: str) -> list:\n"
-            '    """Model có thể bọc JSON trong ```json ... ``` hoặc thêm chữ thừa quanh — thử vài cách '
-            'trước khi bỏ cuộc."""\n'
-            "    text = text.strip()\n"
-            '    fenced = re.search(r"```(?:json)?\\s*(\\[.*?\\])\\s*```", text, re.DOTALL)\n'
-            "    if fenced:\n"
-            "        text = fenced.group(1)\n"
-            "    else:\n"
-            '        bracket = re.search(r"\\[.*\\]", text, re.DOTALL)\n'
-            "        if bracket:\n"
-            "            text = bracket.group(0)\n"
-            "    return json.loads(text)\n"
-            "\n"
-            "\n"
             "def generate_qa_for_chunk(chunk: dict, gpu_id, max_new_tokens: int = 600) -> list:\n"
             "    model = MODELS[gpu_id]\n"
             "    messages = [\n"
@@ -166,39 +140,9 @@ def build_notebook() -> dict:
             "    return extract_json_array(reply)\n"
             "\n"
             "\n"
-            "GPU_IDS = list(MODELS.keys())  # e.g. [0, 1] voi 2 GPU, [None] neu chay CPU\n"
+            "GPU_IDS = list(MODELS.keys())  # e.g. [0, 1] voi 2 GPU\n"
             "\n"
-            "\n"
-            "def process_one(index_and_chunk):\n"
-            '    """1 task = 1 doan, chay tren dung 1 GPU co dinh (chia deu theo index) — dung cho ca'
-            " smoke test lan chay that.\"\"\"\n"
-            "    index, chunk = index_and_chunk\n"
-            "    gpu_id = GPU_IDS[index % len(GPU_IDS)]\n"
-            "    try:\n"
-            "        pairs = generate_qa_for_chunk(chunk, gpu_id)\n"
-            '        return {"index": index, "source": chunk["source"], "heading": chunk["heading"], "pairs": pairs, "error": None}\n'
-            "    except Exception as e:\n"
-            '        return {"index": index, "source": chunk["source"], "heading": chunk["heading"], "pairs": [], "error": str(e)}\n'
-            "\n"
-            "\n"
-            "def run_parallel(chunks, on_result=None):\n"
-            '    """Chay danh sach chunks song song, moi luong 1 GPU. on_result(result) duoc goi ngay '
-            'khi 1 doan xu ly xong (khong theo thu tu)."""\n'
-            "    all_results = []\n"
-            "    with ThreadPoolExecutor(max_workers=len(GPU_IDS)) as executor:\n"
-            "        futures = [executor.submit(process_one, (i, c)) for i, c in enumerate(chunks)]\n"
-            "        for future in as_completed(futures):\n"
-            "            r = future.result()\n"
-            "            all_results.append(r)\n"
-            "            if on_result:\n"
-            "                on_result(r)\n"
-            "    return all_results\n"
-        ),
-        markdown_cell(
-            "## 4. Smoke test — chỉ 2 đoạn trước (kiểm tra pipeline chạy đúng trước khi tốn cả phiên GPU)"
-        ),
-        code_cell(
-            "smoke_results = run_parallel(CHUNKS[:2])\n"
+            "smoke_results = run_parallel(CHUNKS[:2], generate_qa_for_chunk, GPU_IDS)\n"
             "for r in sorted(smoke_results, key=lambda r: r[\"index\"]):\n"
             "    if r[\"error\"]:\n"
             '        print(f"LOI o \'{r[\'heading\']}\': {r[\'error\']}")\n'
@@ -233,7 +177,7 @@ def build_notebook() -> dict:
             '        print(f"{done_count}/{len(CHUNKS)} xu ly xong, {len(results)} cap, {len(errors)} loi")\n'
             "\n"
             "\n"
-            "run_parallel(CHUNKS, on_result=collect)\n"
+            "run_parallel(CHUNKS, generate_qa_for_chunk, GPU_IDS, on_result=collect)\n"
             'print(f"\\nXong: {len(results)} cap hoi-dap, {len(errors)} doan bi loi (bo qua)")\n'
         ),
         markdown_cell("## 6. Lưu kết quả — tải file này về rồi gửi lại cho Claude"),

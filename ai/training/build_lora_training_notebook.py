@@ -229,7 +229,11 @@ def build_notebook() -> dict:
             "\n"
             "Dùng phần dữ liệu **giữ lại, không đưa vào tập train** (`EVAL_EXAMPLES` ở mục 2) — không "
             "phải đánh giá chính thức (quá ít mẫu để tính điểm), chỉ để bạn liếc qua xem giọng văn/nội "
-            "dung có bám theo dữ liệu dự án hơn bản gốc không, trước khi tải adapter về."
+            "dung có bám theo dữ liệu dự án hơn bản gốc không, trước khi tải adapter về.\n"
+            "\n"
+            "Dùng lại `_as_content_blocks()` (từ mục 2) cho `apply_chat_template` — `tokenizer` ở đây "
+            "thực chất là 1 `Processor` đa phương thức (như đã phát hiện ở mục 4), cũng cần đúng định "
+            "dạng content dạng khối, không phải chuỗi thường."
         ),
         code_cell(
             "FastLanguageModel.for_inference(model)\n"
@@ -237,9 +241,10 @@ def build_notebook() -> dict:
             "for example in EVAL_EXAMPLES:\n"
             "    system_msg, user_msg, reference_msg = example[\"messages\"]\n"
             "    prompt_text = tokenizer.apply_chat_template(\n"
-            "        [system_msg, user_msg], tokenize=False, add_generation_prompt=True, enable_thinking=False\n"
+            "        [_as_content_blocks(system_msg), _as_content_blocks(user_msg)],\n"
+            "        tokenize=False, add_generation_prompt=True, enable_thinking=False,\n"
             "    )\n"
-            '    inputs = tokenizer(prompt_text, return_tensors="pt").to(model.device)\n'
+            '    inputs = tokenizer(text=prompt_text, return_tensors="pt").to(model.device)\n'
             "    output_ids = model.generate(**inputs, max_new_tokens=600, do_sample=False, pad_token_id=tokenizer.eos_token_id)\n"
             "    reply = tokenizer.decode(output_ids[0][inputs[\"input_ids\"].shape[1]:], skip_special_tokens=True)\n"
             "\n"

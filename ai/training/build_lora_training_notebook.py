@@ -194,9 +194,17 @@ def build_notebook() -> dict:
             "`GatedDeltaNet` mới của Qwen3.5 dùng tên khác hẳn (`in_proj_qkv`, thấy thẳng trong traceback "
             "lỗi 3 ở trên), 1 danh sách tên cố định kiểu cũ sẽ bỏ sót hẳn các layer này, khiến chúng "
             "không được train LoRA. `\"all-linear\"` tự nhắm mọi layer Linear (trừ lm_head, theo đúng "
-            "docs PEFT) nên phủ đúng cả kiểu layer mới này."
+            "docs PEFT) nên phủ đúng cả kiểu layer mới này.\n"
+            "\n"
+            "`CUDA_VISIBLE_DEVICES=\"0\"` — Kaggle cấp 2 GPU T4, nếu không chặn thì `Trainer` tự động "
+            "dàn model ra cả 2 GPU (`DataParallel`), xung đột với việc mình đã cố định model vào 1 GPU "
+            "ở trên → lỗi thật gặp: `RuntimeError: ... on cuda:1, different from ... cuda:0`. Chặn còn 1 "
+            "GPU ngay từ đầu để tránh hẳn việc này (dữ liệu ít, không cần 2 GPU)."
         ),
         code_cell(
+            "import os\n"
+            'os.environ["CUDA_VISIBLE_DEVICES"] = "0"  # Kaggle cap 2 GPU T4 - chan con 1 de tranh Trainer tu dong DataParallel ca 2\n'
+            "\n"
             "import torch\n"
             "from transformers import AutoModelForCausalLM, AutoTokenizer\n"
             "from peft import LoraConfig, TaskType, get_peft_model\n"

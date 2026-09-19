@@ -836,3 +836,78 @@ DONE
   tối" → disable globally / add this domain to the exclusion list.
   Source: https://support.coccoc.com/desktop/duyet-web-o-che-do-toi-tren-coc-coc.
   Logging this so a future session doesn't re-investigate a 5th time.
+
+[2026-09-19] Milestone 6 (Chatbot AI - ha tang + RAG), 3 buoc + Supervisor
+  review. MILESTONE 6 DONE.
+
+  Full scope/decisions log: AI_CHATBOT_PLAN.md (repo root) — this entry is
+  a compressed summary, that file is the source of truth for *why*.
+
+  Step 1 (restructure, commit 1e231bc): whole app git-mv'd into web/, new
+  ai/ module scaffolded (models/, data/{raw,processed}/, training/,
+  server/), new AI/ML role + .claude/agents/ai-engineer.md added to
+  CLAUDE.md. Real environment gap hit and fixed: deleting the old root
+  node_modules broke better-sqlite3 (no Node 24 prebuilt binary, needs
+  node-gyp, machine had no Visual Studio Build Tools despite an empty
+  "Visual Studio\2022" folder existing) — installed VS Build Tools + C++
+  workload via winget with the user's explicit go-ahead. Verified green
+  after the move: npm install, typecheck, lint, 148/148 test, 8/8 e2e.
+
+  Step 2 (web/ side of chat, commit 7dbd771): POST web/src/app/api/chat/
+  route.ts (validate -> getChatContextSummary() new query helper reading
+  web/'s own DB -> fetch to ai/server/ -> map 503/502) + web/src/app/chat/
+  page.tsx + ChatWindow.tsx + Nav entry. ChatWindow.test.tsx (5 cases).
+  153/153 test green (jsdom lacks scrollIntoView — guarded with ?.()).
+
+  Step 3 (ai/server/ RAG + real Ollama, commit d4f0820): installed Ollama
+  via winget, pulled qwen3.5:4b (3.4GB) + nomic-embed-text (274MB) — both
+  confirmed available on Ollama's official library. Built ai/server/
+  (FastAPI): chunking.py + retrieval.py + prompt.py (pure, 19 pytest cases)
+  + ollama_client.py (I/O boundary) + build_index.py + main.py. Real bugs
+  found and fixed while actually running this (not just reading code):
+    (a) chunk_markdown didn't split a single paragraph longer than
+        max_chars (no blank line inside it) — nomic-embed-text rejected it
+        outright with "input length exceeds the context length" when
+        indexing a real long narrative paragraph in PROJECT_CONTEXT.md
+        section 9. Fixed with _split_oversized_paragraph (sentence-boundary
+        split, hard-slice fallback) + 3 regression tests.
+    (b) Qwen3.5 runs extended "thinking" mode by default — measured live:
+        the same trivial prompt took 73.7s (thinking on) vs 1.1s (thinking
+        off via Ollama's `think: false` chat param) — ~65x. Without this,
+        the chatbot would be unusable on this machine's 4GB VRAM. Set
+        think=False in ollama_client.py permanently.
+    (c) A real RAG-grounded question ("Công thức tính Band điểm hoạt động
+        thế nào?") took ~46s even with thinking off — genuine hardware
+        characteristic (4B model + RAG-lengthened prompt on a 4GB laptop
+        GPU), not a bug. Raised web/'s AI_SERVER_TIMEOUT_MS 60s->120s to
+        match ai/server/'s own timeout, added a "may take ~1 min" note to
+        the chat UI so the user doesn't think it hung.
+  Verified end-to-end with the REAL model (not mocked): asked a real
+  Vietnamese question about the Band formula, got a correct answer citing
+  the right PROJECT_CONTEXT.md content. Added chat.spec.ts (e2e) against a
+  lightweight mock AI server (web/src/tests/e2e/mockAiServer.ts, a 2nd
+  parallel `webServer` entry in playwright.config.ts) rather than the real
+  Ollama pipeline — deliberate: real per-question latency (~46s) would make
+  the e2e suite slow and dependent on Ollama being installed on whatever
+  machine runs it; e2e proves web/'s own wiring, not answer quality (that's
+  confirmed manually, logged here). Added ai/start-server.bat (one-click
+  launcher, mirrors the existing start-app.bat convention) + USER_GUIDE.md
+  section 4 (Chatbot) explaining the two-server setup and expected latency.
+
+  Supervisor review (scoped diff ca94711..HEAD, 3 commits): ran real
+  self-check commands (not just reading code) — web/: typecheck/lint/153
+  tests all green; ai/: 19/19 pytest green. Confirmed no Claude/Anthropic
+  output anywhere in the training-data path (grepped ai/server/*.py),
+  confirmed ai/ never reads web/'s DB directly (grepped for
+  sqlite/dev.db/drizzle references in ai/server/ — none), confirmed the
+  module boundary holds. Exactly 1 finding: PROJECT_CONTEXT.md section 11.4
+  still said "timeout 60s" after the timeout was raised to 120s mid-step —
+  fixed, no second review pass needed (doc-only, no judgment call).
+
+  Next: Milestone 7 (fine-tune with Kaggle-generated data, user approves a
+  sample before training) or Milestone 8 (Writing/Speaking scoring against
+  IELTS band criteria) — see AI_CHATBOT_PLAN.md section 9 for the full plan.
+  Neither is blocking; the chatbot is usable as-is (RAG + base model,
+  no fine-tune yet) once both start-app.bat and ai/start-server.bat are
+  running.
+

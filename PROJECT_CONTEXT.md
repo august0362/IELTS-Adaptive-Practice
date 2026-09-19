@@ -531,7 +531,7 @@ ai/
 
 1. Validate `message` (string không rỗng) và `history` (mảng `{role, content}`, tùy chọn) — 400 nếu sai.
 2. Gọi `getChatContextSummary()` (`web/src/lib/db/queries.ts`) — đọc DB của `web/` (10 lượt luyện gần nhất, 5 kết quả Cambridge gần nhất, 5 ghi chú gần nhất), gói thành 1 đoạn text ngắn. Đây là **lần đọc DB duy nhất** ở phía `web/` cho tính năng chat — `ai/` không bao giờ tự đọc `dev.db`.
-3. `fetch` sang `ai/server/` (`POST {AI_SERVER_URL:-http://127.0.0.1:8787}/chat`) với `{ message, history, dbContext }`, timeout 60s.
+3. `fetch` sang `ai/server/` (`POST {AI_SERVER_URL:-http://127.0.0.1:8787}/chat`) với `{ message, history, dbContext }`, timeout 120s (đo thật trên máy dev: ~46s/câu có RAG, kể cả đã tắt thinking mode — xem `ai/AI_TASKS.md`).
 4. `ai/server/` trả `{ reply: string }` — route chuyển tiếp nguyên văn. Không tới được / lỗi / timeout → 503; `ai/server/` trả lỗi → 502; response thiếu `reply` string → 502.
 
 **`POST ai/server/` `/chat`** (nội bộ, không public, chỉ `web/` gọi tới) — request `{ message, history, dbContext }`, response `{ reply: string }`. Bên trong: embed `message` (`nomic-embed-text` qua Ollama) → tìm top-k=4 đoạn tài liệu liên quan (cosine similarity thuần, RAG trên `PROJECT_CONTEXT.md`/`USER_GUIDE.md`/`document.txt`, đã chunk+embed sẵn vào `ai/data/processed/doc_index.json` — 139 đoạn) → ghép prompt (chỉ dẫn hệ thống + đoạn tài liệu liên quan + `dbContext` + `history` + `message`) → gọi Ollama (`qwen3.5:4b`, `think: false`) sinh câu trả lời. `GET /health` trả `{ ok, indexed_chunks }`.

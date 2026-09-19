@@ -16,7 +16,7 @@
 - [x] Nối thật: chạy `ai/server/` + Ollama, thử `/chat` từ server thật (không phải mock) với câu hỏi về công thức Band — trả lời đúng, có trích dẫn đúng nội dung `PROJECT_CONTEXT.md`
 - [x] Thêm e2e case cho luồng chat (`chat.spec.ts`) — dùng **AI server giả lập** (`mockAiServer.ts`, `playwright.config.ts` giờ chạy 2 `webServer` song song) thay vì Ollama thật, để bộ e2e không phụ thuộc máy khác có cài Ollama hay không và không bị chậm/không ổn định — xem "Phát hiện quan trọng" bên dưới về lý do
 - [x] Tự kiểm cuối: `typecheck`/`lint` sạch, `test` 153/153, `test:e2e` 9/9 (thêm `chat.spec.ts`) xanh trong `web/`; `pytest` 19/19 xanh trong `ai/`
-- [ ] Review chốt Milestone 6 (Supervisor, theo `CLAUDE.md`)
+- [x] Review chốt Milestone 6 (Supervisor, theo `CLAUDE.md`) — 1 finding nhỏ (doc lỗi thời: `PROJECT_CONTEXT.md` mục 11.4 còn ghi "60s" thay vì "120s"), đã sửa, không cần vòng review thứ 2. **MILESTONE 6 XONG.**
 
 ### Phát hiện quan trọng khi nối thật (đọc trước khi đụng vào `ai/server/ollama_client.py`)
 

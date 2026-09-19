@@ -40,7 +40,32 @@ export function ChatWindow({ compact = false }: { compact?: boolean }) {
   const [isSending, setIsSending] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
-  // Set right before setActiveId(newlyCreatedId) so the message-loading effect
+  // Always holds the latest activeId, readable from inside an in-flight
+  // handleSend's async continuation — `activeId` itself is a stale closure
+  // value there (captured at the render handleSend was called from), which
+  // is exactly how a real bug shipped: switching conversations (or deleting
+  // the one just sent to) while a slow Thinking/Pro reply was still in
+  // flight made the eventual reply append to whatever conversation was *now*
+  // showing, and silently forced the user back to the original one. Every
+  // post-await state update below checks this ref, not the `activeId`
+  // variable, before touching `messages`/`errorMessage`.
+  //
+  // Kept in sync via setActiveIdAndRef() below, NOT a useEffect keyed on
+  // activeId — a first attempt did that and had its own real bug: handleSend
+  // both creates a conversation (setActiveId) *and* needs activeIdRef to
+  // already reflect it a few lines later in the same call, with no
+  // intervening render/effect-flush guaranteed to have happened by then.
+  const activeIdRef = useRef<string | null>(null);
+  function setActiveIdAndRef(id: string | null) {
+    activeIdRef.current = id;
+    setActiveId(id);
+  }
+  // Guards handleSend against a double-send race (e.g. a fast double-click,
+  // or Enter pressed twice before the first render with isSending=true
+  // lands) — a plain ref so the check is synchronous and independent of
+  // React's render timing, unlike reading the `isSending` state directly.
+  const isSendingRef = useRef(false);
+  // Set right before setActiveIdAndRef(newlyCreatedId) so the message-loading effect
   // below skips its GET for that one transition — a conversation we just
   // created ourselves has no messages on the server yet, and letting that
   // effect's fetch land, with `messages: []` for a freshly created
@@ -50,16 +75,16 @@ export function ChatWindow({ compact = false }: { compact?: boolean }) {
   // ever trigger that fetch.
   const skipNextMessageFetchForIdRef = useRef<string | null>(null);
 
-  // Reusable for event handlers (e.g. re-syncing the list after sending a
-  // message) — NOT called from an effect body, so its setState calls are the
-  // legitimate "respond to a user action" kind, not the "an effect derives
-  // state" kind the react-hooks/set-state-in-effect rule flags.
-  const loadConversations = useCallback(async (selectId?: string) => {
+  // Refreshes titles/preview/ordering after a send — deliberately never
+  // touches `activeId`. An earlier version passed the just-answered
+  // conversation's id and always re-selected it, which forced the user back
+  // to that conversation even if they'd since switched to another one while
+  // the (possibly minutes-long) reply was still in flight — a real bug found
+  // in review, not a hypothetical.
+  const refreshConversations = useCallback(async () => {
     try {
       const list = await fetchJson<ChatConversationListItemDTO[]>("/api/chat/conversations");
       setConversations(list);
-      const toSelect = selectId ?? list[0]?.id ?? null;
-      if (toSelect) setActiveId(toSelect);
     } catch {
       setErrorMessage("Không tải được danh sách cuộc trò chuyện.");
     }
@@ -75,7 +100,7 @@ export function ChatWindow({ compact = false }: { compact?: boolean }) {
       .then((list) => {
         if (cancelled) return;
         setConversations(list);
-        if (list[0]) setActiveId(list[0].id);
+        if (list[0]) setActiveIdAndRef(list[0].id);
       })
       .catch(() => {
         if (!cancelled) setErrorMessage("Không tải được danh sách cuộc trò chuyện.");
@@ -117,7 +142,7 @@ export function ChatWindow({ compact = false }: { compact?: boolean }) {
       const created = await fetchJson<ChatConversationListItemDTO>("/api/chat/conversations", { method: "POST" });
       skipNextMessageFetchForIdRef.current = created.id;
       setConversations((prev) => [{ ...created, lastMessagePreview: null }, ...prev]);
-      setActiveId(created.id);
+      setActiveIdAndRef(created.id);
       setMode(created.mode);
       setMessages([]);
       setErrorMessage(null);
@@ -134,7 +159,7 @@ export function ChatWindow({ compact = false }: { compact?: boolean }) {
       const remaining = conversations.filter((c) => c.id !== activeId);
       setConversations(remaining);
       setMessages([]);
-      setActiveId(remaining[0]?.id ?? null);
+      setActiveIdAndRef(remaining[0]?.id ?? null);
     } catch {
       setErrorMessage("Xóa cuộc trò chuyện thất bại.");
     }
@@ -158,7 +183,10 @@ export function ChatWindow({ compact = false }: { compact?: boolean }) {
 
   async function handleSend() {
     const trimmed = input.trim();
-    if (trimmed.length === 0 || isSending) return;
+    if (trimmed.length === 0 || isSendingRef.current) return;
+    isSendingRef.current = true;
+    setIsSending(true);
+    setErrorMessage(null);
 
     let conversationId = activeId;
     if (!conversationId) {
@@ -167,17 +195,17 @@ export function ChatWindow({ compact = false }: { compact?: boolean }) {
         conversationId = created.id;
         skipNextMessageFetchForIdRef.current = created.id;
         setConversations((prev) => [{ ...created, lastMessagePreview: null }, ...prev]);
-        setActiveId(created.id);
+        setActiveIdAndRef(created.id);
       } catch {
         setErrorMessage("Không tạo được cuộc trò chuyện mới.");
+        isSendingRef.current = false;
+        setIsSending(false);
         return;
       }
     }
 
     setMessages((prev) => [...prev, { id: nextPendingId(), role: "user", content: trimmed, createdAt: new Date().toISOString() }]);
     setInput("");
-    setIsSending(true);
-    setErrorMessage(null);
 
     try {
       const { reply } = await fetchJson<ChatSendResponse>("/api/chat", {
@@ -185,13 +213,19 @@ export function ChatWindow({ compact = false }: { compact?: boolean }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ conversationId, message: trimmed, mode }),
       });
-      setMessages((prev) => [...prev, { id: nextPendingId(), role: "assistant", content: reply, createdAt: new Date().toISOString() }]);
-      // Refresh the list (title/preview/ordering may have changed) without
-      // losing the current selection.
-      loadConversations(conversationId);
+      // Only touch the visible message list if still looking at this same
+      // conversation — a Thinking/Pro reply can take minutes, long enough to
+      // switch away (or delete it) in the meantime. See activeIdRef's comment.
+      if (activeIdRef.current === conversationId) {
+        setMessages((prev) => [...prev, { id: nextPendingId(), role: "assistant", content: reply, createdAt: new Date().toISOString() }]);
+      }
+      refreshConversations();
     } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : "Có lỗi xảy ra, thử lại sau.");
+      if (activeIdRef.current === conversationId) {
+        setErrorMessage(err instanceof Error ? err.message : "Có lỗi xảy ra, thử lại sau.");
+      }
     } finally {
+      isSendingRef.current = false;
       setIsSending(false);
     }
   }
@@ -225,11 +259,16 @@ export function ChatWindow({ compact = false }: { compact?: boolean }) {
           <label htmlFor="chat-conversation" className="sr-only">
             Cuộc trò chuyện
           </label>
+          {/* Disabled while sending — not just tidiness: switching or deleting the
+              conversation a slow Thinking/Pro reply is about to land in was a real,
+              easily-reproduced bug (see activeIdRef's comment and route.ts's
+              addChatMessage try/catch, which stay as defense-in-depth regardless). */}
           <select
             id="chat-conversation"
             value={activeId ?? ""}
-            onChange={(e) => setActiveId(e.target.value || null)}
-            className="input-paper min-w-0 flex-1 px-2 py-1 text-sm"
+            onChange={(e) => setActiveIdAndRef(e.target.value || null)}
+            disabled={isSending}
+            className="input-paper min-w-0 flex-1 px-2 py-1 text-sm disabled:opacity-60"
           >
             {conversations.length === 0 && <option value="">Chưa có cuộc trò chuyện nào</option>}
             {conversations.map((c) => (
@@ -241,9 +280,10 @@ export function ChatWindow({ compact = false }: { compact?: boolean }) {
           <button
             type="button"
             onClick={handleNewConversation}
+            disabled={isSending}
             title="Cuộc trò chuyện mới"
             aria-label="Cuộc trò chuyện mới"
-            className="shrink-0 rounded-full border border-border px-3 py-1 text-sm font-medium text-surface-foreground hover:bg-border"
+            className="shrink-0 rounded-full border border-border px-3 py-1 text-sm font-medium text-surface-foreground hover:bg-border disabled:cursor-not-allowed disabled:opacity-40"
           >
             +
           </button>
@@ -251,9 +291,10 @@ export function ChatWindow({ compact = false }: { compact?: boolean }) {
             <button
               type="button"
               onClick={handleDeleteConversation}
+              disabled={isSending}
               title="Xóa cuộc trò chuyện"
               aria-label="Xóa cuộc trò chuyện"
-              className="shrink-0 rounded-full border border-border px-3 py-1 text-sm font-medium text-surface-foreground hover:bg-border"
+              className="shrink-0 rounded-full border border-border px-3 py-1 text-sm font-medium text-surface-foreground hover:bg-border disabled:cursor-not-allowed disabled:opacity-40"
             >
               🗑
             </button>

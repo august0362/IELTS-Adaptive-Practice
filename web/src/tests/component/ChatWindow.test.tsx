@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ChatWindow } from "../../components/chat/ChatWindow";
 import type { ChatConversationListItemDTO } from "../../lib/types";
@@ -147,5 +147,105 @@ describe("ChatWindow", () => {
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Chatbot chưa sẵn sàng");
     expect(screen.getByText("Xin chào")).toBeInTheDocument();
+  });
+
+  // Regression tests for 2 real bugs a Milestone-6-extension review caught:
+  // switching/deleting the active conversation while a slow Thinking/Pro
+  // reply (measured up to ~4 minutes live) was still in flight leaked the
+  // eventual reply into whatever conversation was *now* showing and forced
+  // the user back to the original one; and a fast double-send created 2
+  // conversations for 1 typed message. Both need to control exactly when the
+  // POST /api/chat call resolves, which mockFetchSequence (immediate,
+  // in-order) can't express — hence the manual deferred-promise mock below.
+  it("disables switching/creating/deleting a conversation while a reply is pending, and re-enables once it resolves", async () => {
+    const user = userEvent.setup();
+    const conv1 = makeConversation({ id: "conv-1" });
+    let resolveSend: (value: { reply: string; conversationId: string }) => void = () => {};
+    const sendPromise = new Promise<{ reply: string; conversationId: string }>((resolve) => {
+      resolveSend = resolve;
+    });
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+        const url = typeof input === "string" ? input : input.toString();
+        if (url === "/api/chat/conversations" && !init) {
+          return { ok: true, status: 200, json: async () => [conv1] } as Response;
+        }
+        if (url === `/api/chat/conversations/${conv1.id}`) {
+          return { ok: true, status: 200, json: async () => ({ mode: "flash", messages: [] }) } as Response;
+        }
+        if (url === "/api/chat") {
+          const body = await sendPromise;
+          return { ok: true, status: 200, json: async () => body } as Response;
+        }
+        throw new Error(`unexpected fetch: ${url}`);
+      })
+    );
+
+    render(<ChatWindow />);
+    await screen.findByLabelText("Cuộc trò chuyện");
+
+    await user.type(screen.getByLabelText("Nhập câu hỏi"), "Câu hỏi chậm");
+    await user.click(screen.getByRole("button", { name: "Gửi" }));
+
+    expect(screen.getByLabelText("Cuộc trò chuyện")).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Cuộc trò chuyện mới" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Xóa cuộc trò chuyện" })).toBeDisabled();
+
+    resolveSend({ reply: "Trả lời cuối cùng", conversationId: conv1.id });
+
+    expect(await screen.findByText("Trả lời cuối cùng")).toBeInTheDocument();
+    expect(screen.getByLabelText("Cuộc trò chuyện")).not.toBeDisabled();
+    expect(screen.getByRole("button", { name: "Cuộc trò chuyện mới" })).not.toBeDisabled();
+  });
+
+  it("does not send a second request while the first is still awaiting a reply", async () => {
+    const user = userEvent.setup();
+    let chatCallCount = 0;
+    let resolveSend: (value: { reply: string; conversationId: string }) => void = () => {};
+    const sendPromise = new Promise<{ reply: string; conversationId: string }>((resolve) => {
+      resolveSend = resolve;
+    });
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+        const url = typeof input === "string" ? input : input.toString();
+        if (url === "/api/chat/conversations" && init?.method === "POST") {
+          return { ok: true, status: 201, json: async () => makeConversation() } as Response;
+        }
+        if (url === "/api/chat/conversations") {
+          return { ok: true, status: 200, json: async () => [] } as Response;
+        }
+        if (url === "/api/chat") {
+          chatCallCount += 1;
+          const body = await sendPromise;
+          return { ok: true, status: 200, json: async () => body } as Response;
+        }
+        throw new Error(`unexpected fetch: ${url}`);
+      })
+    );
+
+    render(<ChatWindow />);
+    await screen.findByText(/Chào bạn!/);
+
+    await user.type(screen.getByLabelText("Nhập câu hỏi"), "Gửi nhanh 2 lần");
+    const sendButton = screen.getByRole("button", { name: "Gửi" });
+    // Two synchronous fireEvent.click calls, deliberately not awaited between
+    // them — this is the actual race window the bug lived in: the 2nd click
+    // lands before React has re-rendered with isSending=true (which is what
+    // disables the button), while the 1st click's handleSend is already
+    // paused mid-flight (awaiting the conversation-creation round-trip). Only
+    // a synchronous ref set *before* that first await — not the isSending
+    // state — can catch this; userEvent.click would wait out each click's
+    // React update in between and never reproduce the race at all.
+    fireEvent.click(sendButton);
+    fireEvent.click(sendButton);
+
+    resolveSend({ reply: "ok", conversationId: "whatever" });
+    await screen.findByText("ok");
+
+    expect(chatCallCount).toBe(1);
   });
 });

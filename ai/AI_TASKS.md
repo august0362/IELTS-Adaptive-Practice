@@ -41,7 +41,16 @@
 - [x] Xác nhận Flash (30.5s) + Pro (244s, có bật thinking + top_k=6) chạy được thật với model thật (không phải mock), cả 2 đều tự giới thiệu đúng là "Navita", Pro đúng phong cách trang trọng/có cấu trúc như thiết kế
 - [x] Tự kiểm cuối: `typecheck`/`lint` sạch, `test` 156/156, `test:e2e` 9/9 xanh trong `web/`; `pytest` 22/22 xanh trong `ai/`
 - [x] Xem lại giao diện thật bằng Playwright (script tạm, đã xóa sau khi dùng) — chụp màn hình trang chủ (bình nổi đúng vị trí), bình nổi mở ra (welcome message + 3 nút chế độ + dropdown hội thoại), trang `/chat` đầy đủ (không hiện bình nổi trùng lặp, đúng như thiết kế mục 11.1.1) — không có lỗi console
-- [ ] Review chốt (Supervisor) phần mở rộng này
+- [x] Review chốt (Supervisor) phần mở rộng này — **5 finding thật, đã sửa hết, không phải chỉ ghi chú:**
+  1. **[Nghiêm trọng]** Xóa cuộc hội thoại đang chờ trả lời → `addChatMessage` (assistant) insert vào cuộc đã xóa → SQLite chặn bằng FK constraint (`foreign_keys = ON`) → request crash 500, mất câu trả lời AI dù đã tốn GPU. Sửa: bọc try/catch ở `route.ts`, vẫn trả `reply` cho client dù lưu DB thất bại.
+  2. **[Nghiêm trọng]** Chuyển sang xem cuộc hội thoại khác trong lúc đang chờ trả lời (Thinking/Pro tới ~4 phút, đủ thời gian thao tác) → câu trả lời "rò" vào cuộc đang xem + tự động kéo user quay lại cuộc cũ không báo trước. Sửa: khóa dropdown/nút "+"/nút xóa khi `isSending` (chặn từ UI) + `activeIdRef`/`setActiveIdAndRef` kiểm tra đúng cuộc trước khi cập nhật `messages`/lỗi (chặn ở tầng logic) + `refreshConversations()` không còn ép đổi `activeId`.
+  3. **[Trung bình]** Bấm Gửi/Enter rất nhanh 2 lần trước khi `isSending` (state) kịp render → tạo trùng 2 cuộc hội thoại + gửi trùng. Sửa: `isSendingRef` (ref đồng bộ, không phụ thuộc chu kỳ render) kiểm tra ngay đầu `handleSend`.
+  4. **[Nhỏ]** `PROJECT_CONTEXT.md` mục 11.4 còn ghi "timeout 120s" dù code đã tăng lên 300s — đã sửa.
+  5. **[Nhỏ]** Test mới chưa phủ 3 race condition trên — đã thêm 2 test (`ChatWindow.test.tsx`): khóa nút khi đang chờ, không gửi trùng khi bấm 2 lần liên tiếp (dùng `fireEvent.click` bắn 2 lần không chờ giữa chừng để mô phỏng đúng race thật, không dùng `userEvent` vì nó tự chờ React render giữa các thao tác nên không tái hiện được race).
+  
+  **Tự sửa 1 lỗi phát sinh khi vá Finding 2**: lần sửa đầu dùng `useEffect` để đồng bộ `activeIdRef` theo `activeId`, nhưng `handleSend` vừa tạo cuộc hội thoại (set `activeId`) vừa cần đọc `activeIdRef` đã cập nhật ngay sau đó trong cùng 1 lần gọi — không có gì đảm bảo effect đã chạy kịp. Phát hiện qua 3 test tự dưng đỏ, sửa bằng cách gán `activeIdRef.current` trực tiếp, đồng thời với mọi lần gọi `setActiveId` (qua hàm `setActiveIdAndRef`), không qua effect nữa.
+  
+  Tự kiểm lại sau khi sửa: `typecheck`/`lint` sạch, `test` 158/158, `test:e2e` 9/9 (web/), `pytest` 22/22 (ai/) — tất cả xanh. **MILESTONE 6 MỞ RỘNG XONG.**
 
 ## Milestone 7 — Fine-tune (chưa bắt đầu)
 

@@ -95,7 +95,18 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Phản hồi từ chatbot không hợp lệ." }, { status: 502 });
   }
 
-  await addChatMessage(conversationId, "assistant", data.reply);
+  try {
+    await addChatMessage(conversationId, "assistant", data.reply);
+  } catch {
+    // The conversation can have been deleted by the user while this request
+    // was in flight (thinking/pro modes measured up to ~4 minutes — plenty of
+    // time for that) — FK enforcement (client.ts's `foreign_keys = ON`) then
+    // rejects this insert. The reply itself is still valid and cost real GPU
+    // time to produce, so it's still worth returning to the caller even
+    // though it couldn't be persisted; the client discards it anyway if it's
+    // no longer looking at this conversation (see ChatWindow.tsx's
+    // activeIdRef guard).
+  }
 
   const response: ChatSendResponse = { reply: data.reply, conversationId };
   return NextResponse.json(response);

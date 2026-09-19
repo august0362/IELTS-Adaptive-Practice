@@ -911,3 +911,59 @@ DONE
   no fine-tune yet) once both start-app.bat and ai/start-server.bat are
   running.
 
+[2026-09-19] Milestone 6 mở rộng: đổi tên "Navita" + bình chat nổi + 3 chế
+  độ (Flash/Thinking/Pro) + lịch sử nhiều cuộc hội thoại. Supervisor
+  review + 1 vòng sửa. MILESTONE 6 MỞ RỘNG XONG.
+
+  User quay lại sau khi Milestone 6 đã review chốt (mục ngay phía trên),
+  yêu cầu thêm 4 việc — không phải milestone số riêng, coi là phần mở
+  rộng cùng phạm vi. Chi tiết đầy đủ: AI_CHATBOT_PLAN.md mục 11,
+  ai/AI_TASKS.md mục "Milestone 6 mở rộng".
+
+  Việc chính: đổi tên chatbot thành Navita (hệ dẫn, welcome message, Nav,
+  USER_GUIDE); bình chat nổi (ChatBubble.tsx, gắn layout.tsx, tự ẩn ở
+  /chat để không trùng lặp, dùng chung state/API với trang đầy đủ); 3 chế
+  độ Flash/Thinking/Pro (vẫn 1 model qwen3.5:4b, khác think/top_k/hệ dẫn
+  qua ai/server/main.py's MODE_SETTINGS); lịch sử nhiều cuộc hội thoại lưu
+  DB (bảng chatConversations/chatMessages mới, migration 0003, viết lại
+  POST /api/chat để lấy lịch sử từ DB thay vì nhận từ client).
+
+  Supervisor review (diff ba388f7..HEAD, commit bcf3282) tìm ra 5 finding
+  thật, không phải hình thức:
+    1. [Nghiêm trọng] Xóa cuộc hội thoại đang chờ trả lời (Thinking/Pro
+       tới ~4 phút) → addChatMessage(assistant) insert vào cuộc đã xóa →
+       SQLite FK constraint (foreign_keys=ON) chặn → request crash 500,
+       mất câu trả lời AI dù đã tốn GPU thật. Sửa: try/catch ở route.ts,
+       vẫn trả reply cho client dù lưu DB thất bại.
+    2. [Nghiêm trọng] Chuyển cuộc hội thoại trong lúc đang chờ trả lời →
+       câu trả lời "rò" vào cuộc đang xem + tự động kéo user quay lại
+       cuộc cũ không báo trước. Sửa: khóa dropdown/nút +/xóa khi
+       isSending (chặn từ UI) + activeIdRef kiểm tra đúng cuộc trước khi
+       cập nhật messages/lỗi (chặn ở tầng logic) + refreshConversations()
+       không còn ép đổi activeId.
+    3. [Trung bình] Bấm Gửi/Enter rất nhanh 2 lần trước khi isSending
+       (state) kịp render → tạo trùng 2 cuộc hội thoại + gửi trùng. Sửa:
+       isSendingRef (ref đồng bộ, không phụ thuộc chu kỳ render).
+    4. [Nhỏ] PROJECT_CONTEXT.md mục 11.4 còn ghi "timeout 120s" dù code
+       đã tăng 300s — đã sửa.
+    5. [Nhỏ] Test mới thiếu case cho 3 race condition trên — đã thêm 2
+       test dùng fireEvent.click (không dùng userEvent vì nó tự chờ React
+       render giữa các thao tác, không tái hiện được race thật).
+  Tự phát hiện thêm 1 lỗi khi vá Finding 2: lần sửa đầu dùng useEffect để
+  đồng bộ activeIdRef theo activeId, nhưng handleSend vừa tạo cuộc hội
+  thoại (set activeId) vừa cần đọc activeIdRef đã cập nhật ngay sau đó
+  trong cùng 1 lần gọi — effect không đảm bảo chạy kịp. 3 test tự dưng đỏ
+  sau khi thêm fix, phát hiện ra ngay. Sửa bằng cách gán activeIdRef.current
+  trực tiếp cùng lúc với mọi setActiveId (qua hàm setActiveIdAndRef mới),
+  bỏ hẳn effect.
+
+  Xác nhận thật với model thật (không mock) sau khi sửa: Flash 30.5s + Pro
+  244s đều chạy đúng, tự giới thiệu đúng là Navita, Pro đúng phong cách
+  trang trọng/có cấu trúc. Chụp màn hình bằng Playwright (script tạm) xác
+  nhận giao diện đúng thiết kế (bình nổi đúng vị trí, welcome message +
+  3 nút chế độ + dropdown hội thoại trong popup, trang /chat không hiện
+  bình nổi trùng lặp), không lỗi console.
+
+  Tự kiểm cuối: typecheck/lint sạch, test 158/158, test:e2e 9/9 (web/),
+  pytest 22/22 (ai/) — tất cả xanh.
+

@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from training.lora_training_data import load_training_examples, split_train_eval, to_prompt_completion, validate_example
+from training.lora_training_data import load_training_examples, split_train_eval, validate_example
 
 
 def _example(system: str = "sys", user: str = "hoi", assistant: str = "dap") -> dict:
@@ -79,39 +79,6 @@ class TestLoadTrainingExamples:
         path.write_text(json.dumps(bad) + "\n", encoding="utf-8")
         with pytest.raises(ValueError, match=r":1:"):
             load_training_examples(path)
-
-
-class TestToPromptCompletion:
-    def test_splits_into_prompt_and_completion(self):
-        example = _example(system="sys", user="hoi", assistant="dap")
-        result = to_prompt_completion(example)
-        assert result["prompt"] == [
-            {"role": "system", "content": [{"type": "text", "text": "sys"}]},
-            {"role": "user", "content": [{"type": "text", "text": "hoi"}]},
-        ]
-        assert result["completion"] == [{"role": "assistant", "content": [{"type": "text", "text": "dap"}]}]
-
-    def test_wraps_content_as_a_single_text_block_not_a_bare_string(self):
-        # Regression: Qwen3.5-4B's processor iterates message["content"] expecting a
-        # list of blocks — a bare string breaks that (iterates characters instead).
-        example = _example(system="sys", user="hoi", assistant="dap")
-        result = to_prompt_completion(example)
-        originals = {"sys": None, "hoi": None, "dap": None}
-        for message in result["prompt"] + result["completion"]:
-            content = message["content"]
-            assert isinstance(content, list) and len(content) == 1
-            assert content[0]["type"] == "text"
-            assert content[0]["text"] in originals
-
-    def test_does_not_mutate_the_original_example(self):
-        example = _example()
-        original = json.loads(json.dumps(example))
-        to_prompt_completion(example)
-        assert example == original
-
-    def test_result_has_no_other_keys(self):
-        result = to_prompt_completion(_example())
-        assert set(result.keys()) == {"prompt", "completion"}
 
 
 class TestSplitTrainEval:

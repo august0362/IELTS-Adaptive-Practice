@@ -3,34 +3,31 @@ Milestone 7 step 6 (AI_CHATBOT_PLAN.md section 12.3): pure, offline-testable
 helpers for the LoRA fine-tuning step.
 
 TRL's SFTTrainer consumes the "conversational" dataset format directly (a
-"messages" column, or a "prompt"/"completion" pair) and applies the model's
-own chat template internally, so there is no hand-rolled prompt-formatting
-function here — only loading, shape validation, and the one small reshape
-`to_prompt_completion` needs (see below).
+"messages" column) and applies the model's own chat template internally, so
+there is no hand-rolled prompt-formatting function here — only loading and
+shape validation, which is the part a typo or upstream schema drift could
+actually break silently.
 
-REAL FINDING from an actual Kaggle run (2026-09-19): originally this used
-the "messages" format with `assistant_only_loss=True` (loss only on the
-assistant's tokens — Qwen3.5 is an explicitly TRL-supported family for the
-chat-template patching that needs). That raised `ValueError: Assistant-only
-loss is not yet supported for vision-language models` — Unsloth loads
-Qwen3.5-4B's `processing_class` as a `ProcessorMixin` (a multimodal
-processor), which TRL's SFTTrainer treats as "this is a VLM" regardless of
-whether any image is ever used, and assistant-only loss is blocked for that
-case. Switched to the "prompt-completion" dataset shape instead
-(`to_prompt_completion` below) + `completion_only_loss=True`, which TRL does
-NOT block for VLM-classified processors and in fact defaults to "on" for
-this shape — same effect (loss only on the answer), different mechanism.
-
-SECOND real finding, same run, one step later: with `content` still a plain
-string, tokenization itself crashed — `TypeError: string indices must be
-integers, not 'str'` inside `processing_class.apply_chat_template()`. That
-processor (Qwen3.5-4B's, per the finding above, a `ProcessorMixin`) expects
-every message's `content` to be a *list of content blocks*
-(`[{"type": "text", "text": "..."}]`), the standard format for any
-vision-capable model's processor (confirmed against Qwen-VL's own message
-format docs) — not a bare string. Iterating a bare string yields characters,
-and indexing a character with `["type"]` is exactly that TypeError.
-`to_prompt_completion` now wraps every message's content this way.
+HISTORY (2026-09-19, all from real Kaggle runs — not hypothetical): this
+module briefly grew a `to_prompt_completion`/`_as_content_blocks` reshape to
+work around 2 issues caused by loading the model through Unsloth's
+`FastLanguageModel.from_pretrained` (it returns a `ProcessorMixin`, which (1)
+made TRL classify the model as a "vision-language model" and refuse
+`assistant_only_loss`, and (2) requires message content as
+`[{"type": "text", "text": ...}]` blocks instead of a plain string). A 3rd,
+deeper Unsloth-specific bug then surfaced — training crashed with
+`RuntimeError: ... BFloat16 != Half` inside Unsloth's own recompiled
+`Qwen3_5GatedDeltaNet` layer (Qwen3.5's new hybrid linear-attention layer
+type) on a T4, a confirmed *upstream, currently unresolved* Unsloth bug
+(github.com/unslothai/unsloth issue #4970 — its proposed fix,
+unsloth-zoo PR #978, was still unmerged when hit). Rather than keep working
+around Unsloth-specific issues for a brand-new model architecture, the
+notebook (build_lora_training_notebook.py) dropped Unsloth entirely for this
+step and loads the model via plain `transformers` + `peft` + `trl` instead —
+which uses a real `PreTrainedTokenizerBase` (not a `ProcessorMixin`), so
+neither workaround above is needed any more, and doesn't hit Unsloth's own
+compiled Qwen3.5 kernels at all. `to_prompt_completion`/`_as_content_blocks`
+were removed accordingly — see git history if they're ever needed again.
 
 Kept separate from the notebook and pytest-covered so this logic isn't
 hand-typed straight into Kaggle — that exact anti-pattern caused 2 of the 3
@@ -89,30 +86,6 @@ def load_training_examples(path: Path) -> list[dict]:
             raise ValueError(f"{path}:{line_number}: {e}") from e
         examples.append(example)
     return examples
-
-
-def _as_content_blocks(message: dict) -> dict:
-    """{"role": r, "content": "text"} -> {"role": r, "content": [{"type": "text", "text": "text"}]}
-    — the content-block list format Qwen3.5-4B's (multimodal-capable)
-    processor requires even for plain text (see module docstring)."""
-    return {"role": message["role"], "content": [{"type": "text", "text": message["content"]}]}
-
-
-def to_prompt_completion(example: dict) -> dict:
-    """Reshapes a validated {"messages": [system, user, assistant]} example
-    into TRL's "conversational prompt-completion" shape:
-    {"prompt": [system, user], "completion": [assistant]}, with each
-    message's content wrapped as a content-block list. No text content is
-    added/removed/changed — needed because SFTConfig's `completion_only_loss`
-    (unlike `assistant_only_loss`) isn't blocked when TRL classifies the
-    processing_class as a VLM, and because that same processor's
-    apply_chat_template requires content-block-shaped messages (both per
-    module docstring)."""
-    system, user, assistant = example["messages"]
-    return {
-        "prompt": [_as_content_blocks(system), _as_content_blocks(user)],
-        "completion": [_as_content_blocks(assistant)],
-    }
 
 
 def split_train_eval(examples: list[dict], eval_fraction: float, seed: int) -> tuple[list[dict], list[dict]]:

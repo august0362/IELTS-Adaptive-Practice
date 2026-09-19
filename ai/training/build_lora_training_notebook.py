@@ -5,26 +5,67 @@ Qwen/Qwen3.5-4B using the 58 user-approved training examples
 (data/processed/train_final.jsonl, approved in full by the user via
 review_sample.md — "Đồng ý hết").
 
-Uses Unsloth (per AI_CHATBOT_PLAN.md §12.3's already-agreed plan) + TRL's
-SFTTrainer — not a hand-rolled training loop, for the same reason
-kaggle_generation.py replaced hand-typed generation logic: standard,
-maintained libraries catch shape/API mistakes with real errors instead of
-silent wrong behavior. Confirmed before writing this notebook (2026-09-19):
+Uses plain transformers + PEFT + TRL's SFTTrainer — not a hand-rolled
+training loop, for the same reason kaggle_generation.py replaced
+hand-typed generation logic: standard, maintained libraries catch
+shape/API mistakes with real errors instead of silent wrong behavior.
+
+DROPPED UNSLOTH (2026-09-19), after 3 real, consecutive Kaggle runs each
+hit a genuine bug specifically caused by Unsloth's handling of this brand
+new model (Qwen3.5-4B, first supported the same month this was written):
+  1. `FastLanguageModel.from_pretrained` returns a `ProcessorMixin` (not a
+     plain tokenizer) for this model — TRL then classified it as a
+     "vision-language model" and refused `assistant_only_loss=True`.
+  2. That same Processor's `apply_chat_template` requires every message's
+     `content` to be a list of content blocks (`[{"type":"text",...}]`),
+     not a plain string — crashed with `TypeError: string indices must be
+     integers, not 'str'` when given our normal string content.
+  3. Worked around both of the above, then hit a 3rd, deeper bug: training
+     crashed with `RuntimeError: ... BFloat16 != Half` inside Unsloth's own
+     recompiled `Qwen3_5GatedDeltaNet` layer (Qwen3.5's new hybrid
+     linear-attention layer type) — a confirmed, currently-UNRESOLVED
+     upstream Unsloth bug (github.com/unslothai/unsloth issue #4970). Its
+     proposed fix (`UNSLOTH_FORCE_FLOAT32=1`, unsloth-zoo PR #978) was
+     applied but had NO effect because that PR was still open/unmerged —
+     not yet in any released Unsloth version, contrary to what was assumed
+     when first citing it (a real mistake: an open PR proposing a fix is
+     not the same as a shipped fix — should have checked merge status
+     before relying on it).
+
+Given a still-open upstream bug with no released fix, plain
+transformers.AutoModelForCausalLM + peft.LoraConfig + TRL's SFTTrainer is
+used instead — it doesn't go through Unsloth's custom compiled Qwen3.5
+kernels at all, so bug 3 doesn't apply, and its tokenizer is a real
+PreTrainedTokenizerBase (not a Processor), so bugs 1 and 2 don't apply
+either. This also means the "messages" format + `assistant_only_loss=True`
+from the original design (before Unsloth-specific workarounds) is usable
+again as-is. Trade-off: no Unsloth memory/speed optimizations — training
+will be somewhat slower and use somewhat more VRAM than Unsloth's ~10GB
+claim, but the 4B model in native bf16 + LoRA (~21M trainable params) +
+gradient checkpointing + a tiny 52-example dataset should still comfortably
+fit a T4's 16GB; if it doesn't, the concrete OOM error will say so and
+that's the next real thing to fix, not a hypothetical to solve in advance.
+
+Also confirmed before writing this notebook:
   - TRL v1.13.0 SFTTrainer/SFTConfig/SFTConfig.assistant_only_loss API
     (docs.trl SFTTrainer page) — Qwen3.5 is an explicitly supported family
-    for the chat-template patching assistant_only_loss needs.
-  - Unsloth explicitly supports Qwen3.5 fine-tuning (incl. the 4B size),
-    recommends plain 16-bit LoRA over QLoRA 4-bit for this model family
-    (matches the community guidance already in AI_CHATBOT_PLAN.md §5), and
-    measures ~10GB VRAM for Qwen3.5-4B 16-bit LoRA — comfortably under a
-    Kaggle T4's 16GB, unlike the 9B data-generation notebook's ~14.33GB
-    single-instance footprint (see build_kaggle_notebook.py's cell 2).
-  - REAL BUG (first Kaggle run, user-reported): hardcoding `bf16=True` in
-    SFTConfig raised `ValueError: Your setup doesn't support bf16/gpu`
-    immediately — Kaggle's free T4 is Turing, not Ampere+, so it has no
-    hardware bf16 support at all. Fixed by detecting it at runtime with
-    `torch.cuda.is_bf16_supported()` and falling back to `fp16=True`
-    instead of hardcoding either one.
+    for the chat-template patching assistant_only_loss needs, keyed off the
+    tokenizer's own chat template, independent of Unsloth.
+  - PEFT's LoraConfig `target_modules="all-linear"` auto-targets every
+    Linear/Conv1D layer (LM head excluded) — deliberately used instead of
+    a hardcoded proj-name list, because Qwen3.5's new GatedDeltaNet layers
+    use different projection names (e.g. `in_proj_qkv`, seen directly in
+    the bug-3 traceback) that a hardcoded q/k/v/o/gate/up/down list would
+    silently miss, leaving those layers untrained.
+  - REAL BUG (first Kaggle run, user-reported, still applies regardless of
+    Unsloth): hardcoding `bf16=True` in SFTConfig raised `ValueError: Your
+    setup doesn't support bf16/gpu` — Kaggle's free T4 is Turing, not
+    Ampere+, so it has no hardware bf16 tensor-core support. Fixed here by
+    loading the model natively in bf16 (matches the checkpoint's own
+    format — no cast needed) and setting SFTConfig's bf16=False, fp16=False
+    (no trainer-level mixed-precision autocast at all, so that hardware
+    check never triggers and no dtype-conversion happens on top of the
+    already-consistent bf16 weights).
   - The real max token length across all 58 approved examples, using the
     actual Qwen3.5-4B tokenizer + chat template (enable_thinking=False,
     matching Flash-mode inference): 4656 tokens (1 outlier — the "bảng màu
@@ -73,17 +114,18 @@ def build_notebook() -> dict:
             f"{example_count} cặp hỏi–đáp đã duyệt (Milestone 7 bước 5, bạn đã \"Đồng ý hết\") được "
             "nhúng sẵn ở cell dưới.\n"
             "\n"
-            "**Phương pháp**: LoRA 16-bit thường qua [Unsloth](https://unsloth.ai) — **không** QLoRA "
-            "4-bit (cộng đồng khuyến cáo tránh QLoRA cho Qwen3.5 vì lệch lượng tử hoá cao hơn bình "
-            "thường, xem `AI_CHATBOT_PLAN.md` mục 5). Unsloth đo thực tế Qwen3.5-4B LoRA 16-bit tốn "
-            "~10GB VRAM — dư dả so với T4 (16GB), khác với notebook sinh dữ liệu (Qwen3.5-9B) suýt "
-            "tràn bộ nhớ ở mục đó.\n"
+            "**Phương pháp**: LoRA 16-bit thường (bf16, đúng định dạng gốc của checkpoint) qua "
+            "`transformers` + `peft` + `trl` **thuần** — **không dùng Unsloth nữa** (đổi hướng so với "
+            "bản trước): đã thử Unsloth theo đúng kế hoạch ban đầu, nhưng gặp liên tiếp 3 lỗi thật đều "
+            "xuất phát từ cách Unsloth xử lý model Qwen3.5 (rất mới) trên GPU T4, lỗi cuối là 1 bug "
+            "**chưa được Unsloth sửa xong** (xem mục 3). Không QLoRA 4-bit (cộng đồng khuyến cáo tránh "
+            "cho Qwen3.5, xem `AI_CHATBOT_PLAN.md` mục 5).\n"
             "\n"
             f"Chạy xong (ước tính vài phút — {example_count} mẫu ít hơn nhiều so với ước tính ban đầu "
             "\"vài trăm mẫu\" lúc lập kế hoạch), tải file `lora_adapter.zip` về (link tải ở cell cuối) "
             "rồi gửi lại cho Claude.\n"
         ),
-        code_cell("!pip install -q -U unsloth unsloth_zoo\n"),
+        code_cell("!pip install -q -U transformers accelerate peft trl bitsandbytes\n"),
         markdown_cell(
             "## 1. Dữ liệu train (đã nhúng sẵn, đã được bạn duyệt toàn bộ — không cần upload)\n"
             "\n"
@@ -108,7 +150,35 @@ def build_notebook() -> dict:
             'de kiem tra chat luong sau khi train (khong dua vao tap train)")\n'
         ),
         markdown_cell(
-            "## 3. Tải model (16-bit, không lượng tử hoá) + gắn LoRA\n"
+            "## 3. Tải model (bf16 thuần, không qua Unsloth) + gắn LoRA\n"
+            "\n"
+            "**Vì sao bỏ Unsloth (đổi hướng so với kế hoạch ban đầu)** — 3 lỗi thật liên tiếp khi chạy "
+            "trên Kaggle, cả 3 đều do cách Unsloth nạp riêng model Qwen3.5 (model rất mới), không liên "
+            "quan đến dữ liệu/cấu hình train của mình:\n"
+            "  1. `FastLanguageModel.from_pretrained` trả về 1 `Processor` đa phương thức thay vì "
+            "tokenizer thường → TRL coi model là \"vision-language\" và chặn `assistant_only_loss`.\n"
+            "  2. `Processor` đó đòi content mỗi message phải là danh sách khối `{\"type\":\"text\",...}` "
+            "thay vì chuỗi thường → `TypeError` khi tokenize.\n"
+            "  3. Sau khi vá 2 lỗi trên, train thật sự chạy thì sập ở layer `Qwen3_5GatedDeltaNet` "
+            "(kiểu layer \"linear attention\" mới của Qwen3.5): `RuntimeError: ... BFloat16 != Half` — "
+            "tra ra đây là **bug thật của chính Unsloth, đã có người báo, CHƯA được sửa xong** "
+            "([issue #4970](https://github.com/unslothai/unsloth/issues/4970)): fix đề xuất "
+            "(`UNSLOTH_FORCE_FLOAT32=1`) nằm trong 1 pull request **vẫn đang mở, chưa merge** "
+            "([unsloth-zoo #978](https://github.com/unslothai/unsloth-zoo/pull/978)) — nên dù đã bật "
+            "biến môi trường đó, không có tác dụng gì (bản Unsloth cài qua pip chưa có code fix này). "
+            "Đây là điểm tôi nhận định sai ở lần sửa trước: thấy có pull request đề xuất fix rồi vội "
+            "coi như \"đã có fix chính thức\", nhưng chưa kiểm tra pull request đó **đã merge/phát hành "
+            "hay chưa** trước khi áp dụng.\n"
+            "\n"
+            "→ Bỏ hẳn Unsloth cho bước này, dùng thẳng `transformers` + `peft` + `trl` — không đi qua "
+            "bản Qwen3.5 tự biên dịch lại của Unsloth nên không dính lỗi 3, tokenizer là "
+            "`PreTrainedTokenizerBase` thường nên không dính lỗi 1/2 (dữ liệu giữ nguyên dạng `messages` "
+            "với content chuỗi thường như ban đầu, không cần khối nội dung nữa). Đánh đổi: mất tối ưu bộ "
+            "nhớ/tốc độ riêng của Unsloth — chậm hơn 1 chút, tốn VRAM hơn mức Unsloth từng đo (~10GB), "
+            "nhưng model 4B ở bf16 gốc (không ép kiểu) + chỉ train LoRA (~21 triệu tham số, đã thấy ở "
+            "log lần trước) + bật gradient checkpointing + tập dữ liệu rất nhỏ (52 mẫu) nhiều khả năng "
+            "vẫn vừa 16GB của T4 — nếu không vừa, thông báo lỗi thật sẽ cho biết cụ thể để sửa tiếp, "
+            "không đoán trước.\n"
             "\n"
             f"`max_seq_length = {MAX_SEQ_LENGTH}` — đo thật bằng tokenizer thật của Qwen3.5-4B trên cả "
             "58 mẫu đã duyệt: dài nhất 4656 token (1 câu trả lời ngoại lệ về bảng màu giao diện; 95% còn "
@@ -116,85 +186,65 @@ def build_notebook() -> dict:
             "`SFTConfig` cắt bớt từ *cuối* chuỗi khi vượt `max_length`, mà câu trả lời (thứ đang được "
             "train) luôn nằm ở cuối chuỗi.\n"
             "\n"
-            "`UNSLOTH_FORCE_FLOAT32=1` (đặt trước khi `import unsloth`) — **lỗi thật gặp ở lần chạy "
-            "trước, đã có báo cáo công khai trùng khớp** ([unslothai/unsloth #4970]"
-            "(https://github.com/unslothai/unsloth/issues/4970)): `RuntimeError: expected mat1 and mat2 "
-            "to have the same dtype, but got: c10::BFloat16 != c10::Half`, sập ở layer "
-            "`Qwen3_5GatedDeltaNet` (1 kiểu layer \"linear attention\" mới của Qwen3.5, xen giữa các "
-            "layer attention thường — không phải lỗi ở dữ liệu/cấu hình train của mình). Nguyên nhân "
-            "(theo chính báo cáo trên): trên GPU không có bf16 phần cứng như T4, Unsloth nạp model ở "
-            "bf16 (đúng gốc checkpoint) rồi hạ 1 phần trọng số xuống fp16, nhưng activation truyền qua "
-            "vẫn còn bf16 ở vài layer — lệch dtype ngay tại phép nhân ma trận. Fix chính thức: biến môi "
-            "trường này bật các lớp bọc dtype-safety cho đúng layer `Qwen3_5GatedDeltaNet`/`Attention`/"
-            "`MLP` (đã có sẵn trong bản Unsloth mới nhất, chỉ cần bật, không cần code thêm)."
+            "`target_modules=\"all-linear\"` (thay vì liệt kê tên cố định q/k/v/o/gate/up/down) — layer "
+            "`GatedDeltaNet` mới của Qwen3.5 dùng tên khác hẳn (`in_proj_qkv`, thấy thẳng trong traceback "
+            "lỗi 3 ở trên), 1 danh sách tên cố định kiểu cũ sẽ bỏ sót hẳn các layer này, khiến chúng "
+            "không được train LoRA. `\"all-linear\"` tự nhắm mọi layer Linear (trừ lm_head, theo đúng "
+            "docs PEFT) nên phủ đúng cả kiểu layer mới này."
         ),
         code_cell(
-            "import os\n"
-            'os.environ["UNSLOTH_FORCE_FLOAT32"] = "1"  # xem markdown tren — fix that cho loi dtype tren T4\n'
-            "\n"
-            "from unsloth import FastLanguageModel\n"
+            "import torch\n"
+            "from transformers import AutoModelForCausalLM, AutoTokenizer\n"
+            "from peft import LoraConfig, TaskType, get_peft_model\n"
             "\n"
             'MODEL_NAME = "Qwen/Qwen3.5-4B"\n'
             "\n"
-            "model, tokenizer = FastLanguageModel.from_pretrained(\n"
-            "    model_name=MODEL_NAME,\n"
-            f"    max_seq_length={MAX_SEQ_LENGTH},\n"
-            "    load_in_4bit=False,  # QLoRA khong khuyen cao cho Qwen3.5 (xem markdown tren)\n"
-            "    load_in_16bit=True,\n"
-            "    full_finetuning=False,\n"
+            "tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)\n"
+            "model = AutoModelForCausalLM.from_pretrained(\n"
+            "    MODEL_NAME,\n"
+            "    dtype=torch.bfloat16,  # dung dtype goc cua checkpoint, khong ep kieu\n"
+            '    device_map={"": "cuda:0"},\n'
             ")\n"
+            "model.gradient_checkpointing_enable()\n"
+            "model.enable_input_require_grads()  # can thiet de gradient checkpointing hoat dong dung voi LoRA (base model dong bang)\n"
             "\n"
-            "model = FastLanguageModel.get_peft_model(\n"
-            "    model,\n"
+            "lora_config = LoraConfig(\n"
             "    r=16,\n"
-            "    target_modules=[\n"
-            '        "q_proj", "k_proj", "v_proj", "o_proj",\n'
-            '        "gate_proj", "up_proj", "down_proj",\n'
-            "    ],\n"
             "    lora_alpha=16,\n"
-            "    lora_dropout=0,\n"
+            "    lora_dropout=0.0,\n"
             '    bias="none",\n'
-            f"    use_gradient_checkpointing=\"unsloth\",  # giam VRAM, quan trong voi T4\n"
-            "    random_state=7,\n"
-            f"    max_seq_length={MAX_SEQ_LENGTH},\n"
+            '    target_modules="all-linear",\n'
+            "    task_type=TaskType.CAUSAL_LM,\n"
             ")\n"
-            'print("Da tai model + gan LoRA.")\n'
+            "model = get_peft_model(model, lora_config)\n"
+            "model.print_trainable_parameters()\n"
         ),
         markdown_cell(
             "## 4. Cấu hình train + chạy\n"
             "\n"
-            "- `completion_only_loss=True` trên dữ liệu dạng `prompt`/`completion` (tách từ `messages` "
-            "bằng `to_prompt_completion()`) — chỉ tính loss trên phần model *trả lời*, không tính trên "
-            "system prompt/câu hỏi (2 phần đó giống hệt/lặp lại ở nhiều mẫu và không phải thứ cần học).\n"
-            "  - **Lỗi thật gặp ở lần chạy trước**: ban đầu dùng `assistant_only_loss=True` (giữ "
-            "nguyên dạng `messages`) — bị chặn ngay: `ValueError: Assistant-only loss is not yet "
-            "supported for vision-language models`. Nguyên nhân: Unsloth nạp `processing_class` của "
-            "Qwen3.5-4B là 1 `ProcessorMixin` (bộ xử lý đa phương thức, dù ta chỉ dùng text) nên TRL "
-            "coi đây là model đa phương thức và chặn `assistant_only_loss`. Đổi sang dạng "
-            "`prompt`/`completion` + `completion_only_loss=True` — TRL **không** chặn cơ chế này với "
-            "model bị coi là đa phương thức (đã đọc thẳng mã nguồn TRL v1.13.0 để xác nhận trước khi "
-            "sửa, không đoán), cùng hiệu quả (chỉ học phần trả lời) qua cơ chế khác.\n"
+            "- `assistant_only_loss=True` trên dữ liệu dạng `messages` gốc — chỉ tính loss trên phần "
+            "model *trả lời*, không tính trên system prompt/câu hỏi (2 phần đó giống hệt/lặp lại ở "
+            "nhiều mẫu và không phải thứ cần học). Dùng lại được nguyên bản (không cần đổi dạng "
+            "`prompt`/`completion` như bản Unsloth trước) vì `tokenizer` giờ là tokenizer thường, không "
+            "còn bị TRL coi là model đa phương thức nữa (xem mục 3).\n"
             "- `num_train_epochs=3`, batch hiệu dụng nhỏ (`per_device=1 × gradient_accumulation=4`) — "
             "đúng theo kế hoạch mục 12.3 (\"2–3 epoch, batch nhỏ\"), phù hợp với tập chỉ "
             f"{example_count} mẫu.\n"
-            "- `learning_rate=2e-4`, `optim=\"adamw_8bit\"` — mặc định chuẩn của Unsloth cho LoRA "
-            "(khác PEFT/TRL thường dùng ~1e-4, Unsloth khuyến nghị cao hơn 1 chút vì chỉ train LoRA "
-            "adapter, không train full model).\n"
-            "- `bf16`/`fp16` chọn tự động theo GPU thật, không hardcode — **lỗi thật gặp ở lần chạy "
-            "trước**: hardcode `bf16=True` bị GPU T4 từ chối ngay từ bước tạo `SFTConfig` "
-            "(`ValueError: Your setup doesn't support bf16/gpu`) vì T4 là kiến trúc Turing, chỉ GPU "
-            "Ampere trở lên (A100, RTX 30xx+...) mới có nhân bf16 phần cứng. `torch.cuda.is_bf16_supported()` "
-            "tự phát hiện đúng phần cứng đang chạy, tương thích cả khi Kaggle đổi loại GPU sau này."
+            "- `learning_rate=2e-4`, `optim=\"adamw_8bit\"` — chuẩn phổ biến cho LoRA (cao hơn mức "
+            "~1e-4 hay dùng khi train full model, hợp lý hơn vì chỉ train phần adapter nhỏ).\n"
+            "- `bf16=False, fp16=False` — không bật autocast mixed-precision nào của Trainer. Model đã "
+            "nạp sẵn ở bf16 (mục 3) nên cứ train nguyên trong dtype đó, không ép kiểu thêm lần nào nữa. "
+            "**Lỗi thật gặp ở bản trước** (vẫn áp dụng dù đổi framework): hardcode `bf16=True` bị GPU T4 "
+            "từ chối ngay từ bước tạo `SFTConfig` (`ValueError: Your setup doesn't support bf16/gpu`) vì "
+            "T4 là kiến trúc Turing, chỉ GPU Ampere trở lên mới có nhân bf16 phần cứng cho việc autocast "
+            "này — nay tránh hẳn vấn đề bằng cách không bật autocast, để model tự chạy đúng dtype nó "
+            "đã có sẵn."
         ),
         code_cell(
-            "import torch\n"
             "from datasets import Dataset\n"
             "from trl import SFTConfig, SFTTrainer\n"
             "\n"
-            "train_dataset = Dataset.from_list([to_prompt_completion(e) for e in TRAIN_EXAMPLES])\n"
-            "\n"
-            "bf16_supported = torch.cuda.is_bf16_supported()\n"
-            'print(f"bf16 duoc GPU nay ho tro: {bf16_supported} (T4 = False, se dung fp16 thay the)")\n'
+            "train_dataset = Dataset.from_list(TRAIN_EXAMPLES)\n"
             "\n"
             "sft_config = SFTConfig(\n"
             '    output_dir="lora_adapter_output",\n'
@@ -206,10 +256,10 @@ def build_notebook() -> dict:
             '    optim="adamw_8bit",\n'
             "    weight_decay=0.0,\n"
             f"    max_length={MAX_SEQ_LENGTH},\n"
-            "    completion_only_loss=True,\n"
+            "    assistant_only_loss=True,\n"
             "    packing=False,\n"
-            "    bf16=bf16_supported,\n"
-            "    fp16=not bf16_supported,\n"
+            "    bf16=False,\n"
+            "    fp16=False,\n"
             "    logging_steps=5,\n"
             '    save_strategy="epoch",\n'
             '    report_to="none",\n'
@@ -244,23 +294,19 @@ def build_notebook() -> dict:
             "\n"
             "Dùng phần dữ liệu **giữ lại, không đưa vào tập train** (`EVAL_EXAMPLES` ở mục 2) — không "
             "phải đánh giá chính thức (quá ít mẫu để tính điểm), chỉ để bạn liếc qua xem giọng văn/nội "
-            "dung có bám theo dữ liệu dự án hơn bản gốc không, trước khi tải adapter về.\n"
-            "\n"
-            "Dùng lại `_as_content_blocks()` (từ mục 2) cho `apply_chat_template` — `tokenizer` ở đây "
-            "thực chất là 1 `Processor` đa phương thức (như đã phát hiện ở mục 4), cũng cần đúng định "
-            "dạng content dạng khối, không phải chuỗi thường."
+            "dung có bám theo dữ liệu dự án hơn bản gốc không, trước khi tải adapter về."
         ),
         code_cell(
-            "FastLanguageModel.for_inference(model)\n"
+            "model.eval()\n"
             "\n"
             "for example in EVAL_EXAMPLES:\n"
             "    system_msg, user_msg, reference_msg = example[\"messages\"]\n"
             "    prompt_text = tokenizer.apply_chat_template(\n"
-            "        [_as_content_blocks(system_msg), _as_content_blocks(user_msg)],\n"
-            "        tokenize=False, add_generation_prompt=True, enable_thinking=False,\n"
+            "        [system_msg, user_msg], tokenize=False, add_generation_prompt=True, enable_thinking=False\n"
             "    )\n"
-            '    inputs = tokenizer(text=prompt_text, return_tensors="pt").to(model.device)\n'
-            "    output_ids = model.generate(**inputs, max_new_tokens=600, do_sample=False, pad_token_id=tokenizer.eos_token_id)\n"
+            '    inputs = tokenizer(prompt_text, return_tensors="pt").to(model.device)\n'
+            "    with torch.no_grad():\n"
+            "        output_ids = model.generate(**inputs, max_new_tokens=600, do_sample=False, pad_token_id=tokenizer.eos_token_id)\n"
             "    reply = tokenizer.decode(output_ids[0][inputs[\"input_ids\"].shape[1]:], skip_special_tokens=True)\n"
             "\n"
             '    print(f"HOI: {user_msg[\'content\']}")\n'

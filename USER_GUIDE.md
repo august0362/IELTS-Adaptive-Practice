@@ -1,6 +1,6 @@
 # Hướng dẫn sử dụng — IELTS Adaptive Practice
 
-Ứng dụng luyện thi IELTS cá nhân, chạy hoàn toàn trên máy của bạn (không cần đăng nhập, không cần internet sau khi đã cài đặt). Có 4 trang chính: **Vòng quay**, **Nhật ký**, **Dự đoán**, **Cài đặt**.
+Ứng dụng luyện thi IELTS cá nhân, chạy hoàn toàn trên máy của bạn (không cần đăng nhập, không cần internet sau khi đã cài đặt). Có 5 trang chính: **Vòng quay**, **Nhật ký**, **Dự đoán**, **Chatbot**, **Cài đặt**.
 
 ---
 
@@ -68,7 +68,17 @@ Trang này gồm 2 phần: **nhập điểm thi thử Cambridge** và **xem dự
 
 ---
 
-## 4. Cài đặt (`/settings`)
+## 4. Chatbot (`/chat`)
+
+Hỏi đáp về cách dùng app, kiến thức IELTS chung, hoặc nhờ tư vấn dựa trên lịch sử luyện tập/điểm Cambridge/ghi chú của chính bạn. Trả lời bằng đúng ngôn ngữ bạn dùng để hỏi.
+
+- **Cần cài [Ollama](https://ollama.com) trước 1 lần**, sau đó bấm đúp **`ai/start-server.bat`** mỗi lần muốn dùng chatbot — lần đầu chạy sẽ tự tải model (~3.7GB) + dựng chỉ mục, có thể mất vài phút. Server này phải chạy **song song** với `start-app.bat` — chatbot sẽ báo "chưa sẵn sàng" nếu bạn quên chạy nó.
+- Model chạy hoàn toàn trên máy bạn (không gửi dữ liệu ra ngoài), nên câu trả lời có thể mất **khoảng 1 phút** tùy độ dài câu hỏi — đây là đặc điểm bình thường của việc chạy AI cục bộ, không phải bị treo.
+- Gõ Enter để gửi, Shift+Enter để xuống dòng.
+
+---
+
+## 5. Cài đặt (`/settings`)
 
 Chọn bảng màu giao diện bạn thích — có 19 bảng màu khác nhau (kể cả bảng "Mặc định" là giao diện gốc). Bấm vào 1 ô màu để áp dụng ngay lập tức cho toàn bộ ứng dụng; lựa chọn được ghi nhớ cho lần mở sau (lưu trên trình duyệt của bạn, không đồng bộ giữa các máy).
 

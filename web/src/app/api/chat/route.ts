@@ -8,7 +8,13 @@ import type { ChatMessage, ChatResponse } from "@/lib/types";
 // it reads web/'s own DB for context, then hands off to ai/ over plain HTTP.
 // ai/ never touches this app's DB directly. See PROJECT_CONTEXT.md section 11.
 const AI_SERVER_URL = process.env.AI_SERVER_URL ?? "http://127.0.0.1:8787";
-const AI_SERVER_TIMEOUT_MS = 60_000;
+// Measured live on the dev machine (RTX 3050 4GB) with Qwen3.5-4B, thinking
+// mode off (see ai/server/ollama_client.py): a real RAG-grounded answer took
+// ~46s (prompt includes several retrieved doc chunks + the model has to load
+// weights on a cold start). 60s cut that too close — matches
+// ai/server/ollama_client.py's own REQUEST_TIMEOUT so neither side times out
+// first.
+const AI_SERVER_TIMEOUT_MS = 120_000;
 
 function isChatMessageArray(value: unknown): value is ChatMessage[] {
   return (

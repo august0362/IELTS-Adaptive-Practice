@@ -95,7 +95,11 @@ export function ChatWindow() {
               {m.content}
             </li>
           ))}
-          {isSending && <li className="self-start rounded-2xl bg-border px-4 py-2 text-sm text-surface-foreground/60">Đang trả lời...</li>}
+          {isSending && (
+            <li className="self-start rounded-2xl bg-border px-4 py-2 text-sm text-surface-foreground/60">
+              Đang trả lời... (model chạy trên máy bạn nên có thể mất khoảng 1 phút, tùy độ dài câu hỏi)
+            </li>
+          )}
           <div ref={bottomRef} />
         </ul>
 

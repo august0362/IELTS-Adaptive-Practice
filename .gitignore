@@ -60,3 +60,9 @@ note.txt
 *.gguf
 *.safetensors
 *.bin
+
+# ai/'s Python virtualenv (python -m venv đã tự tạo .gitignore riêng bên trong
+# rồi, dòng này chỉ để phòng hờ nếu venv được tạo lại bằng cách khác) + bytecode cache
+/ai/.venv/
+__pycache__/
+*.pyc

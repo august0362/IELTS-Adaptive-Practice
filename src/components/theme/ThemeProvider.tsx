@@ -28,11 +28,23 @@ function applyTheme(themeId: string) {
   root.style.setProperty("--primary-foreground", roles.primaryForeground);
   root.style.setProperty("--input", roles.input);
   root.style.setProperty("--input-foreground", roles.inputForeground);
-  // Tells the browser this page manages its own light/dark appearance —
-  // matches native form-control chrome to the actual theme and is the
-  // signal some browsers' "force dark mode" features check before deciding
-  // whether to repaint the page (see the `viewport` export in layout.tsx).
-  root.style.setProperty("color-scheme", roles.isDark ? "dark" : "light");
+  // Always "light", never roles.isDark ? "dark" : "light" — the page shell
+  // (background/foreground) no longer has a real dark mode at all (see the
+  // "Tách giao diện web/ứng dụng" rework in theme.ts: background/foreground
+  // are now a fixed light pair for every theme, isDark only still affects
+  // `surface`/cards). Setting this to "dark" for a dark-classified theme was
+  // a leftover from before that rework — it told the browser to render
+  // NATIVE form-control chrome (select dropdown popups, date pickers,
+  // number-input spinners, scrollbars) in dark UI, which is exactly what
+  // produced the reported "background vẫn đen lắm" after the rework: the
+  // page itself was correctly light, but opening a themed <select> still
+  // popped up a dark-native dropdown list, since color-scheme was the one
+  // remaining signal still following the old isDark-branches-everything
+  // model. This is also still the signal some browsers' "force dark mode"
+  // features check (see the `viewport` export in layout.tsx) — "light" is
+  // the correct value for that purpose now too, since the page never
+  // actually renders dark anymore.
+  root.style.setProperty("color-scheme", "light");
 }
 
 interface ThemeContextValue {

@@ -796,3 +796,24 @@ DONE
     (grepped first).
   - 148/148 unit+component tests, 8/8 e2e specs, typecheck and lint all
     green.
+
+[2026-09-19] Post-launch, 4th report of the same "nền vẫn tối" symptom —
+  this time with screenshots taken AFTER the color-scheme fix from the
+  entry above (item 1) was already committed and pushed. Re-verified from
+  scratch rather than assuming: background is still hardcoded "#ffffff"
+  for every theme in theme.ts, zero `prefers-color-scheme`/`dark:` rules
+  anywhere in src/ (grepped again), and both the static
+  `viewport.colorScheme` meta tag and ThemeProvider's runtime
+  `documentElement.style.colorScheme` are "light". So the app is doing
+  everything a page can standards-wise, and it still didn't stop it —
+  that resolves the "not guaranteed for every browser" uncertainty from
+  the earlier entry: confirmed Cốc Cốc's own "Duyệt web chế độ tối" (Dark
+  Mode Browsing) feature does NOT back off for a page that declares
+  `color-scheme: light`; it repaints the whole page after load regardless.
+  No further app-side code fix exists for this — closing it as a browser
+  setting, not a bug. User-facing fix given: in Cốc Cốc, click the moon
+  icon at the end of the address bar → "Tắt" to disable dark mode for
+  just this site (keeps it on elsewhere), or Settings → "Duyệt web chế độ
+  tối" → disable globally / add this domain to the exclusion list.
+  Source: https://support.coccoc.com/desktop/duyet-web-o-che-do-toi-tren-coc-coc.
+  Logging this so a future session doesn't re-investigate a 5th time.

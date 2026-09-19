@@ -172,6 +172,21 @@ export interface PredictionResponseDTO {
   hasEnoughData: boolean;
 }
 
+export interface ChatMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
+export interface ChatRequest {
+  message: string;
+  /** Prior turns of the same conversation, oldest first. Empty/omitted for the first message. */
+  history?: ChatMessage[];
+}
+
+export interface ChatResponse {
+  reply: string;
+}
+
 export interface EngineConfigDTO {
   decay_exponent: string;
   weekly_threshold_days: string;

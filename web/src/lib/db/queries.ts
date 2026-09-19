@@ -145,6 +145,62 @@ export async function getPredictionData() {
   };
 }
 
+const CHAT_NOTES_SAMPLE_SIZE = 5;
+const CHAT_ROLLS_SAMPLE_SIZE = 10;
+const CHAT_CAMBRIDGE_SAMPLE_SIZE = 5;
+const CHAT_NOTE_SNIPPET_LENGTH = 120;
+
+/**
+ * Plain-text digest of the user's own recent data (practice history, Cambridge
+ * scores, journal notes) — passed as `dbContext` to the chatbot's inference
+ * server (ai/server/) so it can give advice like "luyện gì tuần này" without
+ * ai/ ever reading web/'s DB directly (see PROJECT_CONTEXT.md section 11.1 —
+ * the two modules only talk over HTTP). Deliberately not the full history:
+ * kept to a handful of recent rows so it stays a small, cheap addition to the
+ * prompt rather than a second RAG corpus.
+ */
+export async function getChatContextSummary(): Promise<string> {
+  const [notes, recentSessions, cambridgeResults] = await Promise.all([
+    db.select().from(dailyNotes).orderBy(desc(dailyNotes.noteDate), desc(dailyNotes.createdAt)).limit(CHAT_NOTES_SAMPLE_SIZE),
+    getRecentRollHistory(CHAT_ROLLS_SAMPLE_SIZE),
+    getCambridgeResults(CHAT_CAMBRIDGE_SAMPLE_SIZE),
+  ]);
+
+  const lines: string[] = [];
+
+  if (recentSessions.length > 0) {
+    lines.push("Lịch sử luyện tập gần đây (mới nhất trước):");
+    for (const session of recentSessions) {
+      const date = session.rolledAt.toISOString().slice(0, 10);
+      const parts = session.results.map((r) => `${r.skill.name} (${r.part.name})`).join(", ") || "(không có kết quả)";
+      lines.push(`- ${date} [${session.source === "roll" ? "quay" : "tự học"}]: ${parts}`);
+    }
+  } else {
+    lines.push("Chưa có lịch sử luyện tập nào.");
+  }
+
+  if (cambridgeResults.length > 0) {
+    lines.push("", "Điểm thi thử Cambridge gần đây:");
+    for (const r of cambridgeResults) {
+      const date = r.testDate.toISOString().slice(0, 10);
+      lines.push(
+        `- ${date} ${r.testName}: Reading ${r.readingBand}, Listening ${r.listeningBand}, Writing ${r.writingBand}, Speaking ${r.speakingBand} (Overall ${r.overallBand})`
+      );
+    }
+  }
+
+  if (notes.length > 0) {
+    lines.push("", "Ghi chú nhật ký gần đây:");
+    for (const n of notes) {
+      const date = n.noteDate.toISOString().slice(0, 10);
+      const snippet = n.content.length > CHAT_NOTE_SNIPPET_LENGTH ? n.content.slice(0, CHAT_NOTE_SNIPPET_LENGTH) + "…" : n.content;
+      lines.push(`- ${date}${n.tags ? ` [${n.tags}]` : ""}: ${snippet}`);
+    }
+  }
+
+  return lines.join("\n");
+}
+
 /**
  * Shared by GET /api/stats/:skillCode and the /stats/[skillCode] Server
  * Component (PROJECT_CONTEXT.md section 5.10), same reasoning as

@@ -7,6 +7,7 @@ const NAV_ITEMS = [
   { href: "/", label: "Vòng quay" },
   { href: "/journal", label: "Nhật ký" },
   { href: "/prediction", label: "Dự đoán" },
+  { href: "/chat", label: "Chatbot" },
   { href: "/settings", label: "Cài đặt" },
 ] as const;
 

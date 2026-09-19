@@ -426,6 +426,7 @@ Chưa có UI chỉnh tỉ lệ dạng bài ở milestone này — giống các h
 | GET/PATCH | `/api/config` | body PATCH: `{ key, value }` | bảng config hiện tại (có `cambridge_ewma_alpha`, `accuracy_ewma_alpha` mới — mục 5.4) |
 | GET/POST | `/api/topics` | POST body: `{ name }` | danh sách/tạo chủ đề (mục 5.11) |
 | DELETE | `/api/topics/:id` | — | `{ ok: true }` |
+| POST | `/api/chat` | `{ message: string, history?: {role: "user"\|"assistant", content: string}[] }` | `{ reply: string }` — route mỏng của AI/ML (Milestone 6), đọc DB qua `getChatContextSummary()` rồi gọi sang `ai/server/`; 503 nếu `ai/server/` chưa chạy, 502 nếu nó lỗi. Xem mục 11.4. |
 
 ---
 
@@ -526,4 +527,13 @@ ai/
 
 ### 11.4 Hợp đồng API (nối vào `web/`)
 
-*(điền khi route thật được tạo ở Milestone 6 — giữ đúng tinh thần mục 6 "Hợp đồng API" của app chính: method, path, request/response shape).*
+**`POST web/src/app/api/chat/route.ts`** — cũng có ở bảng mục 6. Chi tiết luồng xử lý:
+
+1. Validate `message` (string không rỗng) và `history` (mảng `{role, content}`, tùy chọn) — 400 nếu sai.
+2. Gọi `getChatContextSummary()` (`web/src/lib/db/queries.ts`) — đọc DB của `web/` (10 lượt luyện gần nhất, 5 kết quả Cambridge gần nhất, 5 ghi chú gần nhất), gói thành 1 đoạn text ngắn. Đây là **lần đọc DB duy nhất** ở phía `web/` cho tính năng chat — `ai/` không bao giờ tự đọc `dev.db`.
+3. `fetch` sang `ai/server/` (`POST {AI_SERVER_URL:-http://127.0.0.1:8787}/chat`) với `{ message, history, dbContext }`, timeout 60s.
+4. `ai/server/` trả `{ reply: string }` — route chuyển tiếp nguyên văn. Không tới được / lỗi / timeout → 503; `ai/server/` trả lỗi → 502; response thiếu `reply` string → 502.
+
+**`POST ai/server/` `/chat`** (nội bộ, không public, chỉ `web/` gọi tới) — request `{ message, history, dbContext }`, response `{ reply: string }`. Bên trong: embed `message` (model embedding của Ollama) → tìm top-k đoạn tài liệu liên quan (RAG trên `PROJECT_CONTEXT.md`/`USER_GUIDE.md`/`document.txt`, đã chunk+embed sẵn vào `ai/data/processed/`) → ghép prompt (chỉ dẫn hệ thống + đoạn tài liệu liên quan + `dbContext` + `history` + `message`) → gọi Ollama (`qwen3.5:4b`) sinh câu trả lời.
+
+**Chưa làm (còn lại của Milestone 6):** `ai/server/` (FastAPI) + script build index RAG chưa viết; route/trang phía `web/` đã xong và tự-kiểm xanh (component test `ChatWindow.test.tsx` mock fetch), nhưng chưa test được đầu-cuối thật vì chưa có `ai/server/` để gọi tới — flag theo đúng tinh thần QA "không âm thầm bỏ qua": 1 e2e case cho luồng chat sẽ thêm sau khi `ai/server/` chạy ổn định, cuối Milestone 6.

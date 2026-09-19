@@ -41,10 +41,23 @@ either. This also means the "messages" format + `assistant_only_loss=True`
 from the original design (before Unsloth-specific workarounds) is usable
 again as-is. Trade-off: no Unsloth memory/speed optimizations — training
 will be somewhat slower and use somewhat more VRAM than Unsloth's ~10GB
-claim, but the 4B model in native bf16 + LoRA (~21M trainable params) +
-gradient checkpointing + a tiny 52-example dataset should still comfortably
-fit a T4's 16GB; if it doesn't, the concrete OOM error will say so and
-that's the next real thing to fix, not a hypothetical to solve in advance.
+claim.
+
+That predicted OOM risk turned out real: after also fixing 2 unrelated
+environment issues (Kaggle's preinstalled `torchao` too old for the
+upgraded `peft`; `transformers.Trainer` auto-wrapping the model in
+`torch.nn.DataParallel` across Kaggle's 2 visible T4s despite `device_map`
+pinning it to one — fixed with `CUDA_VISIBLE_DEVICES="0"`), training
+itself started but hit `OutOfMemoryError` a few steps in (~14GB used of
+14.56GB). Root cause: the 4B model's own weights alone are ~8GB in native
+bf16, leaving too little headroom once any longer example's activations
+are added. Fixed with the standard, community-endorsed "8-bit LoRA" recipe
+(`BitsAndBytesConfig(load_in_8bit=True)` + `prepare_model_for_kbit_training`
+— NOT 4-bit/QLoRA, which is the specific thing avoided for Qwen3.5 per
+AI_CHATBOT_PLAN.md §5) to roughly halve the base weight footprint, plus
+lowering `max_length` from 6144 to 2048 as a second safety margin (only
+costs the tail of the single 4656-token outlier answer — every other
+approved example is well under 2048).
 
 Also confirmed before writing this notebook:
   - TRL v1.13.0 SFTTrainer/SFTConfig/SFTConfig.assistant_only_loss API
@@ -89,7 +102,10 @@ DATA_PATH = Path(__file__).resolve().parents[1] / "data" / "processed" / "train_
 LORA_TRAINING_DATA_SOURCE_PATH = Path(__file__).resolve().parent / "lora_training_data.py"
 OUTPUT_PATH = Path(__file__).resolve().parents[1] / "kaggle" / "train_lora_kaggle.ipynb"
 
-MAX_SEQ_LENGTH = 6144  # real measured max is 4656 tokens (see docstring) — buffer above that
+MAX_SEQ_LENGTH = 2048  # real measured p95 is 1521 tokens (see docstring) — buffer above that;
+# lowered from 6144 after a real OOM (see docstring) to bound worst-case activation memory.
+# Only the single 4656-token outlier example gets its answer truncated as a result — every
+# other one of the 58 approved examples is well under this and stays fully intact.
 
 
 def code_cell(source: str) -> dict:
@@ -154,7 +170,7 @@ def build_notebook() -> dict:
             'de kiem tra chat luong sau khi train (khong dua vao tap train)")\n'
         ),
         markdown_cell(
-            "## 3. Tải model (bf16 thuần, không qua Unsloth) + gắn LoRA\n"
+            "## 3. Tải model (8-bit lượng tử hoá + LoRA, không qua Unsloth)\n"
             "\n"
             "**Vì sao bỏ Unsloth (đổi hướng so với kế hoạch ban đầu)** — 3 lỗi thật liên tiếp khi chạy "
             "trên Kaggle, cả 3 đều do cách Unsloth nạp riêng model Qwen3.5 (model rất mới), không liên "
@@ -177,18 +193,23 @@ def build_notebook() -> dict:
             "→ Bỏ hẳn Unsloth cho bước này, dùng thẳng `transformers` + `peft` + `trl` — không đi qua "
             "bản Qwen3.5 tự biên dịch lại của Unsloth nên không dính lỗi 3, tokenizer là "
             "`PreTrainedTokenizerBase` thường nên không dính lỗi 1/2 (dữ liệu giữ nguyên dạng `messages` "
-            "với content chuỗi thường như ban đầu, không cần khối nội dung nữa). Đánh đổi: mất tối ưu bộ "
-            "nhớ/tốc độ riêng của Unsloth — chậm hơn 1 chút, tốn VRAM hơn mức Unsloth từng đo (~10GB), "
-            "nhưng model 4B ở bf16 gốc (không ép kiểu) + chỉ train LoRA (~21 triệu tham số, đã thấy ở "
-            "log lần trước) + bật gradient checkpointing + tập dữ liệu rất nhỏ (52 mẫu) nhiều khả năng "
-            "vẫn vừa 16GB của T4 — nếu không vừa, thông báo lỗi thật sẽ cho biết cụ thể để sửa tiếp, "
-            "không đoán trước.\n"
+            "với content chuỗi thường như ban đầu, không cần khối nội dung nữa).\n"
             "\n"
-            f"`max_seq_length = {MAX_SEQ_LENGTH}` — đo thật bằng tokenizer thật của Qwen3.5-4B trên cả "
-            "58 mẫu đã duyệt: dài nhất 4656 token (1 câu trả lời ngoại lệ về bảng màu giao diện; 95% còn "
-            "lại dưới 1521 token). Đặt dư ra để không bao giờ bị cắt mất phần cuối câu trả lời — "
-            "`SFTConfig` cắt bớt từ *cuối* chuỗi khi vượt `max_length`, mà câu trả lời (thứ đang được "
-            "train) luôn nằm ở cuối chuỗi.\n"
+            "**Lỗi thật gặp tiếp sau đó (2 lỗi môi trường không liên quan, đã sửa nhanh) rồi tới "
+            "`OutOfMemoryError`** khi train thật sự bắt đầu chạy (~14GB/14.56GB đã dùng): bỏ Unsloth "
+            "cũng mất luôn phần Unsloth tự tối ưu bộ nhớ, và model 4B ở bf16 nguyên bản đã chiếm ~8GB "
+            "chỉ riêng phần trọng số, không còn đủ chỗ trống khi gặp câu dài. Sửa bằng cách nén nhẹ "
+            "base model xuống **8-bit** (`BitsAndBytesConfig(load_in_8bit=True)` + "
+            "`prepare_model_for_kbit_training`) — **khác QLoRA 4-bit** (thứ đang tránh cho Qwen3.5, "
+            "xem mục 5), 8-bit là cách được cộng đồng công nhận an toàn để train, chỉ giảm ~1 nửa bộ "
+            "nhớ phần trọng số (còn ~4GB) mà không đổi cách tính (không giống 4-bit có vấn đề lượng tử "
+            "hoá). Đồng thời hạ `max_length` xuống nhỏ hơn (xem bên dưới) làm biên an toàn thứ 2.\n"
+            "\n"
+            f"`max_length = {MAX_SEQ_LENGTH}` (hạ từ 6144 sau lỗi OOM trên) — đo thật bằng tokenizer "
+            "thật của Qwen3.5-4B trên cả 58 mẫu đã duyệt: 95% dưới 1521 token, chỉ 1 câu trả lời ngoại "
+            "lệ (về bảng màu giao diện) dài 4656 token. Đặt mức này nghĩa là **chỉ riêng câu trả lời "
+            "ngoại lệ đó bị cắt bớt phần cuối** (đánh đổi rõ ràng để tránh OOM) — 57/58 mẫu còn lại vẫn "
+            "nguyên vẹn hoàn toàn vì đều dưới ngưỡng này.\n"
             "\n"
             "`target_modules=\"all-linear\"` (thay vì liệt kê tên cố định q/k/v/o/gate/up/down) — layer "
             "`GatedDeltaNet` mới của Qwen3.5 dùng tên khác hẳn (`in_proj_qkv`, thấy thẳng trong traceback "
@@ -206,19 +227,21 @@ def build_notebook() -> dict:
             'os.environ["CUDA_VISIBLE_DEVICES"] = "0"  # Kaggle cap 2 GPU T4 - chan con 1 de tranh Trainer tu dong DataParallel ca 2\n'
             "\n"
             "import torch\n"
-            "from transformers import AutoModelForCausalLM, AutoTokenizer\n"
-            "from peft import LoraConfig, TaskType, get_peft_model\n"
+            "from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig\n"
+            "from peft import LoraConfig, TaskType, get_peft_model, prepare_model_for_kbit_training\n"
             "\n"
             'MODEL_NAME = "Qwen/Qwen3.5-4B"\n'
             "\n"
             "tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)\n"
+            "\n"
+            "bnb_config = BitsAndBytesConfig(load_in_8bit=True)  # 8-bit, KHONG phai 4-bit/QLoRA (xem markdown tren)\n"
             "model = AutoModelForCausalLM.from_pretrained(\n"
             "    MODEL_NAME,\n"
-            "    dtype=torch.bfloat16,  # dung dtype goc cua checkpoint, khong ep kieu\n"
+            "    quantization_config=bnb_config,\n"
+            "    dtype=torch.bfloat16,  # dtype cho phan KHONG bi luong tu hoa (embedding, layer norm, adapter LoRA)\n"
             '    device_map={"": "cuda:0"},\n'
             ")\n"
-            "model.gradient_checkpointing_enable()\n"
-            "model.enable_input_require_grads()  # can thiet de gradient checkpointing hoat dong dung voi LoRA (base model dong bang)\n"
+            "model = prepare_model_for_kbit_training(model)  # tu bat gradient checkpointing + cac buoc can cho train model da luong tu hoa\n"
             "\n"
             "lora_config = LoraConfig(\n"
             "    r=16,\n"
@@ -244,8 +267,9 @@ def build_notebook() -> dict:
             f"{example_count} mẫu.\n"
             "- `learning_rate=2e-4`, `optim=\"adamw_8bit\"` — chuẩn phổ biến cho LoRA (cao hơn mức "
             "~1e-4 hay dùng khi train full model, hợp lý hơn vì chỉ train phần adapter nhỏ).\n"
-            "- `bf16=False, fp16=False` — không bật autocast mixed-precision nào của Trainer. Model đã "
-            "nạp sẵn ở bf16 (mục 3) nên cứ train nguyên trong dtype đó, không ép kiểu thêm lần nào nữa. "
+            "- `bf16=False, fp16=False` — không bật autocast mixed-precision nào của Trainer. Base model "
+            "đã lượng tử hoá 8-bit, phần còn lại (embedding, layer norm, adapter LoRA) đã nạp sẵn ở bf16 "
+            "(mục 3), cứ train nguyên theo đúng dtype mỗi phần đã có, không ép kiểu thêm lần nào nữa. "
             "**Lỗi thật gặp ở bản trước** (vẫn áp dụng dù đổi framework): hardcode `bf16=True` bị GPU T4 "
             "từ chối ngay từ bước tạo `SFTConfig` (`ValueError: Your setup doesn't support bf16/gpu`) vì "
             "T4 là kiến trúc Turing, chỉ GPU Ampere trở lên mới có nhân bf16 phần cứng cho việc autocast "

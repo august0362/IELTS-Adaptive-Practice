@@ -967,3 +967,37 @@ DONE
   Tự kiểm cuối: typecheck/lint sạch, test 158/158, test:e2e 9/9 (web/),
   pytest 22/22 (ai/) — tất cả xanh.
 
+
+
+[2026-09-20] Milestone 8 (chấm Writing/Speaking): viết kế hoạch chi tiết
+  + làm nhóm A (logic thuần). Milestone 7 chạy xen kẽ ở 1 phiên khác.
+
+  Kế hoạch: AI_CHATBOT_PLAN.md mục 13 — chờ user duyệt 6 câu hỏi ở 13.8
+  (mỗi câu có mặc định). Nhóm A (không tải/chạy model, không đụng file
+  Milestone 7) đã làm xong theo yêu cầu user: ai/grading/schema.py (kiểm
+  hình dạng JSON model trả về, kẹp band 0-9 bước 0.5, lọc trích dẫn bịa,
+  band tổng do code tính), text_stats.py (đếm từ, ngưỡng Task 1/2),
+  speaking_metrics.py (WPM, ngắt nghỉ, từ đệm, độ tin cậy) + 90 test, xanh.
+
+  Phối hợp với phiên M7 chạy song song (cùng thư mục, cùng HEAD): không
+  sửa file M7; commit chỉ theo đường dẫn cụ thể; không đổi nhánh (đổi
+  nhánh sẽ đổi HEAD của cả 2 phiên). Cứu 2 script M7 (merge_adapter.py,
+  fix_gguf_block_count.py) từ thư mục tạm vào ai/training/export_tools/ —
+  trước đó chưa từng commit, có nguy cơ mất khi thư mục tạm bị dọn.
+
+  Phát hiện lệch tài liệu (CHƯA SỬA — thuộc web/, Backend hat):
+  PROJECT_CONTEXT.md mục 5.5 ghi pseudocode ieltsRound không có bước làm
+  tròn 4 chữ số thập phân, còn code thật (web/src/lib/engine/
+  ieltsRounding.ts) có, và test "is not thrown off by floating-point
+  imprecision" ghim đúng hành vi đó. Bản Python của M8 bám theo code thật.
+  Nên đồng bộ lại pseudocode ở mục 5.5.
+
+  Ý tưởng hoãn lại (chưa làm, không để mất):
+    1. Fine-tune riêng cho bộ chấm — chỉ khi có bài thật kèm điểm thật,
+       không do Claude sinh (AI_CHATBOT_PLAN.md mục 6).
+    2. Lưu kết quả chấm vào DB / đưa vào công thức Band — chỉ sau khi đo độ
+       tin cậy (13.5) và user đồng ý rõ ràng.
+    3. Writing gộp Task 1 (1/3) + Task 2 (2/3) thành band Writing như thi
+       thật — v1 chấm từng bài riêng.
+    4. Thử initial_prompt của Whisper để giữ lại từ đệm (um/uh) trong
+       transcript (Whisper hay bỏ chúng nên fillerCount là cận dưới).

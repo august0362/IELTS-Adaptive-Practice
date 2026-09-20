@@ -131,9 +131,9 @@
 ### Nhóm A — code thuần + test, không tải/chạy model (ĐÃ BẮT ĐẦU 2026-09-20)
 
 - [x] Viết kế hoạch thực thi chi tiết — `AI_CHATBOT_PLAN.md` mục 13 (6 câu hỏi chờ duyệt ở 13.8). Đã tra README `faster-whisper` trước khi viết (không cần cài FFmpeg; CPU int8; `word_timestamps`/`vad_filter`; trường `probability` của `Word` **chưa xác nhận** — kiểm lúc cài).
-- [ ] A1 `ai/grading/schema.py` + test: khóa/nhãn 4 tiêu chí mỗi kỹ năng, kiểm hình dạng JSON model trả về (tiêu chí thiếu / band không phải số / nhận xét rỗng → lỗi rõ ràng), kẹp + làm tròn band về bước 0.5, lọc trích dẫn không có thật trong bài, làm tròn IELTS (khớp `PROJECT_CONTEXT.md` §5.5), band tổng do code tính (bỏ qua số model tự đưa)
-- [ ] A2 `ai/grading/text_stats.py` + test: đếm từ kiểu IELTS, ngưỡng tối thiểu Task 1 (150) / Task 2 (250)
-- [ ] A3 `ai/grading/speaking_metrics.py` + test: WPM, ngắt nghỉ, từ đệm, tỉ lệ từ độ tin cậy thấp — từ danh sách từ + mốc thời gian (không phụ thuộc thư viện Whisper)
+- [x] A1 `ai/grading/schema.py` + test (xong 2026-09-20): khóa/nhãn 4 tiêu chí mỗi kỹ năng, kiểm hình dạng JSON model trả về (tiêu chí thiếu / band không phải số / nhận xét rỗng → lỗi rõ ràng), kẹp + làm tròn band về bước 0.5, lọc trích dẫn không có thật trong bài, làm tròn IELTS (khớp `PROJECT_CONTEXT.md` §5.5), band tổng do code tính (bỏ qua số model tự đưa)
+- [x] A2 `ai/grading/text_stats.py` + test (xong 2026-09-20): đếm từ kiểu IELTS, ngưỡng tối thiểu Task 1 (150) / Task 2 (250)
+- [x] A3 `ai/grading/speaking_metrics.py` + test (xong 2026-09-20): WPM, ngắt nghỉ, từ đệm, tỉ lệ từ độ tin cậy thấp — từ danh sách từ + mốc thời gian (không phụ thuộc thư viện Whisper)
 
 ### Nhóm B — sau khi user duyệt kế hoạch (vẫn chưa tải model)
 
@@ -155,4 +155,6 @@
 
 ### ĐIỂM DỪNG Milestone 8 (cập nhật mỗi lần dừng — đọc mục này trước khi tiếp tục)
 
-- **2026-09-20:** kế hoạch đã viết xong, chờ user duyệt. Đang làm nhóm A (A1→A3). Chưa tải/cài gì, chưa đụng `web/`.
+- **2026-09-20 (cuối phiên này):** kế hoạch đã viết xong, **chờ user duyệt 6 câu hỏi ở 13.8**. Nhóm A (A1–A3) **xong**: `ai/grading/{schema,text_stats,speaking_metrics}.py` + `ai/grading/tests/` — **90 test xanh**. Chưa tải/cài gì, chưa đụng `web/`, chưa sửa `ollama_client.py`/`main.py`/`requirements.txt`.
+- **Việc kế tiếp, theo thứ tự:** (1) hỏi user 6 câu ở 13.8 (nếu user đã trả lời thì ghi câu trả lời vào đây và sửa mục 13 cho khớp); (2) nhóm B từ B1 — tra bản mô tả band công khai chính thức rồi soạn `rubric.py`, đây là bước tốn công nhất vì phải tra nguồn thật, không soạn từ trí nhớ; (3) nhóm C chỉ khi user đồng ý rõ ràng **và** máy rảnh (Milestone 7 không đang gộp model / chạy eval).
+- **Lưu ý cho phiên sau:** (a) `ielts_round` trong `schema.py` bám **code thật** `web/src/lib/engine/ieltsRounding.ts` (có bước làm tròn 4 chữ số thập phân chống lỗi số thực), không bám pseudocode ở `PROJECT_CONTEXT.md` §5.5 (thiếu bước đó) — lệch tài liệu này đã ghi vào `document.txt`, chưa sửa vì thuộc `web/`; (b) chạy **toàn bộ** `ai/` hiện có 2 test đỏ **không phải của M8**, nằm trong file test chưa track của phiên M7 đang làm dở (`training/tests/test_kaggle_process_runner.py`, `test_lora_train_script.py`) — kiểm riêng M8 bằng `cd ai && .venv/Scripts/python -m pytest grading`; (c) trường `probability` của `Word` trong faster-whisper chưa xác nhận (README không nêu) — kiểm lúc cài ở C1; nếu thiếu thì `compute_speaking_metrics` vẫn chạy đúng và trả `lowConfidenceWordRatio: None`.

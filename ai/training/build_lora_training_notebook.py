@@ -1,9 +1,22 @@
 """
 Assembles ai/kaggle/train_lora_kaggle.ipynb — Milestone 7 step 6
 (AI_CHATBOT_PLAN.md section 12.3): fine-tunes a LoRA adapter on top of
-Qwen/Qwen3.5-4B using the 58 user-approved training examples
+Qwen/Qwen3.5-4B using the user-approved training examples
 (data/processed/train_final.jsonl, approved in full by the user via
 review_sample.md — "Đồng ý hết").
+
+FOLLOW-UP ROUND (2026-09-20): the first fine-tune (58 examples) evaluated
+badly on one specific, serious axis — asked a question about a feature
+that doesn't exist, it confidently invented an answer instead of saying
+"không chắc" (the base model got this right). Root cause: all 58 examples
+were real-question-with-real-answer pairs; none taught the "honest refusal"
+behavior at all. Fixed by generating 23 more examples of exactly that kind
+(same non-Claude generation mechanism, see kaggle_negative_generation.py)
+and merging them in (merge_negative_dataset.py) — train_final.jsonl is now
+81 examples. Every count/measurement below that says "58" is what was true
+for the *first* fine-tune; re-measured for this run where it matters
+(token-length distribution, truncation impact) — see the max_length
+discussion further down.
 
 Uses plain transformers + PEFT + TRL's SFTTrainer — not a hand-rolled
 training loop, for the same reason kaggle_generation.py replaced
@@ -79,13 +92,14 @@ Also confirmed before writing this notebook:
     (no trainer-level mixed-precision autocast at all, so that hardware
     check never triggers and no dtype-conversion happens on top of the
     already-consistent bf16 weights).
-  - The real max token length across all 58 approved examples, using the
-    actual Qwen3.5-4B tokenizer + chat template (enable_thinking=False,
-    matching Flash-mode inference): 4656 tokens (1 outlier — the "bảng màu
-    giao diện" answer; p95 is only 1521). max_length below is set well
-    above that so SFTConfig's truncation ("keep_start" — truncates the
-    *end*) never silently cuts off part of an assistant answer, which is
-    exactly the part being trained on.
+  - The real max token length, using the actual Qwen3.5-4B tokenizer +
+    chat template (enable_thinking=False, matching Flash-mode inference):
+    still 4656 tokens (same single outlier — the "bảng màu giao diện"
+    answer — re-measured after the 81-example merge; p95 actually *dropped*
+    to 849 since the 23 new refusal examples are all short). max_length
+    below is set well above that so SFTConfig's truncation ("keep_start" —
+    truncates the *end*) never silently cuts off part of an assistant
+    answer, which is exactly the part being trained on.
 
 Builds the .ipynb JSON directly (no `nbformat` package in ai/.venv) — same
 approach as build_kaggle_notebook.py.
@@ -102,10 +116,10 @@ DATA_PATH = Path(__file__).resolve().parents[1] / "data" / "processed" / "train_
 LORA_TRAINING_DATA_SOURCE_PATH = Path(__file__).resolve().parent / "lora_training_data.py"
 OUTPUT_PATH = Path(__file__).resolve().parents[1] / "kaggle" / "train_lora_kaggle.ipynb"
 
-MAX_SEQ_LENGTH = 2048  # real measured p95 is 1521 tokens (see docstring) — buffer above that;
+MAX_SEQ_LENGTH = 2048  # real measured p95 is 849 tokens on the 81-example set (see docstring) — buffer above that;
 # lowered from 6144 after a real OOM (see docstring) to bound worst-case activation memory.
 # Only the single 4656-token outlier example gets its answer truncated as a result — every
-# other one of the 58 approved examples is well under this and stays fully intact.
+# other approved example (80/81) is well under this and stays fully intact.
 
 
 def code_cell(source: str) -> dict:
@@ -206,10 +220,11 @@ def build_notebook() -> dict:
             "hoá). Đồng thời hạ `max_length` xuống nhỏ hơn (xem bên dưới) làm biên an toàn thứ 2.\n"
             "\n"
             f"`max_length = {MAX_SEQ_LENGTH}` (hạ từ 6144 sau lỗi OOM trên) — đo thật bằng tokenizer "
-            "thật của Qwen3.5-4B trên cả 58 mẫu đã duyệt: 95% dưới 1521 token, chỉ 1 câu trả lời ngoại "
-            "lệ (về bảng màu giao diện) dài 4656 token. Đặt mức này nghĩa là **chỉ riêng câu trả lời "
-            "ngoại lệ đó bị cắt bớt phần cuối** (đánh đổi rõ ràng để tránh OOM) — 57/58 mẫu còn lại vẫn "
-            "nguyên vẹn hoàn toàn vì đều dưới ngưỡng này.\n"
+            f"thật của Qwen3.5-4B trên cả {example_count} mẫu đã duyệt (đã tính lại sau khi bổ sung 23 "
+            "mẫu \"từ chối trung thực\"): 95% dưới 849 token, chỉ 1 câu trả lời ngoại lệ (về bảng màu "
+            "giao diện, có từ vòng đầu) dài 4656 token. Đặt mức này nghĩa là **chỉ riêng câu trả lời "
+            f"ngoại lệ đó bị cắt bớt phần cuối** (đánh đổi rõ ràng để tránh OOM) — {example_count - 1}/"
+            f"{example_count} mẫu còn lại vẫn nguyên vẹn hoàn toàn vì đều dưới ngưỡng này.\n"
             "\n"
             "`target_modules=\"all-linear\"` (thay vì liệt kê tên cố định q/k/v/o/gate/up/down) — layer "
             "`GatedDeltaNet` mới của Qwen3.5 dùng tên khác hẳn (`in_proj_qkv`, thấy thẳng trong traceback "

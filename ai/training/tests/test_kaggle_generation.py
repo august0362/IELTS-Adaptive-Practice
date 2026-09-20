@@ -26,6 +26,23 @@ class TestExtractJsonArray:
         text = 'Đây là kết quả:\n[{"question": "Q1?", "answer": "A1."}]\nHết.'
         assert extract_json_array(text) == [{"question": "Q1?", "answer": "A1."}]
 
+    def test_wraps_a_bare_object_into_a_one_element_array(self):
+        # Real bug found on Kaggle (2026-09-20, negative-example generation): asking
+        # for exactly 1 pair made the model reply with a bare {question, answer}
+        # object (no outer array) far more often than the original "1-2 pairs"
+        # prompt did -- rejecting this outright silently lost 21 of 37 otherwise-good
+        # generated pairs. Wrapping recovers them without loosening per-item validation.
+        result = extract_json_array('{"question": "Q1?", "answer": "A1."}')
+        assert result == [{"question": "Q1?", "answer": "A1."}]
+
+    def test_still_rejects_a_bare_object_missing_required_keys(self):
+        with pytest.raises(ValueError):
+            extract_json_array('{"question": "Q1?"}')
+
+    def test_parses_a_bare_object_wrapped_in_a_markdown_code_fence(self):
+        text = '```json\n{"question": "Q1?", "answer": "A1."}\n```'
+        assert extract_json_array(text) == [{"question": "Q1?", "answer": "A1."}]
+
     def test_parses_multiple_pairs(self):
         text = '[{"question": "Q1?", "answer": "A1."}, {"question": "Q2?", "answer": "A2."}]'
         assert len(extract_json_array(text)) == 2
@@ -39,9 +56,9 @@ class TestExtractJsonArray:
         with pytest.raises(ValueError):
             extract_json_array('["Câu hỏi 1?", "Câu hỏi 2?"]')
 
-    def test_rejects_a_json_object_instead_of_an_array(self):
+    def test_rejects_a_non_string_scalar(self):
         with pytest.raises(ValueError):
-            extract_json_array('{"question": "Q1?", "answer": "A1."}')
+            extract_json_array('"just a string"')
 
     def test_rejects_items_missing_the_answer_key(self):
         with pytest.raises(ValueError):

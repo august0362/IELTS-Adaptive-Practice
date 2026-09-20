@@ -46,22 +46,38 @@ def build_prompt(chunk: dict) -> str:
 
 def extract_json_array(text: str) -> list[dict]:
     """Parses + VALIDATES the model's reply. Raises ValueError on anything
-    that isn't exactly a JSON array of {"question": str, "answer": str}
-    objects, so a wrong-shaped reply is treated as "this chunk failed"
-    (caught by process_one below) rather than silently flowing downstream
-    as malformed data that crashes something else later — the real bug
-    this module exists to regression-test.
+    that isn't (after the tolerance below) a JSON array of
+    {"question": str, "answer": str} objects, so a wrong-shaped reply is
+    treated as "this chunk failed" (caught by process_one below) rather
+    than silently flowing downstream as malformed data that crashes
+    something else later — the real bug this module exists to
+    regression-test.
+
+    Tolerates a bare {"question": ..., "answer": ...} object (no outer
+    array) by wrapping it into a 1-element list — a REAL pattern found on
+    Kaggle (2026-09-20, negative/refusal-example generation run): asking
+    for exactly 1 pair (rather than "1-2 pairs") made the model reply with
+    a bare object far more often, and rejecting that outright would have
+    silently discarded 21 of 37 otherwise-good generated pairs (recovered
+    by hand that time from the logged error text — this fix means a
+    re-run won't need that recovery step).
     """
     text = text.strip()
-    fenced = re.search(r"```(?:json)?\s*(\[.*?\])\s*```", text, re.DOTALL)
+    fenced = re.search(r"```(?:json)?\s*([\[{].*?[\]}])\s*```", text, re.DOTALL)
     if fenced:
         text = fenced.group(1)
     else:
         bracket = re.search(r"\[.*\]", text, re.DOTALL)
         if bracket:
             text = bracket.group(0)
+        else:
+            brace = re.search(r"\{.*\}", text, re.DOTALL)
+            if brace:
+                text = brace.group(0)
 
     parsed = json.loads(text)
+    if isinstance(parsed, dict):
+        parsed = [parsed]
     if not isinstance(parsed, list):
         raise ValueError(f"Expected a JSON array, got {type(parsed).__name__}: {parsed!r}")
     for item in parsed:

@@ -73,3 +73,7 @@ __pycache__/
 # - kết quả user tải về từ Kaggle sau khi chạy (generated_qa.jsonl,
 #   generation_errors.json...) — dữ liệu trung gian, giống ai/data/processed/
 /ai/kaggle/
+
+# Milestone 7 §12.3: adapter LoRA đã train (giải nén từ ai/kaggle/lora_adapter.zip)
+# — an toàn dùng local, nhưng không đẩy GitHub (nặng, tái tạo được bằng cách train lại)
+/ai/training/output/

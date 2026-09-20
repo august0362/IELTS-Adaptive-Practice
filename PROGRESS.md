@@ -14,6 +14,8 @@
 
 **Việc kế tiếp:** Milestone 7 (fine-tune) đã có **kế hoạch thực thi chi tiết** ở `AI_CHATBOT_PLAN.md` mục 12 — **đang chờ user duyệt (đọc + trả lời 4 câu hỏi ở mục 12.6), chưa được thực thi**, không tự ý bắt đầu tải/chạy gì cho Milestone 7 cho tới khi có xác nhận rõ ràng. Milestone 8 (chấm Writing/Speaking) chưa có kế hoạch chi tiết, chưa bắt đầu. Không milestone nào bắt buộc — chatbot đã dùng được ở dạng RAG + model gốc (Milestone 6).
 
+**Milestone 8 (cập nhật 2026-09-20):** kế hoạch chi tiết đã viết ở [`AI_CHATBOT_PLAN.md`](./AI_CHATBOT_PLAN.md) **mục 13**, **đang chờ user duyệt** (6 câu hỏi ở 13.8, mỗi câu có mặc định). Riêng "nhóm A" (code thuần + test, không tải/chạy model, không đụng file Milestone 7) đã bắt đầu theo yêu cầu user — tiến trình chi tiết + điểm dừng ở mục "Milestone 8" của [`ai/AI_TASKS.md`](./ai/AI_TASKS.md). **Lưu ý:** Milestone 7 đang được xử lý bởi 1 phiên khác trong cùng thư mục (train lại trên Kaggle) — đoạn "Việc kế tiếp" và hàng Milestone 7 ở trên **đã lỗi thời** (M7 thực tế đã qua bước train vòng 1 + đánh giá, đang train lại vòng 2; xem mục "Milestone 7" của `ai/AI_TASKS.md` mới đúng), chờ phiên đó cập nhật.
+
 **Nếu không liên quan chatbot:** việc khác (nếu có) là bất cứ gì user yêu cầu, hoặc 1 mục trong danh sách CHỜ LÀM của `document.txt` (đăng nhập, deploy cloud, Dự đoán Band v3 — OLS hồi quy, cơ chế đảm bảo tần suất tối thiểu ở cấp part, tinh chỉnh ngưỡng soft-reset, UI chỉnh `baseRatio` cho Writing/Listening, UI cấu hình các hằng số của engine, UI chỉnh tỉ lệ dạng bài, gắn Chủ đề vào vòng quay) — không mục nào cản trở việc dùng app bình thường như hiện tại.
 
 **Việc còn treo nhưng không chặn gì:** có 1 file `web/note.txt` chưa track (gitignore), chứa 1 dòng bị cách ly ra khỏi `document.txt` (xem mục Milestone 4 Bước 1 trong file đó) — cố tình không commit theo lựa chọn của user. Đã dời theo app vào `web/` cùng đợt dời Milestone 6.
@@ -35,7 +37,7 @@
 | 5 mở rộng — Band v2 (EWMA + % đúng luyện tập), tách giao diện, sửa theme tối | Backend/Frontend/Design/QA + review chốt | Xong | [`BACKEND_TASKS.md`](./web/src/lib/BACKEND_TASKS.md), [`FRONTEND_TASKS.md`](./web/src/app/FRONTEND_TASKS.md), [`TEST_TASKS.md`](./web/src/tests/TEST_TASKS.md) |
 | 6 — Chatbot AI: hạ tầng + RAG | Dời `web/`+`ai/`, tải model mở, RAG, route/trang `/chat` | Xong | [`ai/AI_TASKS.md`](./ai/AI_TASKS.md) |
 | **7 — Chatbot AI: fine-tune** | Sinh dữ liệu train, train Kaggle, tích hợp adapter | **Chưa bắt đầu (không bắt buộc)** | `ai/AI_TASKS.md` (tiếp) |
-| 8 — Chấm Writing/Speaking theo IELTS | STT (faster-whisper) + rubric chấm điểm, trang riêng | Chưa bắt đầu | `ai/AI_TASKS.md` (tiếp) |
+| 8 — Chấm Writing/Speaking theo IELTS | STT (faster-whisper) + rubric chấm điểm, trang riêng | **Đang làm** — kế hoạch chờ duyệt (`AI_CHATBOT_PLAN.md` mục 13), nhóm A (code thuần) đã bắt đầu | `ai/AI_TASKS.md` (tiếp) |
 
 Mỗi `*_TASKS.md` của từng phạm vi là nơi ghi checklist chi tiết cho tầng đó (`- [ ]` / `- [x]`) — cập nhật ngay trong bước hoàn thành việc, không dồn lại sau. File này chỉ theo dõi trạng thái ở mức milestone, không lặp lại chi tiết từng việc.
 

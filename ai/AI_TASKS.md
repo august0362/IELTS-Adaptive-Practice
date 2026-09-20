@@ -114,17 +114,45 @@
 - [x] **Sửa lại cell Smoke test** — model/tokenizer bên trong `train_fn()` không còn truy cập được sau khi `notebook_launcher` trả về (mỗi tiến trình là 1 process riêng, không chia sẻ bộ nhớ với notebook chính) — cell này giờ nạp lại adapter vừa lưu từ đĩa (`PeftModel.from_pretrained`) thay vì dùng biến `model` cũ.
 - [x] Đã tự kiểm offline mọi phần không cần GPU/đa-tiến-trình: cú pháp Python hợp lệ ở toàn bộ cell mới, dữ liệu ghi/nạp/tách đúng 100% (82 tổng → 74 train chẵn + 8 giữ lại). **Chưa thể tự kiểm phần chạy đa-tiến-trình thật** (cần 2 GPU thật) — đây là hướng mới hoàn toàn, chưa được chạy thật lần nào, khác các bước trước đã tự kiểm hoặc chạy thật rồi; đã nói rõ điều này với user. 89/89 test toàn bộ `ai/` xanh.
 - [x] **Cả 2 lần sửa cảnh báo `MatMul8bitLt` trước đều KHÔNG hiệu quả thật** (`filterwarnings()` rồi `showwarning`) — user chạy bản 2-GPU, vẫn thấy in tràn lan y hệt. Không còn tin cơ chế `warnings` của Python nữa (bitsandbytes nhiều khả năng không phát cảnh báo theo chuẩn `warnings.warn()`, hoặc in thẳng ra stream). **Sửa ở tầng thấp nhất**: bọc lại chính `sys.stdout`/`sys.stderr`, lọc bỏ dòng nào chứa "MatMul8bitLt" trước khi in ra thật — không phụ thuộc cơ chế phát cảnh báo nào. Đã tự kiểm offline **cả 3 khả năng phát cảnh báo** (in trực tiếp `print()`, qua `warnings.warn()`, ghi thẳng `sys.stderr.write()`) — cả 3 đều bị chặn đúng, dòng khác vẫn hiện bình thường; đây là mức kiểm chứng chắc chắn hơn hẳn 2 lần sửa trước (chỉ giả lập qua module `warnings`, không tính tới khả năng bitsandbytes dùng cơ chế khác). 89/89 test toàn bộ `ai/` xanh.
-- [ ] User chạy lại notebook 2-GPU trên Kaggle (bật **GPU T4 x2**), báo kết quả — nhiều khả năng cần debug thêm vì đây là hướng hoàn toàn mới
+- [x] **User chạy bản 2-GPU thật — kết quả xấu, quyết định bỏ hẳn hướng 2-GPU**: (1) cảnh báo `MatMul8bitLt` **vẫn tràn lan y hệt** dù đã sửa lần 3 (chặn `sys.stdout`/`sys.stderr`, kiểm chứng offline kỹ hơn 2 lần trước) — kết luận: dòng này nhiều khả năng được in từ tầng C/CUDA biên dịch sẵn bên trong `bitsandbytes`, **không đi qua Python** nên không cách nào chặn được từ phía Python (đã thử hết 3 hướng khả thi ở tầng này); (2) **quan trọng hơn**: tốc độ train **chậm dần bất thường** theo thời gian — đo được 2 tiếng chỉ 22/57 bước (~5-6 phút/bước, chậm hơn ~35-40 lần so với tốc độ đo lúc đầu ~8-9 giây/bước) — không phải "chậm ổn định do chi phí phối hợp 2 GPU" (như đã dự đoán và giải thích cho user) mà là 1 vấn đề hiệu năng thật, nhiều khả năng do tổ hợp 3 thứ đều rất mới/hiếm gặp cùng lúc (model Qwen3.5 + train đa tiến trình 2 GPU + nén 8-bit) — không có kinh nghiệm cộng đồng để dựa vào, không xác định được nguyên nhân chính xác nếu không có quyền truy cập phần cứng trực tiếp. **Quyết định**: bỏ hẳn hướng 2-GPU, khôi phục lại đúng bản 1 GPU đã chạy ổn định trước đó (không có kiểu chậm dần này) — dùng `git show 4a88d14:...` để lấy lại chính xác bản `build_lora_training_notebook.py` trước khi bắt đầu làm 2-GPU, và khôi phục `train_final.jsonl` về lại **81 mẫu** (bỏ mẫu nhân đôi chỉ có ý nghĩa cho việc chia chẵn 2 GPU, không còn cần thiết). Đã tự kiểm lại: round-trip dữ liệu đúng 100% (81 tổng → 73 train + 8 giữ lại), đúng cấu trúc 15 cell của bản 1 GPU cũ. 89/89 test toàn bộ `ai/` xanh.
+- [ ] User chạy lại notebook 1-GPU (đã khôi phục) trên Kaggle (bật **GPU T4** đơn, không phải x2), báo kết quả
 - [ ] Nếu chạy thành công: tải `lora_adapter.zip` mới về
-- [ ] Convert GGUF + gộp vào Ollama lại (dùng lại quy trình đã chạy ổn — merge, quantize q8_0, vá metadata MTP nếu cần), test lại
+- [ ] Convert GGUF + gộp vào Ollama lại (dùng lại quy trình đã chạy ổn — merge, quantize q8_0, vá metadata MTP nếu cần), test lại. **Script gộp + vá đã được lưu vào repo (trước đó chỉ nằm ở thư mục tạm, chưa commit): `ai/training/export_tools/` — đọc `README.md` ở đó trước khi làm.**
 - [ ] Chạy lại `ai/training/eval_questions.py` (bổ sung thêm câu kiểm tra tính trung thực) để xác nhận lỗi nghiêm trọng đã cải thiện, so sánh với lần đánh giá trước
 - [ ] User xem báo cáo đánh giá vòng 2, quyết định có đổi `CHAT_MODEL` sang bản mới không
 - [ ] Review chốt Milestone 7 (1 lượt Supervisor review gated theo CLAUDE.md, sau khi mục trên xong)
 
-## Milestone 8 — Chấm Writing/Speaking theo IELTS (chưa bắt đầu)
+## Milestone 8 — Chấm Writing/Speaking theo IELTS (đang làm: kế hoạch chờ duyệt, nhóm A đã bắt đầu)
 
-- [ ] Tải faster-whisper (small/medium) vào `ai/models/`
-- [ ] Khung chấm Writing: rubric 4 tiêu chí (Task Achievement/Response, Coherence & Cohesion, Lexical Resource, Grammatical Range & Accuracy)
-- [ ] Khung chấm Speaking: thu âm → faster-whisper (STT) → chấm 4 tiêu chí (Fluency & Coherence, Lexical Resource, Grammatical Range & Accuracy, Pronunciation ở mức tương đối)
-- [ ] Trang chấm riêng (không ghi DB, không đụng công thức Band — hiển thị tại chỗ)
-- [ ] Review chốt Milestone 8
+> Kế hoạch chi tiết: [`AI_CHATBOT_PLAN.md`](../AI_CHATBOT_PLAN.md) **mục 13** (viết 2026-09-20). **Chờ user trả lời 6 câu hỏi ở 13.8** trước khi làm nhóm B/C (mỗi câu có mặc định — "đồng ý mặc định" là đủ). Nhóm A đã bắt đầu theo yêu cầu user vì không đụng file Milestone 7 và không phụ thuộc quyết định chưa duyệt.
+>
+> **Milestone 7 đang do 1 phiên khác xử lý trong cùng thư mục** → quy tắc cho phía M8 (13.0): không sửa file M7 (`ai/training/**` hiện có, `ai/kaggle/`, `ai/data/`); chỉ `git add`/`commit` theo **đường dẫn cụ thể** của M8, không `-A`; **không đổi nhánh** (dùng chung 1 HEAD); model chấm dùng biến riêng `GRADER_MODEL`, không dùng `CHAT_MODEL`.
+
+### Nhóm A — code thuần + test, không tải/chạy model (ĐÃ BẮT ĐẦU 2026-09-20)
+
+- [x] Viết kế hoạch thực thi chi tiết — `AI_CHATBOT_PLAN.md` mục 13 (6 câu hỏi chờ duyệt ở 13.8). Đã tra README `faster-whisper` trước khi viết (không cần cài FFmpeg; CPU int8; `word_timestamps`/`vad_filter`; trường `probability` của `Word` **chưa xác nhận** — kiểm lúc cài).
+- [ ] A1 `ai/grading/schema.py` + test: khóa/nhãn 4 tiêu chí mỗi kỹ năng, kiểm hình dạng JSON model trả về (tiêu chí thiếu / band không phải số / nhận xét rỗng → lỗi rõ ràng), kẹp + làm tròn band về bước 0.5, lọc trích dẫn không có thật trong bài, làm tròn IELTS (khớp `PROJECT_CONTEXT.md` §5.5), band tổng do code tính (bỏ qua số model tự đưa)
+- [ ] A2 `ai/grading/text_stats.py` + test: đếm từ kiểu IELTS, ngưỡng tối thiểu Task 1 (150) / Task 2 (250)
+- [ ] A3 `ai/grading/speaking_metrics.py` + test: WPM, ngắt nghỉ, từ đệm, tỉ lệ từ độ tin cậy thấp — từ danh sách từ + mốc thời gian (không phụ thuộc thư viện Whisper)
+
+### Nhóm B — sau khi user duyệt kế hoạch (vẫn chưa tải model)
+
+- [ ] B1 Tra cứu bản mô tả band công khai chính thức (ielts.org), soạn `ai/grading/rubric.py` bằng lời của mình + ghi nguồn (KHÔNG soạn từ trí nhớ) + test prompt
+- [ ] B2 `ollama_client.chat()` thêm tham số `model` tùy chọn (không đụng dòng `CHAT_MODEL`) + biến `GRADER_MODEL`
+- [ ] B3 `ai/server/grading_router.py` (Writing trước) + gắn vào `main.py` + test route (Ollama giả): 400/413/502/503, thử lại 1 lần khi JSON hỏng
+- [ ] B4 Ghi hợp đồng API vào `PROJECT_CONTEXT.md` mục 11 (cùng bước với code, đúng `CLAUDE.md`)
+- [ ] B5 Phía `web/`: `api/grade/writing`, trang `/grading` tab Writing, Nav "Chấm điểm", component test + e2e (mở rộng `mockAiServer.ts`)
+- [ ] B6 Cập nhật `CLAUDE.md` (thêm 2 đường dẫn M8 vào phạm vi AI/ML) + `USER_GUIDE.md`
+
+### Nhóm C — cần tải/chạy model thật (cần user đồng ý rõ ràng + lúc máy rảnh, không trùng lúc M7 gộp model/chạy eval)
+
+- [ ] C1 Cài `faster-whisper` + tải model `small` vào `ai/models/` (ghi kích thước thật sau khi tải)
+- [ ] C2 Đo tốc độ STT thật trên CPU máy user, chọn `small`/`medium` theo số đo
+- [ ] C3 `ai/grading/stt.py` + route Speaking (2 bước: transcribe → chấm) + giao diện ghi âm + test
+- [ ] C4 Chấm thử thật bằng Ollama, đo thời gian, chỉnh timeout
+- [ ] C5 `ai/grading/eval_grader.py` (nhất quán / phân biệt chất lượng / so điểm thật nếu user có bài đã chấm) + báo cáo cho user
+- [ ] C6 Review chốt Milestone 8 (1 lượt Supervisor, diff giới hạn theo đường dẫn của M8 vì M7 chạy xen kẽ)
+
+### ĐIỂM DỪNG Milestone 8 (cập nhật mỗi lần dừng — đọc mục này trước khi tiếp tục)
+
+- **2026-09-20:** kế hoạch đã viết xong, chờ user duyệt. Đang làm nhóm A (A1→A3). Chưa tải/cài gì, chưa đụng `web/`.
